@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "317674243768",
+    "project_id": "journal-cf6d7",
+    "storage_bucket": "journal-cf6d7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:317674243768:android:c98a4dc02a3a8c96a0d64d",
+        "android_client_info": {
+          "package_name": "com.bgirginn.journal_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "317674243768-ldc0pr0p5odtkr750jkb2jq3stg8geic.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.bgirginn.journal_app",
+            "certificate_hash": "f6d66c61ca4a1a406664217a93d09d373a0f332f"
+          }
+        },
+        {
+          "client_id": "317674243768-2j8ugqornlva8nkksegshbrgrcvmkeua.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAudM5Rjf61sY-V-DPx8klh1LiMZQKcdUg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "317674243768-2j8ugqornlva8nkksegshbrgrcvmkeua.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "317674243768-d01a007ul3ta3djjlre1h0b7q2s0f3gt.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.bgirginn.journalApp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

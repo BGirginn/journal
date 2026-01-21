@@ -1,0 +1,73 @@
+name: journal_app
+description: "Offline-first journaling app with block-based editor"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  cupertino_icons: ^1.0.8
+  
+  # State Management
+  flutter_riverpod: ^2.4.9
+  riverpod_annotation: ^2.3.3
+  
+  # Database
+  drift: ^2.14.1
+  sqlite3_flutter_libs: ^0.5.18
+  path_provider: ^2.1.1
+  path: ^1.8.3
+  
+  # Utils
+  uuid: ^4.2.2
+  json_annotation: ^4.8.1
+  collection: ^1.18.0
+  vector_math: ^2.1.4
+  
+  # Image
+  image_picker: ^1.0.5
+  
+  # Crypto (for checksums)
+  crypto: ^3.0.3
+
+  # Audio
+  record: ^6.1.2
+  audioplayers: ^6.0.0
+  permission_handler: ^11.3.1
+
+  # PDF
+  pdf: ^3.10.4
+  printing: ^5.11.1
+
+  # Firebase
+  firebase_core: ^2.24.2
+  firebase_auth: ^4.16.0
+  cloud_firestore: ^4.14.0
+  firebase_storage: ^11.6.0
+  google_sign_in: ^6.1.6
+
+  # UI Modernization
+  google_fonts: ^6.1.0
+  flutter_animate: ^4.5.0
+  glassmorphism_ui: ^0.3.0 # Optional helper, but custom is better. Let's stick to core packages mostly.
+  cached_network_image: ^3.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  
+  # Code generation
+  drift_dev: ^2.14.1
+  build_runner: ^2.4.7
+  riverpod_generator: ^2.3.9
+  json_serializable: ^6.7.1
+
+
+
+flutter:
+  uses-material-design: true
