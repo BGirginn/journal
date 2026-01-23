@@ -12,8 +12,8 @@ class ThemeSettings {
   final AppColorTheme colorTheme;
 
   const ThemeSettings({
-    this.mode = ThemeMode.dark,
-    this.colorTheme = AppColorTheme.gold,
+    this.mode = ThemeMode.system,
+    this.colorTheme = AppColorTheme.purple,
   });
 
   ThemeSettings copyWith({ThemeMode? mode, AppColorTheme? colorTheme}) {

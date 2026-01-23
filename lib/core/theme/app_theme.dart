@@ -8,8 +8,7 @@ enum AppColorTheme {
   red('Red', Colors.red),
   orange('Orange', Colors.orange),
   teal('Teal', Colors.teal),
-  pink('Pink', Colors.pink),
-  gold('Gold', Color(0xFFFFD700));
+  pink('Pink', Colors.pink);
 
   final String label;
   final Color color;
@@ -19,25 +18,10 @@ enum AppColorTheme {
 
 class AppTheme {
   static ThemeData getTheme(AppColorTheme colorTheme, Brightness brightness) {
-    var colorScheme = ColorScheme.fromSeed(
+    final colorScheme = ColorScheme.fromSeed(
       seedColor: colorTheme.color,
       brightness: brightness,
     );
-
-    // Deepen the dark mode for a more "luxurious black/grey" feel
-    if (brightness == Brightness.dark) {
-      colorScheme = colorScheme.copyWith(
-        surface: const Color(0xFF121212),
-        onSurface: Colors.white,
-        background: const Color(0xFF101010),
-        onBackground: Colors.white,
-        surfaceVariant: const Color(0xFF1E1E1E),
-        onSurfaceVariant: Colors.white70,
-        primary: colorTheme == AppColorTheme.gold
-            ? const Color(0xFFFFD700)
-            : colorScheme.primary,
-      );
-    }
 
     return ThemeData(
       useMaterial3: true,
