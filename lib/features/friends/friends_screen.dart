@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:journal_app/core/auth/user_service.dart';
+import 'package:journal_app/core/auth/auth_service.dart';
 
 class FriendsScreen extends ConsumerStatefulWidget {
   const FriendsScreen({super.key});
@@ -63,9 +64,38 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isFirebaseAvailable = ref.watch(firebaseAvailableProvider);
     final myProfileAsync = ref.watch(
       StreamProvider((ref) => ref.read(userServiceProvider).myProfileStream),
     );
+
+    if (!isFirebaseAvailable) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Arkadaşlar'), centerTitle: true),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.cloud_off, size: 64, color: Colors.grey),
+                const SizedBox(height: 16),
+                const Text(
+                  'Firebase bağlantısı kurulamadı.\nSosyal özellikler şu an devre dışı.\nLütfen internet bağlantınızı kontrol edip uygulamayı yeniden başlatın.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Geri Dön'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Arkadaşlar'), centerTitle: true),
@@ -294,12 +324,20 @@ class _FriendListTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // In a real app, you'd want to cache this or use a more efficient stream
+    final isAvailable = ref.watch(firebaseAvailableProvider);
+    if (!isAvailable) return const SizedBox.shrink();
+
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance.collection('users').doc(uid).get(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox.shrink();
-        final data = snapshot.data!.data() as Map<String, dynamic>;
+        if (!snapshot.hasData ||
+            snapshot.data == null ||
+            !snapshot.data!.exists) {
+          return const SizedBox.shrink();
+        }
+        final data = snapshot.data!.data() as Map<String, dynamic>?;
+        if (data == null) return const SizedBox.shrink();
+
         final friend = UserProfile.fromMap(data);
 
         return Card(

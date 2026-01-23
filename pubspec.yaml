@@ -59,6 +59,8 @@ dependencies:
   flutter_animate: ^4.5.0
   glassmorphism_ui: ^0.3.0 # Optional helper, but custom is better. Let's stick to core packages mostly.
   cached_network_image: ^3.3.1
+  file_picker: ^10.3.8
+
 
 dev_dependencies:
   flutter_test:

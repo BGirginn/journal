@@ -5,7 +5,8 @@ import 'dart:math';
 
 final userServiceProvider = Provider<UserService>((ref) {
   final authService = ref.watch(authServiceProvider);
-  return UserService(authService);
+  final isFirebaseAvailable = ref.watch(firebaseAvailableProvider);
+  return UserService(authService, isAvailable: isFirebaseAvailable);
 });
 
 class UserProfile {
@@ -46,18 +47,24 @@ class UserProfile {
 
 class UserService {
   final AuthService _authService;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final bool _isAvailable;
+  late final FirebaseFirestore? _firestore;
 
-  UserService(this._authService);
+  UserService(this._authService, {bool isAvailable = true})
+    : _isAvailable = isAvailable,
+      _firestore = isAvailable ? FirebaseFirestore.instance : null;
 
   String? get _currentUid => _authService.currentUser?.uid;
 
   /// Ensures user has a Firestore profile and a unique display ID.
   Future<UserProfile?> ensureProfileExists() async {
+    final firestore = _firestore;
+    if (!_isAvailable || firestore == null) return null;
+
     final uid = _currentUid;
     if (uid == null) return null;
 
-    final doc = await _firestore.collection('users').doc(uid).get();
+    final doc = await firestore.collection('users').doc(uid).get();
 
     if (doc.exists) {
       return UserProfile.fromMap(doc.data()!);
@@ -75,56 +82,68 @@ class UserService {
       friends: [],
     );
 
-    await _firestore.collection('users').doc(uid).set(profile.toMap());
+    await firestore.collection('users').doc(uid).set(profile.toMap());
 
     // Reverse lookup for uniqueness
-    await _firestore.collection('displayIds').doc(displayId).set({'uid': uid});
+    await firestore.collection('displayIds').doc(displayId).set({'uid': uid});
 
     return profile;
   }
 
   Future<String> _generateUniqueDisplayId() async {
+    final firestore = _firestore;
+    if (!_isAvailable || firestore == null) return 'J-0000';
+
     final random = Random();
     while (true) {
       final id = 'J-${random.nextInt(9000) + 1000}'; // J-1000 to J-9999
-      final doc = await _firestore.collection('displayIds').doc(id).get();
+      final doc = await firestore.collection('displayIds').doc(id).get();
       if (!doc.exists) return id;
     }
   }
 
   Future<UserProfile?> searchByDisplayId(String displayId) async {
-    final doc = await _firestore
+    final firestore = _firestore;
+    if (!_isAvailable || firestore == null) return null;
+
+    final doc = await firestore
         .collection('displayIds')
         .doc(displayId.toUpperCase())
         .get();
     if (!doc.exists) return null;
 
     final uid = doc.data()!['uid'];
-    final userDoc = await _firestore.collection('users').doc(uid).get();
+    final userDoc = await firestore.collection('users').doc(uid).get();
     if (!userDoc.exists) return null;
 
     return UserProfile.fromMap(userDoc.data()!);
   }
 
   Future<void> addFriend(String friendUid) async {
+    final firestore = _firestore;
+    if (!_isAvailable || firestore == null) return;
+
     final uid = _currentUid;
     if (uid == null) return;
 
     // Add to my friends
-    await _firestore.collection('users').doc(uid).update({
+    await firestore.collection('users').doc(uid).update({
       'friends': FieldValue.arrayUnion([friendUid]),
     });
 
     // Add me to their friends (Optional, but good for mutual)
-    await _firestore.collection('users').doc(friendUid).update({
+    await firestore.collection('users').doc(friendUid).update({
       'friends': FieldValue.arrayUnion([uid]),
     });
   }
 
   Stream<UserProfile?> get myProfileStream {
+    final firestore = _firestore;
+    if (!_isAvailable || firestore == null) return Stream.value(null);
+
     final uid = _currentUid;
     if (uid == null) return Stream.value(null);
-    return _firestore.collection('users').doc(uid).snapshots().map((doc) {
+    return firestore.collection('users').doc(uid).snapshots().map((doc) {
       if (!doc.exists) return null;
       return UserProfile.fromMap(doc.data()!);
     });

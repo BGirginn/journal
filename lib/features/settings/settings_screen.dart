@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import 'package:file_picker/file_picker.dart';
+import 'package:journal_app/providers/database_providers.dart';
 
 import 'package:journal_app/core/auth/auth_service.dart';
 
@@ -22,7 +24,7 @@ class SettingsScreen extends ConsumerWidget {
           const Divider(),
           _buildAppearanceSection(ref),
           const Divider(),
-          _buildBackupSection(context),
+          _buildBackupSection(context, ref),
           const Divider(),
           const ListTile(
             leading: Icon(Icons.info_outline),
@@ -110,7 +112,7 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildBackupSection(BuildContext context) {
+  Widget _buildBackupSection(BuildContext context, WidgetRef ref) {
     return Column(
       children: [
         ListTile(
@@ -121,7 +123,9 @@ class SettingsScreen extends ConsumerWidget {
             // Simple backup logic: Copy db file to Documents
             try {
               final dbFolder = await getApplicationDocumentsDirectory();
-              final file = File(p.join(dbFolder.path, 'db.sqlite'));
+              final file = File(
+                p.join(dbFolder.path, 'journal_database.sqlite'),
+              );
               if (await file.exists()) {
                 final backupPath = p.join(
                   dbFolder.path,
@@ -131,6 +135,14 @@ class SettingsScreen extends ConsumerWidget {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Yedeklendi: $backupPath')),
+                  );
+                }
+              } else {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Veritabanı dosyası bulunamadı.'),
+                    ),
                   );
                 }
               }
@@ -147,10 +159,78 @@ class SettingsScreen extends ConsumerWidget {
           leading: const Icon(Icons.restore),
           title: const Text('Geri Yükle'),
           subtitle: const Text('Yedekten geri dön'),
-          onTap: () {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('Henüz aktif değil')));
+          onTap: () async {
+            try {
+              FilePickerResult? result = await FilePicker.platform.pickFiles(
+                type: FileType.any,
+              );
+
+              if (result != null && result.files.single.path != null) {
+                final backupFile = File(result.files.single.path!);
+
+                if (context.mounted) {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Geri Yükle?'),
+                      content: const Text(
+                        'Mevcut tüm verileriniz silinecek ve seçilen yedek yüklenecek. Emin misiniz?',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('İptal'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Evet, Yükle'),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  if (confirm == true) {
+                    // 1. Close DB
+                    await ref.read(databaseProvider).close();
+
+                    // 2. Overwrite file
+                    final dbFolder = await getApplicationDocumentsDirectory();
+                    final dbFile = File(
+                      p.join(dbFolder.path, 'journal_database.sqlite'),
+                    );
+
+                    await backupFile.copy(dbFile.path);
+
+                    if (context.mounted) {
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Başarılı'),
+                          content: const Text(
+                            'Yedek başarıyla yüklendi. Uygulamanın yeni verileri görmesi için yeniden başlatılması gerekiyor.',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                exit(0);
+                              },
+                              child: const Text('Uygulamayı Kapat'),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Geri yükleme hatası: $e')),
+                );
+              }
+            }
           },
         ),
       ],
