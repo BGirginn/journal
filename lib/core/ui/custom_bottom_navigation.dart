@@ -13,7 +13,7 @@ class CustomBottomNavigation extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Dark background color for the bar itself
-    final barBackgroundColor = const Color(0xFF1E1E2C);
+    final barBackgroundColor = const Color(0xFF1E1E1E);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
@@ -24,9 +24,9 @@ class CustomBottomNavigation extends StatelessWidget {
           borderRadius: BorderRadius.circular(35), // Fully rounded ends
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
+              color: Colors.black.withValues(alpha: 0.5),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
@@ -71,8 +71,8 @@ class CustomBottomNavigation extends StatelessWidget {
             ? BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [
-                    Color(0xFFD04ED6), // Pink-ish
-                    Color(0xFF834D9B), // Purple
+                    Color(0xFFFFD700), // Gold
+                    Color(0xFFFFB300), // Amber
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -80,9 +80,9 @@ class CustomBottomNavigation extends StatelessWidget {
                 borderRadius: BorderRadius.circular(25),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFD04ED6).withValues(alpha: 0.4),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+                    color: const Color(0xFFFFD700).withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               )
