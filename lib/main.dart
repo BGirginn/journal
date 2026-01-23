@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -24,13 +25,20 @@ void main() async {
   bool isFirebaseAvailable = false;
   String? firebaseError;
   try {
+    // Add a tiny delay to ensure engine is fully ready for channel communication
+    await Future.delayed(const Duration(milliseconds: 100));
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
     isFirebaseAvailable = true;
   } catch (e) {
     debugPrint('Firebase Init Failed: $e');
-    firebaseError = e.toString();
+    if (e is PlatformException && e.code == 'channel-error') {
+      firebaseError =
+          'Native bağlantı hatası: Lütfen uygulamayı tamamen durdurup "flutter clean" sonrası yeniden başlatın.';
+    } else {
+      firebaseError = e.toString();
+    }
   }
 
   runApp(
