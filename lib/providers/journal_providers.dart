@@ -3,6 +3,7 @@ import 'package:journal_app/core/models/journal.dart';
 import 'package:journal_app/core/models/page.dart' as model;
 import 'package:journal_app/core/database/firestore_service.dart';
 import 'package:journal_app/core/models/block.dart';
+import 'package:journal_app/features/editor/drawing/ink_storage.dart';
 import 'database_providers.dart';
 
 /// Stream of all journals
@@ -71,6 +72,15 @@ final blocksProvider = StreamProvider.family<List<Block>, String>((
 ) {
   final dao = ref.watch(blockDaoProvider);
   return dao.watchBlocksForPage(pageId);
+});
+
+/// Caches decoded ink strokes to avoid repeated JSON decoding
+final decodedInkProvider = Provider.family<List<InkStrokeData>, String>((
+  ref,
+  inkData,
+) {
+  if (inkData.isEmpty) return [];
+  return InkStrokeData.decodeStrokes(inkData);
 });
 
 /// Create a new page in a journal

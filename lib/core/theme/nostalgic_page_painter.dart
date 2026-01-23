@@ -68,10 +68,10 @@ class NostalgicPagePainter extends CustomPainter {
     final random = Random(42); // Fixed seed for consistent texture
     final paint = Paint()..color = Colors.black.withAlpha(3);
 
-    for (int i = 0; i < 200; i++) {
+    for (int i = 0; i < 50; i++) {
       final x = random.nextDouble() * size.width;
       final y = random.nextDouble() * size.height;
-      canvas.drawCircle(Offset(x, y), 0.5, paint);
+      canvas.drawCircle(Offset(x, y), 0.4, paint);
     }
   }
 
@@ -104,12 +104,18 @@ class NostalgicPagePainter extends CustomPainter {
     final random = Random(123);
 
     for (double y = startY; y < size.height - 20; y += spacing) {
-      // Slightly wavy lines for aged effect
+      // Significantly simplify the path for and aged effect
       final path = Path()..moveTo(20, y);
-      for (double x = 20; x < size.width - 20; x += 30) {
+      const segmentWidth = 60.0;
+      for (
+        double x = 20 + segmentWidth;
+        x < size.width - 20;
+        x += segmentWidth
+      ) {
         final wobble = (random.nextDouble() - 0.5) * 1.5;
         path.lineTo(x, y + wobble);
       }
+      path.lineTo(size.width - 20, y);
       canvas.drawPath(path, paint);
     }
   }

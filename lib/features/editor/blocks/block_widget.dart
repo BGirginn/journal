@@ -16,6 +16,8 @@ class BlockWidget extends ConsumerWidget {
   final Size pageSize;
   final bool isSelected;
   final VoidCallback? onDoubleTap;
+  final int? cacheWidth;
+  final int? cacheHeight;
 
   const BlockWidget({
     super.key,
@@ -23,6 +25,8 @@ class BlockWidget extends ConsumerWidget {
     required this.pageSize,
     required this.isSelected,
     this.onDoubleTap,
+    this.cacheWidth,
+    this.cacheHeight,
   });
 
   @override
@@ -53,7 +57,7 @@ class BlockWidget extends ConsumerWidget {
               clipBehavior: Clip.none,
               children: [
                 // Block content
-                Positioned.fill(child: _buildBlockContent()),
+                Positioned.fill(child: _buildBlockContent(context)),
 
                 // Selection handles
                 if (isSelected) ..._buildHandles(width, height),
@@ -65,12 +69,16 @@ class BlockWidget extends ConsumerWidget {
     );
   }
 
-  Widget _buildBlockContent() {
+  Widget _buildBlockContent(BuildContext context) {
     switch (block.type) {
       case BlockType.text:
         return _TextBlockContent(block: block);
       case BlockType.image:
-        return _ImageBlockContent(block: block);
+        return _ImageBlockContent(
+          block: block,
+          cacheWidth: cacheWidth,
+          cacheHeight: cacheHeight,
+        );
 
       case BlockType.audio:
         final payload = AudioBlockPayload.fromJson(block.payload);
@@ -182,8 +190,14 @@ class _TextBlockContent extends StatelessWidget {
 /// Image block content
 class _ImageBlockContent extends ConsumerWidget {
   final Block block;
+  final int? cacheWidth;
+  final int? cacheHeight;
 
-  const _ImageBlockContent({required this.block});
+  const _ImageBlockContent({
+    required this.block,
+    this.cacheWidth,
+    this.cacheHeight,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -196,6 +210,8 @@ class _ImageBlockContent extends ConsumerWidget {
         frameStyle: payload.frameStyle,
         width: block.width * MediaQuery.of(context).size.width,
         height: block.height * MediaQuery.of(context).size.height,
+        cacheWidth: cacheWidth,
+        cacheHeight: cacheHeight,
       );
     }
 
@@ -214,6 +230,8 @@ class _ImageBlockContent extends ConsumerWidget {
             // Let's us CachedNetworkImage for now.
             return CachedNetworkImage(
               imageUrl: snapshot.data!,
+              memCacheWidth: cacheWidth,
+              memCacheHeight: cacheHeight,
               imageBuilder: (context, imageProvider) => Container(
                 decoration: BoxDecoration(
                   image: DecorationImage(

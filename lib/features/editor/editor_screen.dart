@@ -451,18 +451,22 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               child: Stack(
                 children: [
                   // Page background
-                  CustomPaint(
-                    painter: NostalgicPagePainter(theme: _theme),
-                    size: Size.infinite,
+                  RepaintBoundary(
+                    child: CustomPaint(
+                      painter: NostalgicPagePainter(theme: _theme),
+                      size: Size.infinite,
+                    ),
                   ),
 
                   // Ink strokes
-                  CustomPaint(
-                    painter: OptimizedInkPainter(
-                      strokes: _strokes,
-                      currentStroke: null,
+                  RepaintBoundary(
+                    child: CustomPaint(
+                      painter: OptimizedInkPainter(
+                        strokes: _strokes,
+                        currentStroke: null,
+                      ),
+                      size: Size.infinite,
                     ),
-                    size: Size.infinite,
                   ),
 
                   // Blocks

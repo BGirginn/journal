@@ -7,6 +7,8 @@ class ImageFrameWidget extends StatelessWidget {
   final double width;
   final double height;
   final BoxFit fit;
+  final int? cacheWidth;
+  final int? cacheHeight;
 
   const ImageFrameWidget({
     super.key,
@@ -15,12 +17,16 @@ class ImageFrameWidget extends StatelessWidget {
     required this.width,
     required this.height,
     this.fit = BoxFit.cover,
+    this.cacheWidth,
+    this.cacheHeight,
   });
 
   @override
   Widget build(BuildContext context) {
     final image = Image(
-      image: imageProvider,
+      image: (cacheWidth != null || cacheHeight != null)
+          ? ResizeImage(imageProvider, width: cacheWidth, height: cacheHeight)
+          : imageProvider,
       fit: fit,
       width: width,
       height: height,

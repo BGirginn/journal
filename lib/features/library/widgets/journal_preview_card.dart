@@ -103,7 +103,7 @@ class JournalPreviewCard extends ConsumerWidget {
         final blocksAsync = ref.watch(blocksProvider(firstPage.id));
 
         return blocksAsync.when(
-          data: (blocks) => _buildLivePreview(context, firstPage, blocks),
+          data: (blocks) => _buildLivePreview(context, ref, firstPage, blocks),
           loading: () => _buildCoverFallback(isLoading: true),
           error: (_, __) => _buildCoverFallback(),
         );
@@ -115,6 +115,7 @@ class JournalPreviewCard extends ConsumerWidget {
 
   Widget _buildLivePreview(
     BuildContext context,
+    WidgetRef ref,
     dynamic page,
     List<Block> blocks,
   ) {
@@ -122,10 +123,8 @@ class JournalPreviewCard extends ConsumerWidget {
     final notebookTheme = NostalgicThemes.getById(journal.coverStyle);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Decode ink strokes if any
-    final strokes = (page.inkData as String).isNotEmpty
-        ? InkStrokeData.decodeStrokes(page.inkData)
-        : <InkStrokeData>[];
+    // Use cached decoded ink strokes for better performance
+    final strokes = ref.watch(decodedInkProvider(page.inkData as String));
 
     // Reference size for scaling (average mobile screen)
     const referenceSize = Size(360, 640);
@@ -143,32 +142,39 @@ class JournalPreviewCard extends ConsumerWidget {
             clipBehavior: Clip.none,
             children: [
               // Page Background
-              CustomPaint(
-                painter: NostalgicPagePainter(theme: notebookTheme),
-                size: Size.infinite,
+              RepaintBoundary(
+                child: CustomPaint(
+                  painter: NostalgicPagePainter(theme: notebookTheme),
+                  size: Size.infinite,
+                ),
               ),
 
               // Ink Strokes
               if (strokes.isNotEmpty)
-                CustomPaint(
-                  painter: OptimizedInkPainter(
-                    strokes: strokes,
-                    currentStroke: null,
+                RepaintBoundary(
+                  child: CustomPaint(
+                    painter: OptimizedInkPainter(
+                      strokes: strokes,
+                      currentStroke: null,
+                    ),
+                    size: Size.infinite,
                   ),
-                  size: Size.infinite,
                 ),
 
               // Blocks
-              Stack(
-                clipBehavior: Clip.none,
-                children: blocks.map((block) {
-                  return BlockWidget(
-                    block: block,
-                    pageSize: referenceSize,
-                    isSelected: false,
-                    onDoubleTap: null,
-                  );
-                }).toList(),
+              RepaintBoundary(
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: blocks.map((block) {
+                    return BlockWidget(
+                      block: block,
+                      pageSize: referenceSize,
+                      isSelected: false,
+                      onDoubleTap: null,
+                      cacheWidth: 300, // Optimize memory for grid previews
+                    );
+                  }).toList(),
+                ),
               ),
 
               // Transparent overlay
