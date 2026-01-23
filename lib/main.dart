@@ -11,6 +11,7 @@ import 'firebase_options.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:journal_app/core/theme/theme_provider.dart';
+import 'package:journal_app/core/auth/user_service.dart';
 
 void main() async {
   debugPaintSizeEnabled = false;
@@ -75,7 +76,10 @@ class AuthWrapper extends ConsumerWidget {
         if (user != null || isGuest) {
           // Trigger sync if not guest (or both if we want guest sync? no, guest has no uid)
           if (!isGuest && user != null) {
-            Future.microtask(() => ref.read(syncServiceProvider).syncDown());
+            Future.microtask(() {
+              ref.read(syncServiceProvider).syncDown();
+              ref.read(userServiceProvider).ensureProfileExists();
+            });
           }
           return const LibraryScreen();
         }
