@@ -16,9 +16,9 @@ class CustomBottomNavigation extends StatelessWidget {
     final barBackgroundColor = const Color(0xFF1E1E2C);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
       child: Container(
-        height: 70,
+        height: 60,
         decoration: BoxDecoration(
           color: barBackgroundColor,
           borderRadius: BorderRadius.circular(35), // Fully rounded ends
@@ -65,8 +65,8 @@ class CustomBottomNavigation extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeInOut,
         padding: isSelected
-            ? const EdgeInsets.symmetric(horizontal: 20, vertical: 12)
-            : const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            ? const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
+            : const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: isSelected
             ? BoxDecoration(
                 gradient: const LinearGradient(

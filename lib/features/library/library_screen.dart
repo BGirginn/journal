@@ -50,7 +50,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           _selectedIndex ==
               3 // Only show FAB on Journals tab
           ? Padding(
-              padding: const EdgeInsets.only(bottom: 80),
+              padding: const EdgeInsets.only(bottom: 30),
               child: FloatingActionButton(
                 onPressed: () => _showCreateDialog(context, ref),
                 shape: const CircleBorder(),
