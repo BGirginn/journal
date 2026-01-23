@@ -139,6 +139,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           onPressed: _isLoading ? null : _handleGoogleSignIn,
                           isLoading: _isLoading,
                         ),
+                        if (!ref.watch(firebaseAvailableProvider)) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            ref.watch(firebaseErrorProvider) ??
+                                'Firebase başlatılamadı.',
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 12,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                         const SizedBox(height: 16),
                         TextButton(
                           onPressed: () async {

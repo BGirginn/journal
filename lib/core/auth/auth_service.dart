@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Tracks if the user is in guest mode
 final guestModeProvider = StateProvider<bool>((ref) => false);
 
+final firebaseErrorProvider = StateProvider<String?>((ref) => null);
+
 final firebaseAvailableProvider = StateProvider<bool>((ref) => false);
 
 final authServiceProvider = Provider<AuthService>((ref) {

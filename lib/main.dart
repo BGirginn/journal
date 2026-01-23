@@ -21,6 +21,7 @@ void main() async {
 
   // Initialize Firebase (Requires google-services.json / GoogleService-Info.plist)
   bool isFirebaseAvailable = false;
+  String? firebaseError;
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -28,29 +29,26 @@ void main() async {
     isFirebaseAvailable = true;
   } catch (e) {
     debugPrint('Firebase Init Failed: $e');
+    firebaseError = e.toString();
   }
 
   runApp(
     ProviderScope(
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-      child: JournalApp(isFirebaseAvailable: isFirebaseAvailable),
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        firebaseAvailableProvider.overrideWith((ref) => isFirebaseAvailable),
+        firebaseErrorProvider.overrideWith((ref) => firebaseError),
+      ],
+      child: const JournalApp(),
     ),
   );
 }
 
 class JournalApp extends ConsumerWidget {
-  final bool isFirebaseAvailable;
-
-  const JournalApp({super.key, required this.isFirebaseAvailable});
+  const JournalApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Initialize provider synchronously
-    Future.microtask(
-      () => ref.read(firebaseAvailableProvider.notifier).state =
-          isFirebaseAvailable,
-    );
-
     final themeSettings = ref.watch(themeProvider);
 
     return MaterialApp(

@@ -9,9 +9,7 @@ void main() {
     WidgetTester tester,
   ) async {
     // 1. Wrap in ProviderScope because JournalApp is a ConsumerWidget
-    await tester.pumpWidget(
-      const ProviderScope(child: JournalApp(isFirebaseAvailable: false)),
-    );
+    await tester.pumpWidget(const ProviderScope(child: JournalApp()));
 
     // 2. The initial state of authStateProvider is loading, so we expect a CircularProgressIndicator
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
