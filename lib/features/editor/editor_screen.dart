@@ -1,5 +1,7 @@
 import 'dart:io';
+import 'dart:async';
 import 'dart:math';
+import 'package:uuid/uuid.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal_app/core/models/journal.dart';
@@ -11,10 +13,13 @@ import 'package:journal_app/providers/database_providers.dart';
 import 'package:journal_app/features/editor/drawing/ink_storage.dart';
 import 'package:journal_app/features/editor/widgets/image_picker_service.dart';
 import 'package:journal_app/features/editor/widgets/image_frame_widget.dart';
+import 'package:journal_app/features/editor/widgets/video_block_widget.dart';
+import 'package:journal_app/features/editor/widgets/text_edit_dialog.dart';
 import 'package:journal_app/features/editor/widgets/audio_block_widget.dart';
 import 'package:journal_app/features/editor/services/audio_recorder_service.dart';
 import 'package:journal_app/core/database/storage_service.dart';
 import 'package:journal_app/core/database/firestore_service.dart';
+import 'package:journal_app/features/preview/page_preview_screen.dart';
 
 /// Complete editor with working transform and save
 class EditorScreen extends ConsumerStatefulWidget {
@@ -141,6 +146,22 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           },
         ),
         actions: [
+          // Preview button
+          IconButton(
+            icon: const Icon(Icons.visibility),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PagePreviewScreen(
+                    journal: widget.journal,
+                    page: widget.page,
+                  ),
+                ),
+              );
+            },
+            tooltip: 'Önizle',
+          ),
           // Save button
           IconButton(
             icon: Icon(_isDirty ? Icons.save : Icons.cloud_done),
@@ -186,8 +207,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             _mode == EditorMode.draw,
             () => setState(() => _mode = EditorMode.draw),
           ),
-          _ToolBtn(Icons.image, 'Resim', false, _addImage),
-          _ToolBtn(Icons.mic, 'Ses', false, _recordAudio),
+          _ToolBtn(Icons.add_circle, 'Medya', false, _showMediaPicker),
           if (_selectedBlockId != null) ...[
             if (_getSelectedBlockType() == BlockType.image)
               _ToolBtn(Icons.style, 'Çerçeve', false, _showFramePicker),
@@ -196,6 +216,131 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         ],
       ),
     );
+  }
+
+  void _showMediaPicker() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Medya Ekle',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.image, color: Colors.blue),
+              title: const Text('Resim'),
+              subtitle: const Text('Galeriden veya kameradan'),
+              onTap: () {
+                Navigator.pop(context);
+                _addImage();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.videocam, color: Colors.red),
+              title: const Text('Video'),
+              subtitle: const Text('Video kaydet veya seç'),
+              onTap: () {
+                Navigator.pop(context);
+                _addVideoBlock();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.mic, color: Colors.orange),
+              title: const Text('Ses'),
+              subtitle: const Text('Ses kaydı yap'),
+              onTap: () {
+                Navigator.pop(context);
+                _recordAudio();
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _addVideoBlock() async {
+    final service = ImagePickerService();
+    // Show dialog to choose source for video
+    await showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.video_library),
+              title: const Text('Galeriden Seç'),
+              onTap: () async {
+                Navigator.pop(context);
+                final file = await service.pickVideoFromGallery();
+                if (file != null) _insertVideoBlock(file);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.videocam),
+              title: const Text('Video Çek'),
+              onTap: () async {
+                Navigator.pop(context);
+                final file = await service.pickVideoFromCamera();
+                if (file != null) _insertVideoBlock(file);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _insertVideoBlock(File file) {
+    if (!mounted) return;
+
+    // Create audio/video block
+    // We reuse logic similar to Image but for Video
+    final id = const Uuid().v4();
+    final block = Block(
+      id: id,
+      pageId: widget.page.id,
+      type: BlockType.video,
+      x: 0.1,
+      y: 0.1,
+      width: 0.8,
+      height: 0.3, // Approximate 16:9
+      rotation: 0,
+      zIndex: _blocks.length,
+      payloadJson: VideoBlockPayload(
+        path: file.path,
+        storagePath: null, // To be uploaded
+      ).toJsonString(),
+    );
+
+    setState(() {
+      _blocks.add(block);
+      _isDirty = true;
+    });
+
+    ref.read(blockDaoProvider).insertBlock(block);
   }
 
   BlockType? _getSelectedBlockType() {
@@ -331,6 +476,21 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     );
   }
 
+  Future<void> _editBlock(Block block) async {
+    if (block.type == BlockType.text) {
+      final payload = TextBlockPayload.fromJson(block.payload);
+      final newPayload = await showDialog<TextBlockPayload>(
+        context: context,
+        builder: (context) => TextEditDialog(initialPayload: payload),
+      );
+
+      if (newPayload != null) {
+        final newBlock = block.copyWith(payloadJson: newPayload.toJsonString());
+        ref.read(blockDaoProvider).updateBlock(newBlock);
+      }
+    }
+  }
+
   Widget _buildBlock(Block block, Size pageSize) {
     final isSelected = block.id == _selectedBlockId;
     final left = block.x * pageSize.width;
@@ -343,6 +503,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       top: top,
       child: GestureDetector(
         onTap: () => setState(() => _selectedBlockId = block.id),
+        onDoubleTap: () => _editBlock(block),
         child: Transform.rotate(
           angle: block.rotation * pi / 180,
           child: Container(
@@ -363,8 +524,24 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                 // Selection handles
                 if (isSelected) ...[
                   // Corner handles for resize
-                  _buildHandle(block, _HandleType.topLeft, -6, -6, null, null),
-                  _buildHandle(block, _HandleType.topRight, null, -6, -6, null),
+                  _buildHandle(
+                    block,
+                    _HandleType.topLeft,
+                    -6,
+                    -6,
+                    null,
+                    null,
+                    pageSize,
+                  ),
+                  _buildHandle(
+                    block,
+                    _HandleType.topRight,
+                    null,
+                    -6,
+                    -6,
+                    null,
+                    pageSize,
+                  ),
                   _buildHandle(
                     block,
                     _HandleType.bottomLeft,
@@ -372,6 +549,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                     null,
                     null,
                     -6,
+                    pageSize,
                   ),
                   _buildHandle(
                     block,
@@ -380,28 +558,35 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                     null,
                     -6,
                     -6,
+                    pageSize,
                   ),
                   // Rotate handle
                   Positioned(
-                    left: width / 2 - 10,
-                    top: -30,
+                    left: width / 2 - 24,
+                    top: -44,
                     child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
                       onPanStart: (_) {
                         _activeHandle = _HandleType.rotate;
                       },
                       onPanUpdate: (d) => _onRotate(block, d, pageSize),
                       onPanEnd: (_) => _activeHandle = null,
                       child: Container(
-                        width: 20,
-                        height: 20,
-                        decoration: const BoxDecoration(
-                          color: Colors.deepPurple,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.rotate_right,
-                          size: 12,
-                          color: Colors.white,
+                        width: 48,
+                        height: 48,
+                        alignment: Alignment.center,
+                        child: Container(
+                          width: 20,
+                          height: 20,
+                          decoration: const BoxDecoration(
+                            color: Colors.deepPurple,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.rotate_right,
+                            size: 12,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),
@@ -422,26 +607,33 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     double? top,
     double? right,
     double? bottom,
+    Size pageSize,
   ) {
     return Positioned(
-      left: left,
-      top: top,
-      right: right,
-      bottom: bottom,
+      left: left != null ? left - 18 : null,
+      top: top != null ? top - 18 : null,
+      right: right != null ? right - 18 : null,
+      bottom: bottom != null ? bottom - 18 : null,
       child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
         onPanStart: (d) {
           _activeHandle = type;
           _originalPosition = Offset(block.x, block.y);
         },
-        onPanUpdate: (d) => _onResize(block, d, type),
+        onPanUpdate: (d) => _onResize(block, d, type, pageSize),
         onPanEnd: (_) => _activeHandle = null,
         child: Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: Colors.deepPurple, width: 2),
-            borderRadius: BorderRadius.circular(2),
+          width: 48,
+          height: 48,
+          alignment: Alignment.center,
+          child: Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: Colors.deepPurple, width: 2),
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
         ),
       ),
@@ -465,11 +657,14 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             ),
           ),
         );
+      case BlockType.video:
+        final payload = VideoBlockPayload.fromJson(block.payload);
+        return VideoBlockWidget(path: payload.path ?? '', isReadOnly: true);
       case BlockType.image:
         final payload = ImageBlockPayload.fromJson(block.payload);
         if (payload.path != null && File(payload.path!).existsSync()) {
           return ImageFrameWidget(
-            path: payload.path!,
+            imageProvider: FileImage(File(payload.path!)),
             frameStyle: payload.frameStyle,
             width: block.width * MediaQuery.of(context).size.width,
             height: block.height * MediaQuery.of(context).size.height,
@@ -566,11 +761,16 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     _originalPosition = null;
   }
 
-  void _onResize(Block block, DragUpdateDetails details, _HandleType type) {
+  void _onResize(
+    Block block,
+    DragUpdateDetails details,
+    _HandleType type,
+    Size pageSize,
+  ) {
     final delta = Offset(
-      details.delta.dx / 300,
-      details.delta.dy / 300,
-    ); // Normalized
+      details.delta.dx / pageSize.width,
+      details.delta.dy / pageSize.height,
+    );
 
     setState(() {
       final index = _blocks.indexWhere((b) => b.id == block.id);
@@ -747,26 +947,66 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
   void _recordAudio() async {
     final service = AudioRecorderService();
+    int seconds = 0;
+    Timer? timer;
+    bool isPaused = false;
 
     // Simple recording dialog
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
+        builder: (context, setDialogState) {
+          // Timer logic needs to be started/managed outside or via init
+          // For simplicity we start timer if not started
+          if (timer == null) {
+            timer = Timer.periodic(const Duration(seconds: 1), (t) {
+              if (!isPaused) {
+                setDialogState(() => seconds++);
+              }
+            });
+          }
+
+          final durationStr =
+              '${(seconds ~/ 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
+
           return AlertDialog(
             title: const Text('Ses Kaydediliyor...'),
-            content: const Column(
+            content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.mic, size: 48, color: Colors.red),
-                SizedBox(height: 16),
-                LinearProgressIndicator(),
+                Icon(
+                  isPaused ? Icons.pause_circle_filled : Icons.mic,
+                  size: 48,
+                  color: isPaused ? Colors.orange : Colors.red,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  durationStr,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const LinearProgressIndicator(),
               ],
             ),
             actions: [
+              IconButton(
+                icon: Icon(isPaused ? Icons.play_arrow : Icons.pause),
+                onPressed: () async {
+                  if (isPaused) {
+                    await service.resume();
+                  } else {
+                    await service.pause();
+                  }
+                  setDialogState(() => isPaused = !isPaused);
+                },
+              ),
               TextButton(
                 onPressed: () async {
+                  timer?.cancel();
                   final path = await service.stopRecording();
                   if (context.mounted) Navigator.pop(context, path);
                 },
@@ -777,28 +1017,33 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         },
       ),
     ).then((path) async {
+      timer?.cancel();
       await service.dispose();
       if (path != null) {
         final block = Block(
+          id: const Uuid().v4(),
           pageId: widget.page.id,
           type: BlockType.audio,
           x: 0.1,
           y: 0.4,
           width: 0.6,
-          height: 0.1, // Fixed height for audio player
+          height: 0.1,
           zIndex: _blocks.length,
           payloadJson: AudioBlockPayload(
             path: path,
-            durationMs: 0, // Should get real duration
+            durationMs: seconds * 1000,
           ).toJsonString(),
         );
 
-        await ref.read(blockDaoProvider).insertBlock(block);
+        setState(() {
+          _blocks.add(block);
+          _isDirty = true;
+        });
+
+        ref.read(blockDaoProvider).insertBlock(block);
 
         // Upload Audio & Sync
         _uploadAndSyncAudioBlock(block, File(path));
-
-        setState(() => _isDirty = true);
       }
     });
 
@@ -843,6 +1088,18 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                     currentPayload.frameStyle,
                   ),
                   _FrameOption(
+                    'Yuvarlak',
+                    'circle',
+                    Icons.circle,
+                    currentPayload.frameStyle,
+                  ),
+                  _FrameOption(
+                    'Köşeli',
+                    'rounded',
+                    Icons.rounded_corner,
+                    currentPayload.frameStyle,
+                  ),
+                  _FrameOption(
                     'Polaroid',
                     'polaroid',
                     Icons.photo,
@@ -861,9 +1118,45 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                     currentPayload.frameStyle,
                   ),
                   _FrameOption(
+                    'Film',
+                    'film',
+                    Icons.movie,
+                    currentPayload.frameStyle,
+                  ),
+                  _FrameOption(
+                    'Yığın',
+                    'stacked',
+                    Icons.filter_none,
+                    currentPayload.frameStyle,
+                  ),
+                  _FrameOption(
+                    'Etiket',
+                    'sticker',
+                    Icons.label,
+                    currentPayload.frameStyle,
+                  ),
+                  _FrameOption(
                     'Kenarlık',
                     'simple_border',
                     Icons.crop_free,
+                    currentPayload.frameStyle,
+                  ),
+                  _FrameOption(
+                    'Gradyan',
+                    'gradient',
+                    Icons.gradient,
+                    currentPayload.frameStyle,
+                  ),
+                  _FrameOption(
+                    'Nostalji',
+                    'vintage',
+                    Icons.history,
+                    currentPayload.frameStyle,
+                  ),
+                  _FrameOption(
+                    'Katman',
+                    'layered',
+                    Icons.layers_outlined,
                     currentPayload.frameStyle,
                   ),
                 ],
@@ -910,20 +1203,42 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   void _deleteSelectedBlock() async {
     if (_selectedBlockId == null) return;
 
-    await ref.read(blockDaoProvider).softDelete(_selectedBlockId!);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Bloğu Sil'),
+        content: const Text('Bu bloğu silmek istediğinizden emin misiniz?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('İptal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Sil'),
+          ),
+        ],
+      ),
+    );
 
-    // Sync deletion to Firestore
-    try {
-      final firestoreService = ref.read(firestoreServiceProvider);
-      await firestoreService.deleteBlock(_selectedBlockId!);
-    } catch (e) {
-      debugPrint('Firestore Block Delete Error: $e');
+    if (confirmed == true && mounted) {
+      await ref.read(blockDaoProvider).softDelete(_selectedBlockId!);
+
+      // Sync deletion to Firestore
+      try {
+        final firestoreService = ref.read(firestoreServiceProvider);
+        await firestoreService.deleteBlock(_selectedBlockId!);
+      } catch (e) {
+        debugPrint('Sync Delete Error: $e');
+      }
+
+      setState(() {
+        _blocks.removeWhere((b) => b.id == _selectedBlockId);
+        _selectedBlockId = null;
+        _isDirty = true;
+      });
     }
-
-    setState(() {
-      _selectedBlockId = null;
-      _isDirty = true;
-    });
   }
 }
 

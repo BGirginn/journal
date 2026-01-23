@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:journal_app/core/database/storage_service.dart';
 import 'package:journal_app/features/editor/widgets/image_frame_widget.dart';
+import 'package:journal_app/features/editor/widgets/video_block_widget.dart';
 
 /// Base block widget that renders any block type
 class BlockWidget extends ConsumerWidget {
@@ -77,6 +78,9 @@ class BlockWidget extends ConsumerWidget {
           path: payload.path ?? '',
           durationMs: payload.durationMs,
         );
+      case BlockType.video:
+        final payload = VideoBlockPayload.fromJson(block.payload);
+        return VideoBlockWidget(path: payload.path ?? '');
     }
   }
 
@@ -188,7 +192,7 @@ class _ImageBlockContent extends ConsumerWidget {
     // 1. Try Local Path
     if (payload.path != null && File(payload.path!).existsSync()) {
       return ImageFrameWidget(
-        path: payload.path!,
+        imageProvider: FileImage(File(payload.path!)),
         frameStyle: payload.frameStyle,
         width: block.width * MediaQuery.of(context).size.width,
         height: block.height * MediaQuery.of(context).size.height,

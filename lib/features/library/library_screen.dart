@@ -4,103 +4,83 @@ import 'package:journal_app/core/models/journal.dart';
 import 'package:journal_app/core/models/page.dart' as model;
 import 'package:journal_app/core/theme/journal_theme.dart';
 import 'package:journal_app/providers/providers.dart';
-import 'package:journal_app/features/journal/journal_view_screen.dart';
-import 'package:journal_app/features/library/theme_picker_dialog.dart';
+import 'package:journal_app/features/settings/settings_screen.dart';
 import 'package:journal_app/core/database/firestore_service.dart';
+import 'package:journal_app/core/ui/custom_bottom_navigation.dart';
 
 /// Library screen - displays list of journals
-class LibraryScreen extends ConsumerWidget {
+import 'package:journal_app/features/home/home_screen.dart';
+import 'package:journal_app/features/friends/friends_screen.dart';
+import 'package:journal_app/features/library/journal_library_view.dart';
+import 'package:journal_app/features/library/theme_picker_dialog.dart';
+
+class LibraryScreen extends ConsumerStatefulWidget {
   const LibraryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final journalsAsync = ref.watch(journalsProvider);
+  ConsumerState<LibraryScreen> createState() => _LibraryScreenState();
+}
 
+class _LibraryScreenState extends ConsumerState<LibraryScreen> {
+  int _selectedIndex =
+      0; // Default to Home as per list order? User listed Anasayfa first.
+
+  final _titles = ['Anasayfa', 'Ayarlar', 'Arkadaşlar', 'Günlüklerim'];
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      extendBody: true,
       appBar: AppBar(
-        title: const Text(
-          'Günlüklerim',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Text(
+          _titles[_selectedIndex],
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
       ),
-      body: journalsAsync.when(
-        data: (journals) => _buildJournalGrid(context, ref, journals),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text('Hata: $error')),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showCreateDialog(context, ref),
-        icon: const Icon(Icons.add),
-        label: const Text('Yeni Günlük'),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
-      ),
-    );
-  }
-
-  Widget _buildJournalGrid(
-    BuildContext context,
-    WidgetRef ref,
-    List<Journal> journals,
-  ) {
-    if (journals.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.book_outlined, size: 80, color: Colors.grey[400]),
-            const SizedBox(height: 16),
-            Text(
-              'Henüz günlük yok',
-              style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Yeni bir günlük oluşturmak için + butonuna basın',
-              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: GridView.builder(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 0.72,
-        ),
-        itemCount: journals.length,
-        itemBuilder: (context, index) {
-          final journal = journals[index];
-          final theme = BuiltInThemes.getById(journal.coverStyle);
-
-          return _JournalCard(
-            journal: journal,
-            theme: theme,
-            onTap: () => _openJournal(context, journal),
-            onLongPress: () => _showDeleteDialog(context, ref, journal),
-          );
+      body: _buildBody(),
+      bottomNavigationBar: CustomBottomNavigation(
+        selectedIndex: _selectedIndex,
+        onItemSelected: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
         },
       ),
+      floatingActionButton:
+          _selectedIndex ==
+              3 // Only show FAB on Journals tab
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 80),
+              child: FloatingActionButton(
+                onPressed: () => _showCreateDialog(context, ref),
+                shape: const CircleBorder(),
+                child: const Icon(Icons.add),
+              ),
+            )
+          : null,
     );
   }
 
-  void _openJournal(BuildContext context, Journal journal) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => JournalViewScreen(journal: journal),
-      ),
-    );
+  Widget _buildBody() {
+    switch (_selectedIndex) {
+      case 0:
+        return const HomeScreen();
+      case 1:
+        return const SettingsScreen(); // Using existing settings screen
+      case 2:
+        return const FriendsScreen();
+      case 3:
+        return const JournalLibraryView();
+      default:
+        return const HomeScreen();
+    }
   }
+
+  // Removed _onItemTapped as it's replaced by onDestinationSelected inline
+
+  // --- Create Dialog Logic (Moved locally or duplicated) ---
+  // Ideally this should be in JournalLibraryView but FAB is usually on Scaffold.
+  // We can keep it here for now.
 
   void _showCreateDialog(BuildContext context, WidgetRef ref) {
     final controller = TextEditingController();
@@ -220,146 +200,6 @@ class LibraryScreen extends ConsumerWidget {
       await firestoreService.createPage(firstPage);
     } catch (e) {
       debugPrint('Firestore Sync Error: $e');
-    }
-  }
-
-  void _showDeleteDialog(BuildContext context, WidgetRef ref, Journal journal) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Günlüğü Sil'),
-        content: Text(
-          '"${journal.title}" günlüğünü silmek istediğinize emin misiniz?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('İptal'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              final deleteJournal = ref.read(deleteJournalProvider);
-              await deleteJournal(journal.id);
-
-              try {
-                final firestoreService = ref.read(firestoreServiceProvider);
-                await firestoreService.deleteJournal(journal.id);
-              } catch (e) {
-                debugPrint('Firestore Delete Error: $e');
-              }
-            },
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Sil'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Journal card widget
-class _JournalCard extends StatelessWidget {
-  final Journal journal;
-  final JournalTheme theme;
-  final VoidCallback onTap;
-  final VoidCallback onLongPress;
-
-  const _JournalCard({
-    required this.journal,
-    required this.theme,
-    required this.onTap,
-    required this.onLongPress,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(20),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Cover
-            Expanded(
-              flex: 3,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: theme.coverGradient,
-                  ),
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(16),
-                  ),
-                ),
-                child: Center(
-                  child: Icon(
-                    theme.coverIcon,
-                    size: 48,
-                    color: Colors.white.withAlpha(200),
-                  ),
-                ),
-              ),
-            ),
-            // Title
-            Expanded(
-              flex: 1,
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      journal.title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _formatDate(journal.updatedAt),
-                      style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final diff = now.difference(date);
-
-    if (diff.inDays == 0) {
-      return 'Bugün';
-    } else if (diff.inDays == 1) {
-      return 'Dün';
-    } else if (diff.inDays < 7) {
-      return '${diff.inDays} gün önce';
-    } else {
-      return '${date.day}.${date.month}.${date.year}';
     }
   }
 }

@@ -1,18 +1,20 @@
+// import 'dart:io';
+// import 'package:journal_app/features/editor/widgets/image_frame_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal_app/core/models/journal.dart';
 import 'package:journal_app/core/models/page.dart' as model;
-import 'package:journal_app/core/models/block.dart';
 import 'package:journal_app/core/theme/nostalgic_themes.dart';
 import 'package:journal_app/core/theme/nostalgic_page_painter.dart';
 import 'package:journal_app/providers/database_providers.dart';
 import 'package:journal_app/providers/journal_providers.dart';
 import 'package:journal_app/features/editor/editor_screen.dart';
-import 'package:journal_app/features/editor/widgets/image_frame_widget.dart';
+import 'package:journal_app/features/editor/blocks/block_widget.dart';
 import 'package:journal_app/core/ui/book_page_view.dart';
 import 'package:journal_app/features/export/services/pdf_export_service.dart';
 import 'package:journal_app/features/search/journal_search_delegate.dart';
 import 'package:journal_app/features/settings/settings_screen.dart';
+import 'package:journal_app/features/editor/drawing/ink_storage.dart';
 
 /// Journal view screen with page flip and previews
 class JournalViewScreen extends ConsumerStatefulWidget {
@@ -42,18 +44,16 @@ class _JournalViewScreenState extends ConsumerState<JournalViewScreen> {
   @override
   Widget build(BuildContext context) {
     final pagesAsync = ref.watch(pagesProvider(widget.journal.id));
-    final isDark = _theme.id == 'midnight';
+    // final isDark = _theme.id == 'midnight';
 
     return Scaffold(
-      backgroundColor: isDark
-          ? const Color(0xFF1A1A1A)
-          : const Color(0xFFF0EDE8),
+      // Use app theme background
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(widget.journal.title),
         centerTitle: true,
         elevation: 0,
-        backgroundColor: isDark ? const Color(0xFF2C2C2C) : Colors.white,
-        foregroundColor: isDark ? Colors.white : Colors.black87,
+        // AppBar theme handled by main.dart theme data
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
@@ -82,7 +82,7 @@ class _JournalViewScreenState extends ConsumerState<JournalViewScreen> {
                 value: 'settings',
                 child: Row(
                   children: [
-                    Icon(Icons.settings, color: Colors.grey),
+                    Icon(Icons.settings),
                     SizedBox(width: 8),
                     Text('Ayarlar'),
                   ],
@@ -266,6 +266,14 @@ class _PageCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final blocksAsync = ref.watch(blocksProvider(page.id));
 
+    // Decode ink strokes if any
+    final strokes = page.inkData.isNotEmpty
+        ? InkStrokeData.decodeStrokes(page.inkData)
+        : <InkStrokeData>[];
+
+    // Check if page has any visual content (blocks or ink)
+    // We'll perform this check inside the async builder for blocks
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -275,7 +283,9 @@ class _PageCard extends ConsumerWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withAlpha(40),
+              color: Colors.black.withValues(
+                alpha: 0.2,
+              ), // Updated for Flutter 3
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -283,88 +293,77 @@ class _PageCard extends ConsumerWidget {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: Stack(
-            children: [
-              // Page background
-              CustomPaint(
-                painter: NostalgicPagePainter(theme: theme),
-                size: Size.infinite,
-              ),
+          child: blocksAsync.when(
+            data: (blocks) {
+              final hasContent = blocks.isNotEmpty || strokes.isNotEmpty;
 
-              // Content preview
-              blocksAsync.when(
-                data: (blocks) => _buildContentPreview(blocks),
-                loading: () => const SizedBox.shrink(),
-                error: (e, s) => const SizedBox.shrink(),
-              ),
+              if (!hasContent) {
+                return Stack(
+                  children: [
+                    CustomPaint(
+                      painter: NostalgicPagePainter(theme: theme),
+                      size: Size.infinite,
+                    ),
+                    _buildTapHint(),
+                  ],
+                );
+              }
 
-              // Tap hint overlay
-              blocksAsync.when(
-                data: (blocks) =>
-                    blocks.isEmpty ? _buildTapHint() : const SizedBox.shrink(),
-                loading: () => const SizedBox.shrink(),
-                error: (e, s) => const SizedBox.shrink(),
-              ),
-            ],
+              // Use FittedBox to show the full page scaled down to fit the card
+              // This ensures the lines and content are proportional
+              const referenceSize = Size(360, 640);
+
+              return FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: referenceSize.width,
+                  height: referenceSize.height,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    clipBehavior: Clip.none,
+                    children: [
+                      // Background
+                      CustomPaint(
+                        painter: NostalgicPagePainter(theme: theme),
+                        size: Size.infinite,
+                      ),
+
+                      // Ink
+                      if (strokes.isNotEmpty)
+                        CustomPaint(
+                          painter: OptimizedInkPainter(
+                            strokes: strokes,
+                            currentStroke: null,
+                          ),
+                          size: Size.infinite,
+                        ),
+
+                      // Blocks
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: blocks.map((block) {
+                          return BlockWidget(
+                            block: block,
+                            pageSize: referenceSize,
+                            isSelected: false,
+                            onDoubleTap: null, // Read-only
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, s) => Center(child: Text('Hata: $e')),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildContentPreview(List<Block> blocks) {
-    if (blocks.isEmpty) return const SizedBox.shrink();
-
-    final textColor = theme.visuals.textColor.withValues(alpha: 0.7);
-
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: blocks.take(3).map((block) {
-          if (block.type == BlockType.text) {
-            final payload = TextBlockPayload.fromJson(block.payload);
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                payload.content.length > 50
-                    ? '${payload.content.substring(0, 50)}...'
-                    : payload.content,
-                style: TextStyle(fontSize: 12, color: textColor),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            );
-          } else if (block.type == BlockType.image) {
-            final payload = ImageBlockPayload.fromJson(block.payload);
-            if (payload.path != null) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: ImageFrameWidget(
-                  path: payload.path!,
-                  frameStyle: payload.frameStyle,
-                  width: 50,
-                  height: 50,
-                  fit: BoxFit.cover,
-                ),
-              );
-            }
-            return Container(
-              width: 50,
-              height: 50,
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Icon(Icons.image, size: 20, color: Colors.grey),
-            );
-          }
-          return const SizedBox.shrink();
-        }).toList(),
-      ),
-    );
-  }
+  // _buildContentPreview is removed/replaced by the visual preview above
 
   Widget _buildTapHint() {
     final isDark = theme.id == 'midnight';
@@ -391,12 +390,3 @@ class _PageCard extends ConsumerWidget {
     );
   }
 }
-
-/// Provider for blocks of a page
-final blocksProvider = StreamProvider.family<List<Block>, String>((
-  ref,
-  pageId,
-) {
-  final dao = ref.watch(blockDaoProvider);
-  return dao.watchBlocksForPage(pageId);
-});

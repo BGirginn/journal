@@ -41,6 +41,38 @@ class ImagePickerService {
     }
     return null;
   }
+
+  /// Pick video from gallery
+  Future<File?> pickVideoFromGallery() async {
+    try {
+      final XFile? video = await _picker.pickVideo(
+        source: ImageSource.gallery,
+        maxDuration: const Duration(minutes: 5),
+      );
+      if (video != null) {
+        return File(video.path);
+      }
+    } catch (e) {
+      debugPrint('Error picking video from gallery: $e');
+    }
+    return null;
+  }
+
+  /// Pick video from camera
+  Future<File?> pickVideoFromCamera() async {
+    try {
+      final XFile? video = await _picker.pickVideo(
+        source: ImageSource.camera,
+        maxDuration: const Duration(minutes: 5),
+      );
+      if (video != null) {
+        return File(video.path);
+      }
+    } catch (e) {
+      debugPrint('Error picking video from camera: $e');
+    }
+    return null;
+  }
 }
 
 /// Image source picker dialog

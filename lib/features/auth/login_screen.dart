@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:journal_app/core/theme/app_theme.dart';
 import 'package:journal_app/core/auth/auth_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -38,7 +37,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         children: [
           // Background Gradient
           Container(
-            decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Theme.of(context).colorScheme.primary,
+                  Theme.of(context).colorScheme.tertiary,
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
           ),
 
           // Pattern Overlay (optional)
@@ -75,11 +83,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ],
                     ),
-                    child: const Center(
+                    child: Center(
                       child: Icon(
                         Icons.book,
                         size: 64,
-                        color: AppTheme.primary,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
                   ).animate().scale(
@@ -92,16 +100,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   // Welcome Text
                   Text(
                     'Journal V2',
-                    style: AppTheme.textTheme.displayMedium?.copyWith(
-                      color: Colors.white,
-                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.displayMedium?.copyWith(color: Colors.white),
                   ).animate().fadeIn(delay: 200.ms).moveY(begin: 20, end: 0),
 
                   const SizedBox(height: 12),
 
                   Text(
                     'Anılarını Modern Yolla Sakla',
-                    style: AppTheme.textTheme.bodyLarge?.copyWith(
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: Colors.white.withValues(alpha: 0.8),
                     ),
                   ).animate().fadeIn(delay: 400.ms).moveY(begin: 20, end: 0),
@@ -111,7 +119,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   // Login Card
                   Container(
                     padding: const EdgeInsets.all(32),
-                    decoration: AppTheme.glassDecoration(),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Colors.white.withOpacity(0.2)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 20,
+                          spreadRadius: 5,
+                        ),
+                      ],
+                    ),
                     child: Column(
                       children: [
                         _LoginButton(
@@ -128,9 +147,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           },
                           child: Text(
                             'Misafir Olarak Devam Et',
-                            style: AppTheme.textTheme.labelLarge?.copyWith(
-                              color: AppTheme.primary,
-                            ),
+                            style: Theme.of(context).textTheme.labelLarge
+                                ?.copyWith(color: Colors.white),
                           ),
                         ),
                       ],
@@ -167,7 +185,7 @@ class _LoginButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppTheme.primary,
+          backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(
@@ -190,9 +208,9 @@ class _LoginButton extends StatelessWidget {
                   const SizedBox(width: 12),
                   Text(
                     label,
-                    style: AppTheme.textTheme.labelLarge?.copyWith(
-                      color: Colors.white,
-                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelLarge?.copyWith(color: Colors.white),
                   ),
                 ],
               ),

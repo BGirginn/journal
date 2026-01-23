@@ -30,7 +30,19 @@ class AudioRecorderService {
     _recorder.dispose();
   }
 
+  Future<void> pause() async {
+    await _recorder.pause();
+  }
+
+  Future<void> resume() async {
+    await _recorder.resume();
+  }
+
   Future<bool> isRecording() async {
     return await _recorder.isRecording();
+  }
+
+  Future<bool> isPaused() async {
+    return await _recorder.isPaused();
   }
 }

@@ -3,7 +3,7 @@ import 'package:uuid/uuid.dart';
 import 'base_entity.dart';
 
 /// Block types enum
-enum BlockType { text, image, audio }
+enum BlockType { text, image, audio, video }
 
 /// Block state enum
 enum BlockState { normal, selected, editing, locked }
@@ -228,6 +228,43 @@ class AudioBlockPayload {
       path: json['path'] as String?,
       durationMs: json['durationMs'] as int?,
       storagePath: json['storagePath'] as String?,
+    );
+  }
+
+  String toJsonString() => jsonEncode(toJson());
+}
+
+/// Video block payload
+class VideoBlockPayload {
+  final String? assetId;
+  final String? path;
+  final String? storagePath;
+  final int? durationMs;
+  final String? caption;
+
+  VideoBlockPayload({
+    this.assetId,
+    this.path,
+    this.storagePath,
+    this.durationMs,
+    this.caption,
+  });
+
+  Map<String, dynamic> toJson() => {
+    if (assetId != null) 'assetId': assetId,
+    if (path != null) 'path': path,
+    if (storagePath != null) 'storagePath': storagePath,
+    if (durationMs != null) 'durationMs': durationMs,
+    if (caption != null) 'caption': caption,
+  };
+
+  factory VideoBlockPayload.fromJson(Map<String, dynamic> json) {
+    return VideoBlockPayload(
+      assetId: json['assetId'] as String?,
+      path: json['path'] as String?,
+      storagePath: json['storagePath'] as String?,
+      durationMs: json['durationMs'] as int?,
+      caption: json['caption'] as String?,
     );
   }
 

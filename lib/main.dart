@@ -8,8 +8,14 @@ import 'package:journal_app/core/auth/auth_service.dart';
 import 'package:journal_app/core/sync/sync_service.dart';
 import 'firebase_options.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:journal_app/core/theme/theme_provider.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize SharedPreferences
+  final prefs = await SharedPreferences.getInstance();
 
   // Initialize Firebase (Requires google-services.json / GoogleService-Info.plist)
   bool isFirebaseAvailable = false;
@@ -23,7 +29,10 @@ void main() async {
   }
 
   runApp(
-    ProviderScope(child: JournalApp(isFirebaseAvailable: isFirebaseAvailable)),
+    ProviderScope(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      child: JournalApp(isFirebaseAvailable: isFirebaseAvailable),
+    ),
   );
 }
 
@@ -40,12 +49,14 @@ class JournalApp extends ConsumerWidget {
           isFirebaseAvailable,
     );
 
+    final themeSettings = ref.watch(themeProvider);
+
     return MaterialApp(
       title: 'Journal V2',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      theme: AppTheme.getTheme(AppColorTheme.purple, Brightness.light),
+      darkTheme: AppTheme.getTheme(AppColorTheme.purple, Brightness.dark),
+      themeMode: themeSettings.mode,
       home: const AuthWrapper(),
     );
   }

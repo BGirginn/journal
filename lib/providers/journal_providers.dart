@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal_app/core/models/journal.dart';
 import 'package:journal_app/core/models/page.dart' as model;
 import 'package:journal_app/core/database/firestore_service.dart';
+import 'package:journal_app/core/models/block.dart';
 import 'database_providers.dart';
 
 /// Stream of all journals
@@ -61,6 +62,15 @@ final pagesProvider = StreamProvider.family<List<model.Page>, String>((
 ) {
   final dao = ref.watch(pageDaoProvider);
   return dao.watchPagesForJournal(journalId);
+});
+
+/// Stream of blocks for a specific page
+final blocksProvider = StreamProvider.family<List<Block>, String>((
+  ref,
+  pageId,
+) {
+  final dao = ref.watch(blockDaoProvider);
+  return dao.watchBlocksForPage(pageId);
 });
 
 /// Create a new page in a journal
