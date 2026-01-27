@@ -4,7 +4,7 @@ import 'package:journal_app/core/models/journal.dart';
 import 'package:journal_app/core/models/page.dart' as model;
 import 'package:journal_app/core/theme/journal_theme.dart';
 import 'package:journal_app/providers/providers.dart';
-import 'package:journal_app/features/settings/settings_screen.dart';
+import 'package:journal_app/features/profile/profile_settings_screen.dart';
 import 'package:journal_app/core/database/firestore_service.dart';
 import 'package:journal_app/core/ui/custom_bottom_navigation.dart';
 
@@ -13,6 +13,7 @@ import 'package:journal_app/features/home/home_screen.dart';
 import 'package:journal_app/features/friends/friends_screen.dart';
 import 'package:journal_app/features/library/journal_library_view.dart';
 import 'package:journal_app/features/library/theme_picker_dialog.dart';
+import 'package:journal_app/core/ui/app_drawer.dart';
 
 class LibraryScreen extends ConsumerStatefulWidget {
   const LibraryScreen({super.key});
@@ -22,15 +23,20 @@ class LibraryScreen extends ConsumerStatefulWidget {
 }
 
 class _LibraryScreenState extends ConsumerState<LibraryScreen> {
-  int _selectedIndex =
-      0; // Default to Home as per list order? User listed Anasayfa first.
+  int _selectedIndex = 0;
 
-  final _titles = ['Anasayfa', 'Ayarlar', 'Arkadaşlar', 'Günlüklerim'];
+  final _titles = [
+    'Anasayfa',
+    'Profil ve Ayarlar',
+    'Arkadaşlar',
+    'Günlüklerim',
+  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
+      drawer: const AppDrawer(),
       appBar: AppBar(
         title: Text(
           _titles[_selectedIndex],
@@ -66,9 +72,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       case 0:
         return const HomeScreen();
       case 1:
-        return const SettingsScreen(); // Using existing settings screen
+        return const ProfileSettingsView();
       case 2:
-        return const FriendsScreen();
+        return const FriendsView();
       case 3:
         return const JournalLibraryView();
       default:

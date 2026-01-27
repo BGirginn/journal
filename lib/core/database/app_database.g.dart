@@ -38,6 +38,15 @@ class $JournalsTable extends Journals with TableInfo<$JournalsTable, Journal> {
     requiredDuringInsert: false,
     defaultValue: const Constant('default'),
   );
+  static const VerificationMeta _teamIdMeta = const VerificationMeta('teamId');
+  @override
+  late final GeneratedColumn<String> teamId = GeneratedColumn<String>(
+    'team_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _schemaVersionMeta = const VerificationMeta(
     'schemaVersion',
   );
@@ -88,6 +97,7 @@ class $JournalsTable extends Journals with TableInfo<$JournalsTable, Journal> {
     id,
     title,
     coverStyle,
+    teamId,
     schemaVersion,
     createdAt,
     updatedAt,
@@ -122,6 +132,12 @@ class $JournalsTable extends Journals with TableInfo<$JournalsTable, Journal> {
       context.handle(
         _coverStyleMeta,
         coverStyle.isAcceptableOrUnknown(data['cover_style']!, _coverStyleMeta),
+      );
+    }
+    if (data.containsKey('team_id')) {
+      context.handle(
+        _teamIdMeta,
+        teamId.isAcceptableOrUnknown(data['team_id']!, _teamIdMeta),
       );
     }
     if (data.containsKey('schema_version')) {
@@ -176,6 +192,10 @@ class $JournalsTable extends Journals with TableInfo<$JournalsTable, Journal> {
         DriftSqlType.string,
         data['${effectivePrefix}cover_style'],
       )!,
+      teamId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}team_id'],
+      ),
       schemaVersion: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}schema_version'],
@@ -205,6 +225,7 @@ class Journal extends DataClass implements Insertable<Journal> {
   final String id;
   final String title;
   final String coverStyle;
+  final String? teamId;
   final int schemaVersion;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -213,6 +234,7 @@ class Journal extends DataClass implements Insertable<Journal> {
     required this.id,
     required this.title,
     required this.coverStyle,
+    this.teamId,
     required this.schemaVersion,
     required this.createdAt,
     required this.updatedAt,
@@ -224,6 +246,9 @@ class Journal extends DataClass implements Insertable<Journal> {
     map['id'] = Variable<String>(id);
     map['title'] = Variable<String>(title);
     map['cover_style'] = Variable<String>(coverStyle);
+    if (!nullToAbsent || teamId != null) {
+      map['team_id'] = Variable<String>(teamId);
+    }
     map['schema_version'] = Variable<int>(schemaVersion);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -238,6 +263,9 @@ class Journal extends DataClass implements Insertable<Journal> {
       id: Value(id),
       title: Value(title),
       coverStyle: Value(coverStyle),
+      teamId: teamId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(teamId),
       schemaVersion: Value(schemaVersion),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
@@ -256,6 +284,7 @@ class Journal extends DataClass implements Insertable<Journal> {
       id: serializer.fromJson<String>(json['id']),
       title: serializer.fromJson<String>(json['title']),
       coverStyle: serializer.fromJson<String>(json['coverStyle']),
+      teamId: serializer.fromJson<String?>(json['teamId']),
       schemaVersion: serializer.fromJson<int>(json['schemaVersion']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
@@ -269,6 +298,7 @@ class Journal extends DataClass implements Insertable<Journal> {
       'id': serializer.toJson<String>(id),
       'title': serializer.toJson<String>(title),
       'coverStyle': serializer.toJson<String>(coverStyle),
+      'teamId': serializer.toJson<String?>(teamId),
       'schemaVersion': serializer.toJson<int>(schemaVersion),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
@@ -280,6 +310,7 @@ class Journal extends DataClass implements Insertable<Journal> {
     String? id,
     String? title,
     String? coverStyle,
+    Value<String?> teamId = const Value.absent(),
     int? schemaVersion,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -288,6 +319,7 @@ class Journal extends DataClass implements Insertable<Journal> {
     id: id ?? this.id,
     title: title ?? this.title,
     coverStyle: coverStyle ?? this.coverStyle,
+    teamId: teamId.present ? teamId.value : this.teamId,
     schemaVersion: schemaVersion ?? this.schemaVersion,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -300,6 +332,7 @@ class Journal extends DataClass implements Insertable<Journal> {
       coverStyle: data.coverStyle.present
           ? data.coverStyle.value
           : this.coverStyle,
+      teamId: data.teamId.present ? data.teamId.value : this.teamId,
       schemaVersion: data.schemaVersion.present
           ? data.schemaVersion.value
           : this.schemaVersion,
@@ -315,6 +348,7 @@ class Journal extends DataClass implements Insertable<Journal> {
           ..write('id: $id, ')
           ..write('title: $title, ')
           ..write('coverStyle: $coverStyle, ')
+          ..write('teamId: $teamId, ')
           ..write('schemaVersion: $schemaVersion, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -328,6 +362,7 @@ class Journal extends DataClass implements Insertable<Journal> {
     id,
     title,
     coverStyle,
+    teamId,
     schemaVersion,
     createdAt,
     updatedAt,
@@ -340,6 +375,7 @@ class Journal extends DataClass implements Insertable<Journal> {
           other.id == this.id &&
           other.title == this.title &&
           other.coverStyle == this.coverStyle &&
+          other.teamId == this.teamId &&
           other.schemaVersion == this.schemaVersion &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
@@ -350,6 +386,7 @@ class JournalsCompanion extends UpdateCompanion<Journal> {
   final Value<String> id;
   final Value<String> title;
   final Value<String> coverStyle;
+  final Value<String?> teamId;
   final Value<int> schemaVersion;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
@@ -359,6 +396,7 @@ class JournalsCompanion extends UpdateCompanion<Journal> {
     this.id = const Value.absent(),
     this.title = const Value.absent(),
     this.coverStyle = const Value.absent(),
+    this.teamId = const Value.absent(),
     this.schemaVersion = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -369,6 +407,7 @@ class JournalsCompanion extends UpdateCompanion<Journal> {
     required String id,
     required String title,
     this.coverStyle = const Value.absent(),
+    this.teamId = const Value.absent(),
     this.schemaVersion = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
@@ -382,6 +421,7 @@ class JournalsCompanion extends UpdateCompanion<Journal> {
     Expression<String>? id,
     Expression<String>? title,
     Expression<String>? coverStyle,
+    Expression<String>? teamId,
     Expression<int>? schemaVersion,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
@@ -392,6 +432,7 @@ class JournalsCompanion extends UpdateCompanion<Journal> {
       if (id != null) 'id': id,
       if (title != null) 'title': title,
       if (coverStyle != null) 'cover_style': coverStyle,
+      if (teamId != null) 'team_id': teamId,
       if (schemaVersion != null) 'schema_version': schemaVersion,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -404,6 +445,7 @@ class JournalsCompanion extends UpdateCompanion<Journal> {
     Value<String>? id,
     Value<String>? title,
     Value<String>? coverStyle,
+    Value<String?>? teamId,
     Value<int>? schemaVersion,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
@@ -414,6 +456,7 @@ class JournalsCompanion extends UpdateCompanion<Journal> {
       id: id ?? this.id,
       title: title ?? this.title,
       coverStyle: coverStyle ?? this.coverStyle,
+      teamId: teamId ?? this.teamId,
       schemaVersion: schemaVersion ?? this.schemaVersion,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -433,6 +476,9 @@ class JournalsCompanion extends UpdateCompanion<Journal> {
     }
     if (coverStyle.present) {
       map['cover_style'] = Variable<String>(coverStyle.value);
+    }
+    if (teamId.present) {
+      map['team_id'] = Variable<String>(teamId.value);
     }
     if (schemaVersion.present) {
       map['schema_version'] = Variable<int>(schemaVersion.value);
@@ -458,6 +504,7 @@ class JournalsCompanion extends UpdateCompanion<Journal> {
           ..write('id: $id, ')
           ..write('title: $title, ')
           ..write('coverStyle: $coverStyle, ')
+          ..write('teamId: $teamId, ')
           ..write('schemaVersion: $schemaVersion, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -2631,6 +2678,3096 @@ class AssetsCompanion extends UpdateCompanion<Asset> {
   }
 }
 
+class $TeamsTable extends Teams with TableInfo<$TeamsTable, Team> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TeamsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ownerIdMeta = const VerificationMeta(
+    'ownerId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerId = GeneratedColumn<String>(
+    'owner_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _avatarUrlMeta = const VerificationMeta(
+    'avatarUrl',
+  );
+  @override
+  late final GeneratedColumn<String> avatarUrl = GeneratedColumn<String>(
+    'avatar_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _schemaVersionMeta = const VerificationMeta(
+    'schemaVersion',
+  );
+  @override
+  late final GeneratedColumn<int> schemaVersion = GeneratedColumn<int>(
+    'schema_version',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    ownerId,
+    description,
+    avatarUrl,
+    schemaVersion,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'teams';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Team> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('owner_id')) {
+      context.handle(
+        _ownerIdMeta,
+        ownerId.isAcceptableOrUnknown(data['owner_id']!, _ownerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerIdMeta);
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('avatar_url')) {
+      context.handle(
+        _avatarUrlMeta,
+        avatarUrl.isAcceptableOrUnknown(data['avatar_url']!, _avatarUrlMeta),
+      );
+    }
+    if (data.containsKey('schema_version')) {
+      context.handle(
+        _schemaVersionMeta,
+        schemaVersion.isAcceptableOrUnknown(
+          data['schema_version']!,
+          _schemaVersionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Team map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Team(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      ownerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_id'],
+      )!,
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
+      avatarUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}avatar_url'],
+      ),
+      schemaVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}schema_version'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+    );
+  }
+
+  @override
+  $TeamsTable createAlias(String alias) {
+    return $TeamsTable(attachedDatabase, alias);
+  }
+}
+
+class Team extends DataClass implements Insertable<Team> {
+  final String id;
+  final String name;
+  final String ownerId;
+  final String? description;
+  final String? avatarUrl;
+  final int schemaVersion;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+  const Team({
+    required this.id,
+    required this.name,
+    required this.ownerId,
+    this.description,
+    this.avatarUrl,
+    required this.schemaVersion,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['owner_id'] = Variable<String>(ownerId);
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
+    if (!nullToAbsent || avatarUrl != null) {
+      map['avatar_url'] = Variable<String>(avatarUrl);
+    }
+    map['schema_version'] = Variable<int>(schemaVersion);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    return map;
+  }
+
+  TeamsCompanion toCompanion(bool nullToAbsent) {
+    return TeamsCompanion(
+      id: Value(id),
+      name: Value(name),
+      ownerId: Value(ownerId),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
+      avatarUrl: avatarUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(avatarUrl),
+      schemaVersion: Value(schemaVersion),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory Team.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Team(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      ownerId: serializer.fromJson<String>(json['ownerId']),
+      description: serializer.fromJson<String?>(json['description']),
+      avatarUrl: serializer.fromJson<String?>(json['avatarUrl']),
+      schemaVersion: serializer.fromJson<int>(json['schemaVersion']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'ownerId': serializer.toJson<String>(ownerId),
+      'description': serializer.toJson<String?>(description),
+      'avatarUrl': serializer.toJson<String?>(avatarUrl),
+      'schemaVersion': serializer.toJson<int>(schemaVersion),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+    };
+  }
+
+  Team copyWith({
+    String? id,
+    String? name,
+    String? ownerId,
+    Value<String?> description = const Value.absent(),
+    Value<String?> avatarUrl = const Value.absent(),
+    int? schemaVersion,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+  }) => Team(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    ownerId: ownerId ?? this.ownerId,
+    description: description.present ? description.value : this.description,
+    avatarUrl: avatarUrl.present ? avatarUrl.value : this.avatarUrl,
+    schemaVersion: schemaVersion ?? this.schemaVersion,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+  );
+  Team copyWithCompanion(TeamsCompanion data) {
+    return Team(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
+      avatarUrl: data.avatarUrl.present ? data.avatarUrl.value : this.avatarUrl,
+      schemaVersion: data.schemaVersion.present
+          ? data.schemaVersion.value
+          : this.schemaVersion,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Team(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('ownerId: $ownerId, ')
+          ..write('description: $description, ')
+          ..write('avatarUrl: $avatarUrl, ')
+          ..write('schemaVersion: $schemaVersion, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    ownerId,
+    description,
+    avatarUrl,
+    schemaVersion,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Team &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.ownerId == this.ownerId &&
+          other.description == this.description &&
+          other.avatarUrl == this.avatarUrl &&
+          other.schemaVersion == this.schemaVersion &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class TeamsCompanion extends UpdateCompanion<Team> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String> ownerId;
+  final Value<String?> description;
+  final Value<String?> avatarUrl;
+  final Value<int> schemaVersion;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<int> rowid;
+  const TeamsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.ownerId = const Value.absent(),
+    this.description = const Value.absent(),
+    this.avatarUrl = const Value.absent(),
+    this.schemaVersion = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  TeamsCompanion.insert({
+    required String id,
+    required String name,
+    required String ownerId,
+    this.description = const Value.absent(),
+    this.avatarUrl = const Value.absent(),
+    this.schemaVersion = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       ownerId = Value(ownerId),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<Team> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? ownerId,
+    Expression<String>? description,
+    Expression<String>? avatarUrl,
+    Expression<int>? schemaVersion,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (ownerId != null) 'owner_id': ownerId,
+      if (description != null) 'description': description,
+      if (avatarUrl != null) 'avatar_url': avatarUrl,
+      if (schemaVersion != null) 'schema_version': schemaVersion,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  TeamsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String>? ownerId,
+    Value<String?>? description,
+    Value<String?>? avatarUrl,
+    Value<int>? schemaVersion,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<int>? rowid,
+  }) {
+    return TeamsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      ownerId: ownerId ?? this.ownerId,
+      description: description ?? this.description,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      schemaVersion: schemaVersion ?? this.schemaVersion,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (ownerId.present) {
+      map['owner_id'] = Variable<String>(ownerId.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (avatarUrl.present) {
+      map['avatar_url'] = Variable<String>(avatarUrl.value);
+    }
+    if (schemaVersion.present) {
+      map['schema_version'] = Variable<int>(schemaVersion.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TeamsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('ownerId: $ownerId, ')
+          ..write('description: $description, ')
+          ..write('avatarUrl: $avatarUrl, ')
+          ..write('schemaVersion: $schemaVersion, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $TeamMembersTable extends TeamMembers
+    with TableInfo<$TeamMembersTable, TeamMember> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TeamMembersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _teamIdMeta = const VerificationMeta('teamId');
+  @override
+  late final GeneratedColumn<String> teamId = GeneratedColumn<String>(
+    'team_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _roleMeta = const VerificationMeta('role');
+  @override
+  late final GeneratedColumn<String> role = GeneratedColumn<String>(
+    'role',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _joinedAtMeta = const VerificationMeta(
+    'joinedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> joinedAt = GeneratedColumn<DateTime>(
+    'joined_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _schemaVersionMeta = const VerificationMeta(
+    'schemaVersion',
+  );
+  @override
+  late final GeneratedColumn<int> schemaVersion = GeneratedColumn<int>(
+    'schema_version',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    teamId,
+    userId,
+    role,
+    joinedAt,
+    schemaVersion,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'team_members';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<TeamMember> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('team_id')) {
+      context.handle(
+        _teamIdMeta,
+        teamId.isAcceptableOrUnknown(data['team_id']!, _teamIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_teamIdMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('role')) {
+      context.handle(
+        _roleMeta,
+        role.isAcceptableOrUnknown(data['role']!, _roleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_roleMeta);
+    }
+    if (data.containsKey('joined_at')) {
+      context.handle(
+        _joinedAtMeta,
+        joinedAt.isAcceptableOrUnknown(data['joined_at']!, _joinedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_joinedAtMeta);
+    }
+    if (data.containsKey('schema_version')) {
+      context.handle(
+        _schemaVersionMeta,
+        schemaVersion.isAcceptableOrUnknown(
+          data['schema_version']!,
+          _schemaVersionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  TeamMember map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TeamMember(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      teamId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}team_id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      role: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}role'],
+      )!,
+      joinedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}joined_at'],
+      )!,
+      schemaVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}schema_version'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+    );
+  }
+
+  @override
+  $TeamMembersTable createAlias(String alias) {
+    return $TeamMembersTable(attachedDatabase, alias);
+  }
+}
+
+class TeamMember extends DataClass implements Insertable<TeamMember> {
+  final String id;
+  final String teamId;
+  final String userId;
+  final String role;
+  final DateTime joinedAt;
+  final int schemaVersion;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+  const TeamMember({
+    required this.id,
+    required this.teamId,
+    required this.userId,
+    required this.role,
+    required this.joinedAt,
+    required this.schemaVersion,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['team_id'] = Variable<String>(teamId);
+    map['user_id'] = Variable<String>(userId);
+    map['role'] = Variable<String>(role);
+    map['joined_at'] = Variable<DateTime>(joinedAt);
+    map['schema_version'] = Variable<int>(schemaVersion);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    return map;
+  }
+
+  TeamMembersCompanion toCompanion(bool nullToAbsent) {
+    return TeamMembersCompanion(
+      id: Value(id),
+      teamId: Value(teamId),
+      userId: Value(userId),
+      role: Value(role),
+      joinedAt: Value(joinedAt),
+      schemaVersion: Value(schemaVersion),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory TeamMember.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TeamMember(
+      id: serializer.fromJson<String>(json['id']),
+      teamId: serializer.fromJson<String>(json['teamId']),
+      userId: serializer.fromJson<String>(json['userId']),
+      role: serializer.fromJson<String>(json['role']),
+      joinedAt: serializer.fromJson<DateTime>(json['joinedAt']),
+      schemaVersion: serializer.fromJson<int>(json['schemaVersion']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'teamId': serializer.toJson<String>(teamId),
+      'userId': serializer.toJson<String>(userId),
+      'role': serializer.toJson<String>(role),
+      'joinedAt': serializer.toJson<DateTime>(joinedAt),
+      'schemaVersion': serializer.toJson<int>(schemaVersion),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+    };
+  }
+
+  TeamMember copyWith({
+    String? id,
+    String? teamId,
+    String? userId,
+    String? role,
+    DateTime? joinedAt,
+    int? schemaVersion,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+  }) => TeamMember(
+    id: id ?? this.id,
+    teamId: teamId ?? this.teamId,
+    userId: userId ?? this.userId,
+    role: role ?? this.role,
+    joinedAt: joinedAt ?? this.joinedAt,
+    schemaVersion: schemaVersion ?? this.schemaVersion,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+  );
+  TeamMember copyWithCompanion(TeamMembersCompanion data) {
+    return TeamMember(
+      id: data.id.present ? data.id.value : this.id,
+      teamId: data.teamId.present ? data.teamId.value : this.teamId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      role: data.role.present ? data.role.value : this.role,
+      joinedAt: data.joinedAt.present ? data.joinedAt.value : this.joinedAt,
+      schemaVersion: data.schemaVersion.present
+          ? data.schemaVersion.value
+          : this.schemaVersion,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TeamMember(')
+          ..write('id: $id, ')
+          ..write('teamId: $teamId, ')
+          ..write('userId: $userId, ')
+          ..write('role: $role, ')
+          ..write('joinedAt: $joinedAt, ')
+          ..write('schemaVersion: $schemaVersion, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    teamId,
+    userId,
+    role,
+    joinedAt,
+    schemaVersion,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TeamMember &&
+          other.id == this.id &&
+          other.teamId == this.teamId &&
+          other.userId == this.userId &&
+          other.role == this.role &&
+          other.joinedAt == this.joinedAt &&
+          other.schemaVersion == this.schemaVersion &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class TeamMembersCompanion extends UpdateCompanion<TeamMember> {
+  final Value<String> id;
+  final Value<String> teamId;
+  final Value<String> userId;
+  final Value<String> role;
+  final Value<DateTime> joinedAt;
+  final Value<int> schemaVersion;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<int> rowid;
+  const TeamMembersCompanion({
+    this.id = const Value.absent(),
+    this.teamId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.role = const Value.absent(),
+    this.joinedAt = const Value.absent(),
+    this.schemaVersion = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  TeamMembersCompanion.insert({
+    required String id,
+    required String teamId,
+    required String userId,
+    required String role,
+    required DateTime joinedAt,
+    this.schemaVersion = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       teamId = Value(teamId),
+       userId = Value(userId),
+       role = Value(role),
+       joinedAt = Value(joinedAt),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<TeamMember> custom({
+    Expression<String>? id,
+    Expression<String>? teamId,
+    Expression<String>? userId,
+    Expression<String>? role,
+    Expression<DateTime>? joinedAt,
+    Expression<int>? schemaVersion,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (teamId != null) 'team_id': teamId,
+      if (userId != null) 'user_id': userId,
+      if (role != null) 'role': role,
+      if (joinedAt != null) 'joined_at': joinedAt,
+      if (schemaVersion != null) 'schema_version': schemaVersion,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  TeamMembersCompanion copyWith({
+    Value<String>? id,
+    Value<String>? teamId,
+    Value<String>? userId,
+    Value<String>? role,
+    Value<DateTime>? joinedAt,
+    Value<int>? schemaVersion,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<int>? rowid,
+  }) {
+    return TeamMembersCompanion(
+      id: id ?? this.id,
+      teamId: teamId ?? this.teamId,
+      userId: userId ?? this.userId,
+      role: role ?? this.role,
+      joinedAt: joinedAt ?? this.joinedAt,
+      schemaVersion: schemaVersion ?? this.schemaVersion,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (teamId.present) {
+      map['team_id'] = Variable<String>(teamId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (role.present) {
+      map['role'] = Variable<String>(role.value);
+    }
+    if (joinedAt.present) {
+      map['joined_at'] = Variable<DateTime>(joinedAt.value);
+    }
+    if (schemaVersion.present) {
+      map['schema_version'] = Variable<int>(schemaVersion.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TeamMembersCompanion(')
+          ..write('id: $id, ')
+          ..write('teamId: $teamId, ')
+          ..write('userId: $userId, ')
+          ..write('role: $role, ')
+          ..write('joinedAt: $joinedAt, ')
+          ..write('schemaVersion: $schemaVersion, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $InvitesTable extends Invites with TableInfo<$InvitesTable, Invite> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $InvitesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _targetIdMeta = const VerificationMeta(
+    'targetId',
+  );
+  @override
+  late final GeneratedColumn<String> targetId = GeneratedColumn<String>(
+    'target_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _inviterIdMeta = const VerificationMeta(
+    'inviterId',
+  );
+  @override
+  late final GeneratedColumn<String> inviterId = GeneratedColumn<String>(
+    'inviter_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _inviteeIdMeta = const VerificationMeta(
+    'inviteeId',
+  );
+  @override
+  late final GeneratedColumn<String> inviteeId = GeneratedColumn<String>(
+    'invitee_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _roleMeta = const VerificationMeta('role');
+  @override
+  late final GeneratedColumn<String> role = GeneratedColumn<String>(
+    'role',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _expiresAtMeta = const VerificationMeta(
+    'expiresAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> expiresAt = GeneratedColumn<DateTime>(
+    'expires_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _schemaVersionMeta = const VerificationMeta(
+    'schemaVersion',
+  );
+  @override
+  late final GeneratedColumn<int> schemaVersion = GeneratedColumn<int>(
+    'schema_version',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    type,
+    targetId,
+    inviterId,
+    inviteeId,
+    status,
+    role,
+    expiresAt,
+    schemaVersion,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'invites';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Invite> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_typeMeta);
+    }
+    if (data.containsKey('target_id')) {
+      context.handle(
+        _targetIdMeta,
+        targetId.isAcceptableOrUnknown(data['target_id']!, _targetIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_targetIdMeta);
+    }
+    if (data.containsKey('inviter_id')) {
+      context.handle(
+        _inviterIdMeta,
+        inviterId.isAcceptableOrUnknown(data['inviter_id']!, _inviterIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_inviterIdMeta);
+    }
+    if (data.containsKey('invitee_id')) {
+      context.handle(
+        _inviteeIdMeta,
+        inviteeId.isAcceptableOrUnknown(data['invitee_id']!, _inviteeIdMeta),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('role')) {
+      context.handle(
+        _roleMeta,
+        role.isAcceptableOrUnknown(data['role']!, _roleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_roleMeta);
+    }
+    if (data.containsKey('expires_at')) {
+      context.handle(
+        _expiresAtMeta,
+        expiresAt.isAcceptableOrUnknown(data['expires_at']!, _expiresAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_expiresAtMeta);
+    }
+    if (data.containsKey('schema_version')) {
+      context.handle(
+        _schemaVersionMeta,
+        schemaVersion.isAcceptableOrUnknown(
+          data['schema_version']!,
+          _schemaVersionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Invite map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Invite(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      type: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type'],
+      )!,
+      targetId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_id'],
+      )!,
+      inviterId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}inviter_id'],
+      )!,
+      inviteeId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}invitee_id'],
+      ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      role: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}role'],
+      )!,
+      expiresAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}expires_at'],
+      )!,
+      schemaVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}schema_version'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+    );
+  }
+
+  @override
+  $InvitesTable createAlias(String alias) {
+    return $InvitesTable(attachedDatabase, alias);
+  }
+}
+
+class Invite extends DataClass implements Insertable<Invite> {
+  final String id;
+  final String type;
+  final String targetId;
+  final String inviterId;
+  final String? inviteeId;
+  final String status;
+  final String role;
+  final DateTime expiresAt;
+  final int schemaVersion;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+  const Invite({
+    required this.id,
+    required this.type,
+    required this.targetId,
+    required this.inviterId,
+    this.inviteeId,
+    required this.status,
+    required this.role,
+    required this.expiresAt,
+    required this.schemaVersion,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['type'] = Variable<String>(type);
+    map['target_id'] = Variable<String>(targetId);
+    map['inviter_id'] = Variable<String>(inviterId);
+    if (!nullToAbsent || inviteeId != null) {
+      map['invitee_id'] = Variable<String>(inviteeId);
+    }
+    map['status'] = Variable<String>(status);
+    map['role'] = Variable<String>(role);
+    map['expires_at'] = Variable<DateTime>(expiresAt);
+    map['schema_version'] = Variable<int>(schemaVersion);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    return map;
+  }
+
+  InvitesCompanion toCompanion(bool nullToAbsent) {
+    return InvitesCompanion(
+      id: Value(id),
+      type: Value(type),
+      targetId: Value(targetId),
+      inviterId: Value(inviterId),
+      inviteeId: inviteeId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(inviteeId),
+      status: Value(status),
+      role: Value(role),
+      expiresAt: Value(expiresAt),
+      schemaVersion: Value(schemaVersion),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory Invite.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Invite(
+      id: serializer.fromJson<String>(json['id']),
+      type: serializer.fromJson<String>(json['type']),
+      targetId: serializer.fromJson<String>(json['targetId']),
+      inviterId: serializer.fromJson<String>(json['inviterId']),
+      inviteeId: serializer.fromJson<String?>(json['inviteeId']),
+      status: serializer.fromJson<String>(json['status']),
+      role: serializer.fromJson<String>(json['role']),
+      expiresAt: serializer.fromJson<DateTime>(json['expiresAt']),
+      schemaVersion: serializer.fromJson<int>(json['schemaVersion']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'type': serializer.toJson<String>(type),
+      'targetId': serializer.toJson<String>(targetId),
+      'inviterId': serializer.toJson<String>(inviterId),
+      'inviteeId': serializer.toJson<String?>(inviteeId),
+      'status': serializer.toJson<String>(status),
+      'role': serializer.toJson<String>(role),
+      'expiresAt': serializer.toJson<DateTime>(expiresAt),
+      'schemaVersion': serializer.toJson<int>(schemaVersion),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+    };
+  }
+
+  Invite copyWith({
+    String? id,
+    String? type,
+    String? targetId,
+    String? inviterId,
+    Value<String?> inviteeId = const Value.absent(),
+    String? status,
+    String? role,
+    DateTime? expiresAt,
+    int? schemaVersion,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+  }) => Invite(
+    id: id ?? this.id,
+    type: type ?? this.type,
+    targetId: targetId ?? this.targetId,
+    inviterId: inviterId ?? this.inviterId,
+    inviteeId: inviteeId.present ? inviteeId.value : this.inviteeId,
+    status: status ?? this.status,
+    role: role ?? this.role,
+    expiresAt: expiresAt ?? this.expiresAt,
+    schemaVersion: schemaVersion ?? this.schemaVersion,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+  );
+  Invite copyWithCompanion(InvitesCompanion data) {
+    return Invite(
+      id: data.id.present ? data.id.value : this.id,
+      type: data.type.present ? data.type.value : this.type,
+      targetId: data.targetId.present ? data.targetId.value : this.targetId,
+      inviterId: data.inviterId.present ? data.inviterId.value : this.inviterId,
+      inviteeId: data.inviteeId.present ? data.inviteeId.value : this.inviteeId,
+      status: data.status.present ? data.status.value : this.status,
+      role: data.role.present ? data.role.value : this.role,
+      expiresAt: data.expiresAt.present ? data.expiresAt.value : this.expiresAt,
+      schemaVersion: data.schemaVersion.present
+          ? data.schemaVersion.value
+          : this.schemaVersion,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Invite(')
+          ..write('id: $id, ')
+          ..write('type: $type, ')
+          ..write('targetId: $targetId, ')
+          ..write('inviterId: $inviterId, ')
+          ..write('inviteeId: $inviteeId, ')
+          ..write('status: $status, ')
+          ..write('role: $role, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('schemaVersion: $schemaVersion, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    type,
+    targetId,
+    inviterId,
+    inviteeId,
+    status,
+    role,
+    expiresAt,
+    schemaVersion,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Invite &&
+          other.id == this.id &&
+          other.type == this.type &&
+          other.targetId == this.targetId &&
+          other.inviterId == this.inviterId &&
+          other.inviteeId == this.inviteeId &&
+          other.status == this.status &&
+          other.role == this.role &&
+          other.expiresAt == this.expiresAt &&
+          other.schemaVersion == this.schemaVersion &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class InvitesCompanion extends UpdateCompanion<Invite> {
+  final Value<String> id;
+  final Value<String> type;
+  final Value<String> targetId;
+  final Value<String> inviterId;
+  final Value<String?> inviteeId;
+  final Value<String> status;
+  final Value<String> role;
+  final Value<DateTime> expiresAt;
+  final Value<int> schemaVersion;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<int> rowid;
+  const InvitesCompanion({
+    this.id = const Value.absent(),
+    this.type = const Value.absent(),
+    this.targetId = const Value.absent(),
+    this.inviterId = const Value.absent(),
+    this.inviteeId = const Value.absent(),
+    this.status = const Value.absent(),
+    this.role = const Value.absent(),
+    this.expiresAt = const Value.absent(),
+    this.schemaVersion = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  InvitesCompanion.insert({
+    required String id,
+    required String type,
+    required String targetId,
+    required String inviterId,
+    this.inviteeId = const Value.absent(),
+    required String status,
+    required String role,
+    required DateTime expiresAt,
+    this.schemaVersion = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       type = Value(type),
+       targetId = Value(targetId),
+       inviterId = Value(inviterId),
+       status = Value(status),
+       role = Value(role),
+       expiresAt = Value(expiresAt),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<Invite> custom({
+    Expression<String>? id,
+    Expression<String>? type,
+    Expression<String>? targetId,
+    Expression<String>? inviterId,
+    Expression<String>? inviteeId,
+    Expression<String>? status,
+    Expression<String>? role,
+    Expression<DateTime>? expiresAt,
+    Expression<int>? schemaVersion,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (type != null) 'type': type,
+      if (targetId != null) 'target_id': targetId,
+      if (inviterId != null) 'inviter_id': inviterId,
+      if (inviteeId != null) 'invitee_id': inviteeId,
+      if (status != null) 'status': status,
+      if (role != null) 'role': role,
+      if (expiresAt != null) 'expires_at': expiresAt,
+      if (schemaVersion != null) 'schema_version': schemaVersion,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  InvitesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? type,
+    Value<String>? targetId,
+    Value<String>? inviterId,
+    Value<String?>? inviteeId,
+    Value<String>? status,
+    Value<String>? role,
+    Value<DateTime>? expiresAt,
+    Value<int>? schemaVersion,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<int>? rowid,
+  }) {
+    return InvitesCompanion(
+      id: id ?? this.id,
+      type: type ?? this.type,
+      targetId: targetId ?? this.targetId,
+      inviterId: inviterId ?? this.inviterId,
+      inviteeId: inviteeId ?? this.inviteeId,
+      status: status ?? this.status,
+      role: role ?? this.role,
+      expiresAt: expiresAt ?? this.expiresAt,
+      schemaVersion: schemaVersion ?? this.schemaVersion,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
+    if (targetId.present) {
+      map['target_id'] = Variable<String>(targetId.value);
+    }
+    if (inviterId.present) {
+      map['inviter_id'] = Variable<String>(inviterId.value);
+    }
+    if (inviteeId.present) {
+      map['invitee_id'] = Variable<String>(inviteeId.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (role.present) {
+      map['role'] = Variable<String>(role.value);
+    }
+    if (expiresAt.present) {
+      map['expires_at'] = Variable<DateTime>(expiresAt.value);
+    }
+    if (schemaVersion.present) {
+      map['schema_version'] = Variable<int>(schemaVersion.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('InvitesCompanion(')
+          ..write('id: $id, ')
+          ..write('type: $type, ')
+          ..write('targetId: $targetId, ')
+          ..write('inviterId: $inviterId, ')
+          ..write('inviteeId: $inviteeId, ')
+          ..write('status: $status, ')
+          ..write('role: $role, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('schemaVersion: $schemaVersion, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $UserStickersTable extends UserStickers
+    with TableInfo<$UserStickersTable, UserSticker> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $UserStickersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentMeta = const VerificationMeta(
+    'content',
+  );
+  @override
+  late final GeneratedColumn<String> content = GeneratedColumn<String>(
+    'content',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _localPathMeta = const VerificationMeta(
+    'localPath',
+  );
+  @override
+  late final GeneratedColumn<String> localPath = GeneratedColumn<String>(
+    'local_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _categoryMeta = const VerificationMeta(
+    'category',
+  );
+  @override
+  late final GeneratedColumn<String> category = GeneratedColumn<String>(
+    'category',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('custom'),
+  );
+  static const VerificationMeta _schemaVersionMeta = const VerificationMeta(
+    'schemaVersion',
+  );
+  @override
+  late final GeneratedColumn<int> schemaVersion = GeneratedColumn<int>(
+    'schema_version',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    userId,
+    type,
+    content,
+    localPath,
+    category,
+    schemaVersion,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'user_stickers';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<UserSticker> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_typeMeta);
+    }
+    if (data.containsKey('content')) {
+      context.handle(
+        _contentMeta,
+        content.isAcceptableOrUnknown(data['content']!, _contentMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_contentMeta);
+    }
+    if (data.containsKey('local_path')) {
+      context.handle(
+        _localPathMeta,
+        localPath.isAcceptableOrUnknown(data['local_path']!, _localPathMeta),
+      );
+    }
+    if (data.containsKey('category')) {
+      context.handle(
+        _categoryMeta,
+        category.isAcceptableOrUnknown(data['category']!, _categoryMeta),
+      );
+    }
+    if (data.containsKey('schema_version')) {
+      context.handle(
+        _schemaVersionMeta,
+        schemaVersion.isAcceptableOrUnknown(
+          data['schema_version']!,
+          _schemaVersionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  UserSticker map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return UserSticker(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      type: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type'],
+      )!,
+      content: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content'],
+      )!,
+      localPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}local_path'],
+      ),
+      category: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}category'],
+      )!,
+      schemaVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}schema_version'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+    );
+  }
+
+  @override
+  $UserStickersTable createAlias(String alias) {
+    return $UserStickersTable(attachedDatabase, alias);
+  }
+}
+
+class UserSticker extends DataClass implements Insertable<UserSticker> {
+  final String id;
+  final String userId;
+  final String type;
+  final String content;
+  final String? localPath;
+  final String category;
+  final int schemaVersion;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+  const UserSticker({
+    required this.id,
+    required this.userId,
+    required this.type,
+    required this.content,
+    this.localPath,
+    required this.category,
+    required this.schemaVersion,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['user_id'] = Variable<String>(userId);
+    map['type'] = Variable<String>(type);
+    map['content'] = Variable<String>(content);
+    if (!nullToAbsent || localPath != null) {
+      map['local_path'] = Variable<String>(localPath);
+    }
+    map['category'] = Variable<String>(category);
+    map['schema_version'] = Variable<int>(schemaVersion);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    return map;
+  }
+
+  UserStickersCompanion toCompanion(bool nullToAbsent) {
+    return UserStickersCompanion(
+      id: Value(id),
+      userId: Value(userId),
+      type: Value(type),
+      content: Value(content),
+      localPath: localPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(localPath),
+      category: Value(category),
+      schemaVersion: Value(schemaVersion),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory UserSticker.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return UserSticker(
+      id: serializer.fromJson<String>(json['id']),
+      userId: serializer.fromJson<String>(json['userId']),
+      type: serializer.fromJson<String>(json['type']),
+      content: serializer.fromJson<String>(json['content']),
+      localPath: serializer.fromJson<String?>(json['localPath']),
+      category: serializer.fromJson<String>(json['category']),
+      schemaVersion: serializer.fromJson<int>(json['schemaVersion']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'userId': serializer.toJson<String>(userId),
+      'type': serializer.toJson<String>(type),
+      'content': serializer.toJson<String>(content),
+      'localPath': serializer.toJson<String?>(localPath),
+      'category': serializer.toJson<String>(category),
+      'schemaVersion': serializer.toJson<int>(schemaVersion),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+    };
+  }
+
+  UserSticker copyWith({
+    String? id,
+    String? userId,
+    String? type,
+    String? content,
+    Value<String?> localPath = const Value.absent(),
+    String? category,
+    int? schemaVersion,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+  }) => UserSticker(
+    id: id ?? this.id,
+    userId: userId ?? this.userId,
+    type: type ?? this.type,
+    content: content ?? this.content,
+    localPath: localPath.present ? localPath.value : this.localPath,
+    category: category ?? this.category,
+    schemaVersion: schemaVersion ?? this.schemaVersion,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+  );
+  UserSticker copyWithCompanion(UserStickersCompanion data) {
+    return UserSticker(
+      id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      type: data.type.present ? data.type.value : this.type,
+      content: data.content.present ? data.content.value : this.content,
+      localPath: data.localPath.present ? data.localPath.value : this.localPath,
+      category: data.category.present ? data.category.value : this.category,
+      schemaVersion: data.schemaVersion.present
+          ? data.schemaVersion.value
+          : this.schemaVersion,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UserSticker(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('type: $type, ')
+          ..write('content: $content, ')
+          ..write('localPath: $localPath, ')
+          ..write('category: $category, ')
+          ..write('schemaVersion: $schemaVersion, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    userId,
+    type,
+    content,
+    localPath,
+    category,
+    schemaVersion,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is UserSticker &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.type == this.type &&
+          other.content == this.content &&
+          other.localPath == this.localPath &&
+          other.category == this.category &&
+          other.schemaVersion == this.schemaVersion &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class UserStickersCompanion extends UpdateCompanion<UserSticker> {
+  final Value<String> id;
+  final Value<String> userId;
+  final Value<String> type;
+  final Value<String> content;
+  final Value<String?> localPath;
+  final Value<String> category;
+  final Value<int> schemaVersion;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<int> rowid;
+  const UserStickersCompanion({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.type = const Value.absent(),
+    this.content = const Value.absent(),
+    this.localPath = const Value.absent(),
+    this.category = const Value.absent(),
+    this.schemaVersion = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  UserStickersCompanion.insert({
+    required String id,
+    required String userId,
+    required String type,
+    required String content,
+    this.localPath = const Value.absent(),
+    this.category = const Value.absent(),
+    this.schemaVersion = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       userId = Value(userId),
+       type = Value(type),
+       content = Value(content),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<UserSticker> custom({
+    Expression<String>? id,
+    Expression<String>? userId,
+    Expression<String>? type,
+    Expression<String>? content,
+    Expression<String>? localPath,
+    Expression<String>? category,
+    Expression<int>? schemaVersion,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
+      if (type != null) 'type': type,
+      if (content != null) 'content': content,
+      if (localPath != null) 'local_path': localPath,
+      if (category != null) 'category': category,
+      if (schemaVersion != null) 'schema_version': schemaVersion,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  UserStickersCompanion copyWith({
+    Value<String>? id,
+    Value<String>? userId,
+    Value<String>? type,
+    Value<String>? content,
+    Value<String?>? localPath,
+    Value<String>? category,
+    Value<int>? schemaVersion,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<int>? rowid,
+  }) {
+    return UserStickersCompanion(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      type: type ?? this.type,
+      content: content ?? this.content,
+      localPath: localPath ?? this.localPath,
+      category: category ?? this.category,
+      schemaVersion: schemaVersion ?? this.schemaVersion,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
+    if (content.present) {
+      map['content'] = Variable<String>(content.value);
+    }
+    if (localPath.present) {
+      map['local_path'] = Variable<String>(localPath.value);
+    }
+    if (category.present) {
+      map['category'] = Variable<String>(category.value);
+    }
+    if (schemaVersion.present) {
+      map['schema_version'] = Variable<int>(schemaVersion.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UserStickersCompanion(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('type: $type, ')
+          ..write('content: $content, ')
+          ..write('localPath: $localPath, ')
+          ..write('category: $category, ')
+          ..write('schemaVersion: $schemaVersion, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $OplogsTable extends Oplogs with TableInfo<$OplogsTable, Oplog> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $OplogsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _opIdMeta = const VerificationMeta('opId');
+  @override
+  late final GeneratedColumn<String> opId = GeneratedColumn<String>(
+    'op_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _journalIdMeta = const VerificationMeta(
+    'journalId',
+  );
+  @override
+  late final GeneratedColumn<String> journalId = GeneratedColumn<String>(
+    'journal_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _pageIdMeta = const VerificationMeta('pageId');
+  @override
+  late final GeneratedColumn<String> pageId = GeneratedColumn<String>(
+    'page_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _blockIdMeta = const VerificationMeta(
+    'blockId',
+  );
+  @override
+  late final GeneratedColumn<String> blockId = GeneratedColumn<String>(
+    'block_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _opTypeMeta = const VerificationMeta('opType');
+  @override
+  late final GeneratedColumn<String> opType = GeneratedColumn<String>(
+    'op_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _hlcMeta = const VerificationMeta('hlc');
+  @override
+  late final GeneratedColumn<String> hlc = GeneratedColumn<String>(
+    'hlc',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deviceIdMeta = const VerificationMeta(
+    'deviceId',
+  );
+  @override
+  late final GeneratedColumn<String> deviceId = GeneratedColumn<String>(
+    'device_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadJsonMeta = const VerificationMeta(
+    'payloadJson',
+  );
+  @override
+  late final GeneratedColumn<String> payloadJson = GeneratedColumn<String>(
+    'payload_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    opId,
+    journalId,
+    pageId,
+    blockId,
+    opType,
+    hlc,
+    deviceId,
+    userId,
+    payloadJson,
+    status,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'oplogs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Oplog> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('op_id')) {
+      context.handle(
+        _opIdMeta,
+        opId.isAcceptableOrUnknown(data['op_id']!, _opIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_opIdMeta);
+    }
+    if (data.containsKey('journal_id')) {
+      context.handle(
+        _journalIdMeta,
+        journalId.isAcceptableOrUnknown(data['journal_id']!, _journalIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_journalIdMeta);
+    }
+    if (data.containsKey('page_id')) {
+      context.handle(
+        _pageIdMeta,
+        pageId.isAcceptableOrUnknown(data['page_id']!, _pageIdMeta),
+      );
+    }
+    if (data.containsKey('block_id')) {
+      context.handle(
+        _blockIdMeta,
+        blockId.isAcceptableOrUnknown(data['block_id']!, _blockIdMeta),
+      );
+    }
+    if (data.containsKey('op_type')) {
+      context.handle(
+        _opTypeMeta,
+        opType.isAcceptableOrUnknown(data['op_type']!, _opTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_opTypeMeta);
+    }
+    if (data.containsKey('hlc')) {
+      context.handle(
+        _hlcMeta,
+        hlc.isAcceptableOrUnknown(data['hlc']!, _hlcMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_hlcMeta);
+    }
+    if (data.containsKey('device_id')) {
+      context.handle(
+        _deviceIdMeta,
+        deviceId.isAcceptableOrUnknown(data['device_id']!, _deviceIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_deviceIdMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('payload_json')) {
+      context.handle(
+        _payloadJsonMeta,
+        payloadJson.isAcceptableOrUnknown(
+          data['payload_json']!,
+          _payloadJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadJsonMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {opId};
+  @override
+  Oplog map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Oplog(
+      opId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}op_id'],
+      )!,
+      journalId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}journal_id'],
+      )!,
+      pageId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}page_id'],
+      ),
+      blockId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}block_id'],
+      ),
+      opType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}op_type'],
+      )!,
+      hlc: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}hlc'],
+      )!,
+      deviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      payloadJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload_json'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $OplogsTable createAlias(String alias) {
+    return $OplogsTable(attachedDatabase, alias);
+  }
+}
+
+class Oplog extends DataClass implements Insertable<Oplog> {
+  final String opId;
+  final String journalId;
+  final String? pageId;
+  final String? blockId;
+  final String opType;
+  final String hlc;
+  final String deviceId;
+  final String userId;
+  final String payloadJson;
+  final String status;
+  final DateTime createdAt;
+  const Oplog({
+    required this.opId,
+    required this.journalId,
+    this.pageId,
+    this.blockId,
+    required this.opType,
+    required this.hlc,
+    required this.deviceId,
+    required this.userId,
+    required this.payloadJson,
+    required this.status,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['op_id'] = Variable<String>(opId);
+    map['journal_id'] = Variable<String>(journalId);
+    if (!nullToAbsent || pageId != null) {
+      map['page_id'] = Variable<String>(pageId);
+    }
+    if (!nullToAbsent || blockId != null) {
+      map['block_id'] = Variable<String>(blockId);
+    }
+    map['op_type'] = Variable<String>(opType);
+    map['hlc'] = Variable<String>(hlc);
+    map['device_id'] = Variable<String>(deviceId);
+    map['user_id'] = Variable<String>(userId);
+    map['payload_json'] = Variable<String>(payloadJson);
+    map['status'] = Variable<String>(status);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  OplogsCompanion toCompanion(bool nullToAbsent) {
+    return OplogsCompanion(
+      opId: Value(opId),
+      journalId: Value(journalId),
+      pageId: pageId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pageId),
+      blockId: blockId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(blockId),
+      opType: Value(opType),
+      hlc: Value(hlc),
+      deviceId: Value(deviceId),
+      userId: Value(userId),
+      payloadJson: Value(payloadJson),
+      status: Value(status),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory Oplog.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Oplog(
+      opId: serializer.fromJson<String>(json['opId']),
+      journalId: serializer.fromJson<String>(json['journalId']),
+      pageId: serializer.fromJson<String?>(json['pageId']),
+      blockId: serializer.fromJson<String?>(json['blockId']),
+      opType: serializer.fromJson<String>(json['opType']),
+      hlc: serializer.fromJson<String>(json['hlc']),
+      deviceId: serializer.fromJson<String>(json['deviceId']),
+      userId: serializer.fromJson<String>(json['userId']),
+      payloadJson: serializer.fromJson<String>(json['payloadJson']),
+      status: serializer.fromJson<String>(json['status']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'opId': serializer.toJson<String>(opId),
+      'journalId': serializer.toJson<String>(journalId),
+      'pageId': serializer.toJson<String?>(pageId),
+      'blockId': serializer.toJson<String?>(blockId),
+      'opType': serializer.toJson<String>(opType),
+      'hlc': serializer.toJson<String>(hlc),
+      'deviceId': serializer.toJson<String>(deviceId),
+      'userId': serializer.toJson<String>(userId),
+      'payloadJson': serializer.toJson<String>(payloadJson),
+      'status': serializer.toJson<String>(status),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  Oplog copyWith({
+    String? opId,
+    String? journalId,
+    Value<String?> pageId = const Value.absent(),
+    Value<String?> blockId = const Value.absent(),
+    String? opType,
+    String? hlc,
+    String? deviceId,
+    String? userId,
+    String? payloadJson,
+    String? status,
+    DateTime? createdAt,
+  }) => Oplog(
+    opId: opId ?? this.opId,
+    journalId: journalId ?? this.journalId,
+    pageId: pageId.present ? pageId.value : this.pageId,
+    blockId: blockId.present ? blockId.value : this.blockId,
+    opType: opType ?? this.opType,
+    hlc: hlc ?? this.hlc,
+    deviceId: deviceId ?? this.deviceId,
+    userId: userId ?? this.userId,
+    payloadJson: payloadJson ?? this.payloadJson,
+    status: status ?? this.status,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  Oplog copyWithCompanion(OplogsCompanion data) {
+    return Oplog(
+      opId: data.opId.present ? data.opId.value : this.opId,
+      journalId: data.journalId.present ? data.journalId.value : this.journalId,
+      pageId: data.pageId.present ? data.pageId.value : this.pageId,
+      blockId: data.blockId.present ? data.blockId.value : this.blockId,
+      opType: data.opType.present ? data.opType.value : this.opType,
+      hlc: data.hlc.present ? data.hlc.value : this.hlc,
+      deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      payloadJson: data.payloadJson.present
+          ? data.payloadJson.value
+          : this.payloadJson,
+      status: data.status.present ? data.status.value : this.status,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Oplog(')
+          ..write('opId: $opId, ')
+          ..write('journalId: $journalId, ')
+          ..write('pageId: $pageId, ')
+          ..write('blockId: $blockId, ')
+          ..write('opType: $opType, ')
+          ..write('hlc: $hlc, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('userId: $userId, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('status: $status, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    opId,
+    journalId,
+    pageId,
+    blockId,
+    opType,
+    hlc,
+    deviceId,
+    userId,
+    payloadJson,
+    status,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Oplog &&
+          other.opId == this.opId &&
+          other.journalId == this.journalId &&
+          other.pageId == this.pageId &&
+          other.blockId == this.blockId &&
+          other.opType == this.opType &&
+          other.hlc == this.hlc &&
+          other.deviceId == this.deviceId &&
+          other.userId == this.userId &&
+          other.payloadJson == this.payloadJson &&
+          other.status == this.status &&
+          other.createdAt == this.createdAt);
+}
+
+class OplogsCompanion extends UpdateCompanion<Oplog> {
+  final Value<String> opId;
+  final Value<String> journalId;
+  final Value<String?> pageId;
+  final Value<String?> blockId;
+  final Value<String> opType;
+  final Value<String> hlc;
+  final Value<String> deviceId;
+  final Value<String> userId;
+  final Value<String> payloadJson;
+  final Value<String> status;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const OplogsCompanion({
+    this.opId = const Value.absent(),
+    this.journalId = const Value.absent(),
+    this.pageId = const Value.absent(),
+    this.blockId = const Value.absent(),
+    this.opType = const Value.absent(),
+    this.hlc = const Value.absent(),
+    this.deviceId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.payloadJson = const Value.absent(),
+    this.status = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  OplogsCompanion.insert({
+    required String opId,
+    required String journalId,
+    this.pageId = const Value.absent(),
+    this.blockId = const Value.absent(),
+    required String opType,
+    required String hlc,
+    required String deviceId,
+    required String userId,
+    required String payloadJson,
+    required String status,
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : opId = Value(opId),
+       journalId = Value(journalId),
+       opType = Value(opType),
+       hlc = Value(hlc),
+       deviceId = Value(deviceId),
+       userId = Value(userId),
+       payloadJson = Value(payloadJson),
+       status = Value(status),
+       createdAt = Value(createdAt);
+  static Insertable<Oplog> custom({
+    Expression<String>? opId,
+    Expression<String>? journalId,
+    Expression<String>? pageId,
+    Expression<String>? blockId,
+    Expression<String>? opType,
+    Expression<String>? hlc,
+    Expression<String>? deviceId,
+    Expression<String>? userId,
+    Expression<String>? payloadJson,
+    Expression<String>? status,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (opId != null) 'op_id': opId,
+      if (journalId != null) 'journal_id': journalId,
+      if (pageId != null) 'page_id': pageId,
+      if (blockId != null) 'block_id': blockId,
+      if (opType != null) 'op_type': opType,
+      if (hlc != null) 'hlc': hlc,
+      if (deviceId != null) 'device_id': deviceId,
+      if (userId != null) 'user_id': userId,
+      if (payloadJson != null) 'payload_json': payloadJson,
+      if (status != null) 'status': status,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  OplogsCompanion copyWith({
+    Value<String>? opId,
+    Value<String>? journalId,
+    Value<String?>? pageId,
+    Value<String?>? blockId,
+    Value<String>? opType,
+    Value<String>? hlc,
+    Value<String>? deviceId,
+    Value<String>? userId,
+    Value<String>? payloadJson,
+    Value<String>? status,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return OplogsCompanion(
+      opId: opId ?? this.opId,
+      journalId: journalId ?? this.journalId,
+      pageId: pageId ?? this.pageId,
+      blockId: blockId ?? this.blockId,
+      opType: opType ?? this.opType,
+      hlc: hlc ?? this.hlc,
+      deviceId: deviceId ?? this.deviceId,
+      userId: userId ?? this.userId,
+      payloadJson: payloadJson ?? this.payloadJson,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (opId.present) {
+      map['op_id'] = Variable<String>(opId.value);
+    }
+    if (journalId.present) {
+      map['journal_id'] = Variable<String>(journalId.value);
+    }
+    if (pageId.present) {
+      map['page_id'] = Variable<String>(pageId.value);
+    }
+    if (blockId.present) {
+      map['block_id'] = Variable<String>(blockId.value);
+    }
+    if (opType.present) {
+      map['op_type'] = Variable<String>(opType.value);
+    }
+    if (hlc.present) {
+      map['hlc'] = Variable<String>(hlc.value);
+    }
+    if (deviceId.present) {
+      map['device_id'] = Variable<String>(deviceId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (payloadJson.present) {
+      map['payload_json'] = Variable<String>(payloadJson.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('OplogsCompanion(')
+          ..write('opId: $opId, ')
+          ..write('journalId: $journalId, ')
+          ..write('pageId: $pageId, ')
+          ..write('blockId: $blockId, ')
+          ..write('opType: $opType, ')
+          ..write('hlc: $hlc, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('userId: $userId, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('status: $status, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2638,10 +5775,19 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PagesTable pages = $PagesTable(this);
   late final $BlocksTable blocks = $BlocksTable(this);
   late final $AssetsTable assets = $AssetsTable(this);
+  late final $TeamsTable teams = $TeamsTable(this);
+  late final $TeamMembersTable teamMembers = $TeamMembersTable(this);
+  late final $InvitesTable invites = $InvitesTable(this);
+  late final $UserStickersTable userStickers = $UserStickersTable(this);
+  late final $OplogsTable oplogs = $OplogsTable(this);
   late final JournalDao journalDao = JournalDao(this as AppDatabase);
   late final PageDao pageDao = PageDao(this as AppDatabase);
   late final BlockDao blockDao = BlockDao(this as AppDatabase);
   late final AssetDao assetDao = AssetDao(this as AppDatabase);
+  late final TeamDao teamDao = TeamDao(this as AppDatabase);
+  late final InviteDao inviteDao = InviteDao(this as AppDatabase);
+  late final StickerDao stickerDao = StickerDao(this as AppDatabase);
+  late final OplogDao oplogDao = OplogDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2651,6 +5797,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     pages,
     blocks,
     assets,
+    teams,
+    teamMembers,
+    invites,
+    userStickers,
+    oplogs,
   ];
 }
 
@@ -2659,6 +5810,7 @@ typedef $$JournalsTableCreateCompanionBuilder =
       required String id,
       required String title,
       Value<String> coverStyle,
+      Value<String?> teamId,
       Value<int> schemaVersion,
       required DateTime createdAt,
       required DateTime updatedAt,
@@ -2670,6 +5822,7 @@ typedef $$JournalsTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String> title,
       Value<String> coverStyle,
+      Value<String?> teamId,
       Value<int> schemaVersion,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
@@ -2698,6 +5851,11 @@ class $$JournalsTableFilterComposer
 
   ColumnFilters<String> get coverStyle => $composableBuilder(
     column: $table.coverStyle,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get teamId => $composableBuilder(
+    column: $table.teamId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2746,6 +5904,11 @@ class $$JournalsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get teamId => $composableBuilder(
+    column: $table.teamId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get schemaVersion => $composableBuilder(
     column: $table.schemaVersion,
     builder: (column) => ColumnOrderings(column),
@@ -2786,6 +5949,9 @@ class $$JournalsTableAnnotationComposer
     column: $table.coverStyle,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get teamId =>
+      $composableBuilder(column: $table.teamId, builder: (column) => column);
 
   GeneratedColumn<int> get schemaVersion => $composableBuilder(
     column: $table.schemaVersion,
@@ -2833,6 +5999,7 @@ class $$JournalsTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String> title = const Value.absent(),
                 Value<String> coverStyle = const Value.absent(),
+                Value<String?> teamId = const Value.absent(),
                 Value<int> schemaVersion = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
@@ -2842,6 +6009,7 @@ class $$JournalsTableTableManager
                 id: id,
                 title: title,
                 coverStyle: coverStyle,
+                teamId: teamId,
                 schemaVersion: schemaVersion,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -2853,6 +6021,7 @@ class $$JournalsTableTableManager
                 required String id,
                 required String title,
                 Value<String> coverStyle = const Value.absent(),
+                Value<String?> teamId = const Value.absent(),
                 Value<int> schemaVersion = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
@@ -2862,6 +6031,7 @@ class $$JournalsTableTableManager
                 id: id,
                 title: title,
                 coverStyle: coverStyle,
+                teamId: teamId,
                 schemaVersion: schemaVersion,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -3903,6 +7073,1493 @@ typedef $$AssetsTableProcessedTableManager =
       Asset,
       PrefetchHooks Function()
     >;
+typedef $$TeamsTableCreateCompanionBuilder =
+    TeamsCompanion Function({
+      required String id,
+      required String name,
+      required String ownerId,
+      Value<String?> description,
+      Value<String?> avatarUrl,
+      Value<int> schemaVersion,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<int> rowid,
+    });
+typedef $$TeamsTableUpdateCompanionBuilder =
+    TeamsCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String> ownerId,
+      Value<String?> description,
+      Value<String?> avatarUrl,
+      Value<int> schemaVersion,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<int> rowid,
+    });
+
+class $$TeamsTableFilterComposer extends Composer<_$AppDatabase, $TeamsTable> {
+  $$TeamsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get avatarUrl => $composableBuilder(
+    column: $table.avatarUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get schemaVersion => $composableBuilder(
+    column: $table.schemaVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$TeamsTableOrderingComposer
+    extends Composer<_$AppDatabase, $TeamsTable> {
+  $$TeamsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get avatarUrl => $composableBuilder(
+    column: $table.avatarUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get schemaVersion => $composableBuilder(
+    column: $table.schemaVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$TeamsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TeamsTable> {
+  $$TeamsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get ownerId =>
+      $composableBuilder(column: $table.ownerId, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get avatarUrl =>
+      $composableBuilder(column: $table.avatarUrl, builder: (column) => column);
+
+  GeneratedColumn<int> get schemaVersion => $composableBuilder(
+    column: $table.schemaVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+}
+
+class $$TeamsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TeamsTable,
+          Team,
+          $$TeamsTableFilterComposer,
+          $$TeamsTableOrderingComposer,
+          $$TeamsTableAnnotationComposer,
+          $$TeamsTableCreateCompanionBuilder,
+          $$TeamsTableUpdateCompanionBuilder,
+          (Team, BaseReferences<_$AppDatabase, $TeamsTable, Team>),
+          Team,
+          PrefetchHooks Function()
+        > {
+  $$TeamsTableTableManager(_$AppDatabase db, $TeamsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TeamsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TeamsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TeamsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> ownerId = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                Value<String?> avatarUrl = const Value.absent(),
+                Value<int> schemaVersion = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TeamsCompanion(
+                id: id,
+                name: name,
+                ownerId: ownerId,
+                description: description,
+                avatarUrl: avatarUrl,
+                schemaVersion: schemaVersion,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                required String ownerId,
+                Value<String?> description = const Value.absent(),
+                Value<String?> avatarUrl = const Value.absent(),
+                Value<int> schemaVersion = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TeamsCompanion.insert(
+                id: id,
+                name: name,
+                ownerId: ownerId,
+                description: description,
+                avatarUrl: avatarUrl,
+                schemaVersion: schemaVersion,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$TeamsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TeamsTable,
+      Team,
+      $$TeamsTableFilterComposer,
+      $$TeamsTableOrderingComposer,
+      $$TeamsTableAnnotationComposer,
+      $$TeamsTableCreateCompanionBuilder,
+      $$TeamsTableUpdateCompanionBuilder,
+      (Team, BaseReferences<_$AppDatabase, $TeamsTable, Team>),
+      Team,
+      PrefetchHooks Function()
+    >;
+typedef $$TeamMembersTableCreateCompanionBuilder =
+    TeamMembersCompanion Function({
+      required String id,
+      required String teamId,
+      required String userId,
+      required String role,
+      required DateTime joinedAt,
+      Value<int> schemaVersion,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<int> rowid,
+    });
+typedef $$TeamMembersTableUpdateCompanionBuilder =
+    TeamMembersCompanion Function({
+      Value<String> id,
+      Value<String> teamId,
+      Value<String> userId,
+      Value<String> role,
+      Value<DateTime> joinedAt,
+      Value<int> schemaVersion,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<int> rowid,
+    });
+
+class $$TeamMembersTableFilterComposer
+    extends Composer<_$AppDatabase, $TeamMembersTable> {
+  $$TeamMembersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get teamId => $composableBuilder(
+    column: $table.teamId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get joinedAt => $composableBuilder(
+    column: $table.joinedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get schemaVersion => $composableBuilder(
+    column: $table.schemaVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$TeamMembersTableOrderingComposer
+    extends Composer<_$AppDatabase, $TeamMembersTable> {
+  $$TeamMembersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get teamId => $composableBuilder(
+    column: $table.teamId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get joinedAt => $composableBuilder(
+    column: $table.joinedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get schemaVersion => $composableBuilder(
+    column: $table.schemaVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$TeamMembersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TeamMembersTable> {
+  $$TeamMembersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get teamId =>
+      $composableBuilder(column: $table.teamId, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get role =>
+      $composableBuilder(column: $table.role, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get joinedAt =>
+      $composableBuilder(column: $table.joinedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get schemaVersion => $composableBuilder(
+    column: $table.schemaVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+}
+
+class $$TeamMembersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TeamMembersTable,
+          TeamMember,
+          $$TeamMembersTableFilterComposer,
+          $$TeamMembersTableOrderingComposer,
+          $$TeamMembersTableAnnotationComposer,
+          $$TeamMembersTableCreateCompanionBuilder,
+          $$TeamMembersTableUpdateCompanionBuilder,
+          (
+            TeamMember,
+            BaseReferences<_$AppDatabase, $TeamMembersTable, TeamMember>,
+          ),
+          TeamMember,
+          PrefetchHooks Function()
+        > {
+  $$TeamMembersTableTableManager(_$AppDatabase db, $TeamMembersTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TeamMembersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TeamMembersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TeamMembersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> teamId = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<String> role = const Value.absent(),
+                Value<DateTime> joinedAt = const Value.absent(),
+                Value<int> schemaVersion = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TeamMembersCompanion(
+                id: id,
+                teamId: teamId,
+                userId: userId,
+                role: role,
+                joinedAt: joinedAt,
+                schemaVersion: schemaVersion,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String teamId,
+                required String userId,
+                required String role,
+                required DateTime joinedAt,
+                Value<int> schemaVersion = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TeamMembersCompanion.insert(
+                id: id,
+                teamId: teamId,
+                userId: userId,
+                role: role,
+                joinedAt: joinedAt,
+                schemaVersion: schemaVersion,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$TeamMembersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TeamMembersTable,
+      TeamMember,
+      $$TeamMembersTableFilterComposer,
+      $$TeamMembersTableOrderingComposer,
+      $$TeamMembersTableAnnotationComposer,
+      $$TeamMembersTableCreateCompanionBuilder,
+      $$TeamMembersTableUpdateCompanionBuilder,
+      (
+        TeamMember,
+        BaseReferences<_$AppDatabase, $TeamMembersTable, TeamMember>,
+      ),
+      TeamMember,
+      PrefetchHooks Function()
+    >;
+typedef $$InvitesTableCreateCompanionBuilder =
+    InvitesCompanion Function({
+      required String id,
+      required String type,
+      required String targetId,
+      required String inviterId,
+      Value<String?> inviteeId,
+      required String status,
+      required String role,
+      required DateTime expiresAt,
+      Value<int> schemaVersion,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<int> rowid,
+    });
+typedef $$InvitesTableUpdateCompanionBuilder =
+    InvitesCompanion Function({
+      Value<String> id,
+      Value<String> type,
+      Value<String> targetId,
+      Value<String> inviterId,
+      Value<String?> inviteeId,
+      Value<String> status,
+      Value<String> role,
+      Value<DateTime> expiresAt,
+      Value<int> schemaVersion,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<int> rowid,
+    });
+
+class $$InvitesTableFilterComposer
+    extends Composer<_$AppDatabase, $InvitesTable> {
+  $$InvitesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get targetId => $composableBuilder(
+    column: $table.targetId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get inviterId => $composableBuilder(
+    column: $table.inviterId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get inviteeId => $composableBuilder(
+    column: $table.inviteeId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get schemaVersion => $composableBuilder(
+    column: $table.schemaVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$InvitesTableOrderingComposer
+    extends Composer<_$AppDatabase, $InvitesTable> {
+  $$InvitesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get targetId => $composableBuilder(
+    column: $table.targetId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get inviterId => $composableBuilder(
+    column: $table.inviterId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get inviteeId => $composableBuilder(
+    column: $table.inviteeId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get schemaVersion => $composableBuilder(
+    column: $table.schemaVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$InvitesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $InvitesTable> {
+  $$InvitesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<String> get targetId =>
+      $composableBuilder(column: $table.targetId, builder: (column) => column);
+
+  GeneratedColumn<String> get inviterId =>
+      $composableBuilder(column: $table.inviterId, builder: (column) => column);
+
+  GeneratedColumn<String> get inviteeId =>
+      $composableBuilder(column: $table.inviteeId, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get role =>
+      $composableBuilder(column: $table.role, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get expiresAt =>
+      $composableBuilder(column: $table.expiresAt, builder: (column) => column);
+
+  GeneratedColumn<int> get schemaVersion => $composableBuilder(
+    column: $table.schemaVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+}
+
+class $$InvitesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $InvitesTable,
+          Invite,
+          $$InvitesTableFilterComposer,
+          $$InvitesTableOrderingComposer,
+          $$InvitesTableAnnotationComposer,
+          $$InvitesTableCreateCompanionBuilder,
+          $$InvitesTableUpdateCompanionBuilder,
+          (Invite, BaseReferences<_$AppDatabase, $InvitesTable, Invite>),
+          Invite,
+          PrefetchHooks Function()
+        > {
+  $$InvitesTableTableManager(_$AppDatabase db, $InvitesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$InvitesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$InvitesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$InvitesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> type = const Value.absent(),
+                Value<String> targetId = const Value.absent(),
+                Value<String> inviterId = const Value.absent(),
+                Value<String?> inviteeId = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String> role = const Value.absent(),
+                Value<DateTime> expiresAt = const Value.absent(),
+                Value<int> schemaVersion = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => InvitesCompanion(
+                id: id,
+                type: type,
+                targetId: targetId,
+                inviterId: inviterId,
+                inviteeId: inviteeId,
+                status: status,
+                role: role,
+                expiresAt: expiresAt,
+                schemaVersion: schemaVersion,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String type,
+                required String targetId,
+                required String inviterId,
+                Value<String?> inviteeId = const Value.absent(),
+                required String status,
+                required String role,
+                required DateTime expiresAt,
+                Value<int> schemaVersion = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => InvitesCompanion.insert(
+                id: id,
+                type: type,
+                targetId: targetId,
+                inviterId: inviterId,
+                inviteeId: inviteeId,
+                status: status,
+                role: role,
+                expiresAt: expiresAt,
+                schemaVersion: schemaVersion,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$InvitesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $InvitesTable,
+      Invite,
+      $$InvitesTableFilterComposer,
+      $$InvitesTableOrderingComposer,
+      $$InvitesTableAnnotationComposer,
+      $$InvitesTableCreateCompanionBuilder,
+      $$InvitesTableUpdateCompanionBuilder,
+      (Invite, BaseReferences<_$AppDatabase, $InvitesTable, Invite>),
+      Invite,
+      PrefetchHooks Function()
+    >;
+typedef $$UserStickersTableCreateCompanionBuilder =
+    UserStickersCompanion Function({
+      required String id,
+      required String userId,
+      required String type,
+      required String content,
+      Value<String?> localPath,
+      Value<String> category,
+      Value<int> schemaVersion,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<int> rowid,
+    });
+typedef $$UserStickersTableUpdateCompanionBuilder =
+    UserStickersCompanion Function({
+      Value<String> id,
+      Value<String> userId,
+      Value<String> type,
+      Value<String> content,
+      Value<String?> localPath,
+      Value<String> category,
+      Value<int> schemaVersion,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<int> rowid,
+    });
+
+class $$UserStickersTableFilterComposer
+    extends Composer<_$AppDatabase, $UserStickersTable> {
+  $$UserStickersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get localPath => $composableBuilder(
+    column: $table.localPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get schemaVersion => $composableBuilder(
+    column: $table.schemaVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$UserStickersTableOrderingComposer
+    extends Composer<_$AppDatabase, $UserStickersTable> {
+  $$UserStickersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get localPath => $composableBuilder(
+    column: $table.localPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get schemaVersion => $composableBuilder(
+    column: $table.schemaVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$UserStickersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $UserStickersTable> {
+  $$UserStickersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<String> get content =>
+      $composableBuilder(column: $table.content, builder: (column) => column);
+
+  GeneratedColumn<String> get localPath =>
+      $composableBuilder(column: $table.localPath, builder: (column) => column);
+
+  GeneratedColumn<String> get category =>
+      $composableBuilder(column: $table.category, builder: (column) => column);
+
+  GeneratedColumn<int> get schemaVersion => $composableBuilder(
+    column: $table.schemaVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+}
+
+class $$UserStickersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $UserStickersTable,
+          UserSticker,
+          $$UserStickersTableFilterComposer,
+          $$UserStickersTableOrderingComposer,
+          $$UserStickersTableAnnotationComposer,
+          $$UserStickersTableCreateCompanionBuilder,
+          $$UserStickersTableUpdateCompanionBuilder,
+          (
+            UserSticker,
+            BaseReferences<_$AppDatabase, $UserStickersTable, UserSticker>,
+          ),
+          UserSticker,
+          PrefetchHooks Function()
+        > {
+  $$UserStickersTableTableManager(_$AppDatabase db, $UserStickersTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$UserStickersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$UserStickersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$UserStickersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<String> type = const Value.absent(),
+                Value<String> content = const Value.absent(),
+                Value<String?> localPath = const Value.absent(),
+                Value<String> category = const Value.absent(),
+                Value<int> schemaVersion = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => UserStickersCompanion(
+                id: id,
+                userId: userId,
+                type: type,
+                content: content,
+                localPath: localPath,
+                category: category,
+                schemaVersion: schemaVersion,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String userId,
+                required String type,
+                required String content,
+                Value<String?> localPath = const Value.absent(),
+                Value<String> category = const Value.absent(),
+                Value<int> schemaVersion = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => UserStickersCompanion.insert(
+                id: id,
+                userId: userId,
+                type: type,
+                content: content,
+                localPath: localPath,
+                category: category,
+                schemaVersion: schemaVersion,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$UserStickersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $UserStickersTable,
+      UserSticker,
+      $$UserStickersTableFilterComposer,
+      $$UserStickersTableOrderingComposer,
+      $$UserStickersTableAnnotationComposer,
+      $$UserStickersTableCreateCompanionBuilder,
+      $$UserStickersTableUpdateCompanionBuilder,
+      (
+        UserSticker,
+        BaseReferences<_$AppDatabase, $UserStickersTable, UserSticker>,
+      ),
+      UserSticker,
+      PrefetchHooks Function()
+    >;
+typedef $$OplogsTableCreateCompanionBuilder =
+    OplogsCompanion Function({
+      required String opId,
+      required String journalId,
+      Value<String?> pageId,
+      Value<String?> blockId,
+      required String opType,
+      required String hlc,
+      required String deviceId,
+      required String userId,
+      required String payloadJson,
+      required String status,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$OplogsTableUpdateCompanionBuilder =
+    OplogsCompanion Function({
+      Value<String> opId,
+      Value<String> journalId,
+      Value<String?> pageId,
+      Value<String?> blockId,
+      Value<String> opType,
+      Value<String> hlc,
+      Value<String> deviceId,
+      Value<String> userId,
+      Value<String> payloadJson,
+      Value<String> status,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$OplogsTableFilterComposer
+    extends Composer<_$AppDatabase, $OplogsTable> {
+  $$OplogsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get opId => $composableBuilder(
+    column: $table.opId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get journalId => $composableBuilder(
+    column: $table.journalId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pageId => $composableBuilder(
+    column: $table.pageId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get blockId => $composableBuilder(
+    column: $table.blockId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get opType => $composableBuilder(
+    column: $table.opType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get hlc => $composableBuilder(
+    column: $table.hlc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$OplogsTableOrderingComposer
+    extends Composer<_$AppDatabase, $OplogsTable> {
+  $$OplogsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get opId => $composableBuilder(
+    column: $table.opId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get journalId => $composableBuilder(
+    column: $table.journalId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pageId => $composableBuilder(
+    column: $table.pageId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get blockId => $composableBuilder(
+    column: $table.blockId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get opType => $composableBuilder(
+    column: $table.opType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get hlc => $composableBuilder(
+    column: $table.hlc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$OplogsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $OplogsTable> {
+  $$OplogsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get opId =>
+      $composableBuilder(column: $table.opId, builder: (column) => column);
+
+  GeneratedColumn<String> get journalId =>
+      $composableBuilder(column: $table.journalId, builder: (column) => column);
+
+  GeneratedColumn<String> get pageId =>
+      $composableBuilder(column: $table.pageId, builder: (column) => column);
+
+  GeneratedColumn<String> get blockId =>
+      $composableBuilder(column: $table.blockId, builder: (column) => column);
+
+  GeneratedColumn<String> get opType =>
+      $composableBuilder(column: $table.opType, builder: (column) => column);
+
+  GeneratedColumn<String> get hlc =>
+      $composableBuilder(column: $table.hlc, builder: (column) => column);
+
+  GeneratedColumn<String> get deviceId =>
+      $composableBuilder(column: $table.deviceId, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$OplogsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $OplogsTable,
+          Oplog,
+          $$OplogsTableFilterComposer,
+          $$OplogsTableOrderingComposer,
+          $$OplogsTableAnnotationComposer,
+          $$OplogsTableCreateCompanionBuilder,
+          $$OplogsTableUpdateCompanionBuilder,
+          (Oplog, BaseReferences<_$AppDatabase, $OplogsTable, Oplog>),
+          Oplog,
+          PrefetchHooks Function()
+        > {
+  $$OplogsTableTableManager(_$AppDatabase db, $OplogsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$OplogsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$OplogsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$OplogsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> opId = const Value.absent(),
+                Value<String> journalId = const Value.absent(),
+                Value<String?> pageId = const Value.absent(),
+                Value<String?> blockId = const Value.absent(),
+                Value<String> opType = const Value.absent(),
+                Value<String> hlc = const Value.absent(),
+                Value<String> deviceId = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<String> payloadJson = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => OplogsCompanion(
+                opId: opId,
+                journalId: journalId,
+                pageId: pageId,
+                blockId: blockId,
+                opType: opType,
+                hlc: hlc,
+                deviceId: deviceId,
+                userId: userId,
+                payloadJson: payloadJson,
+                status: status,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String opId,
+                required String journalId,
+                Value<String?> pageId = const Value.absent(),
+                Value<String?> blockId = const Value.absent(),
+                required String opType,
+                required String hlc,
+                required String deviceId,
+                required String userId,
+                required String payloadJson,
+                required String status,
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => OplogsCompanion.insert(
+                opId: opId,
+                journalId: journalId,
+                pageId: pageId,
+                blockId: blockId,
+                opType: opType,
+                hlc: hlc,
+                deviceId: deviceId,
+                userId: userId,
+                payloadJson: payloadJson,
+                status: status,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$OplogsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $OplogsTable,
+      Oplog,
+      $$OplogsTableFilterComposer,
+      $$OplogsTableOrderingComposer,
+      $$OplogsTableAnnotationComposer,
+      $$OplogsTableCreateCompanionBuilder,
+      $$OplogsTableUpdateCompanionBuilder,
+      (Oplog, BaseReferences<_$AppDatabase, $OplogsTable, Oplog>),
+      Oplog,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3915,4 +8572,14 @@ class $AppDatabaseManager {
       $$BlocksTableTableManager(_db, _db.blocks);
   $$AssetsTableTableManager get assets =>
       $$AssetsTableTableManager(_db, _db.assets);
+  $$TeamsTableTableManager get teams =>
+      $$TeamsTableTableManager(_db, _db.teams);
+  $$TeamMembersTableTableManager get teamMembers =>
+      $$TeamMembersTableTableManager(_db, _db.teamMembers);
+  $$InvitesTableTableManager get invites =>
+      $$InvitesTableTableManager(_db, _db.invites);
+  $$UserStickersTableTableManager get userStickers =>
+      $$UserStickersTableTableManager(_db, _db.userStickers);
+  $$OplogsTableTableManager get oplogs =>
+      $$OplogsTableTableManager(_db, _db.oplogs);
 }

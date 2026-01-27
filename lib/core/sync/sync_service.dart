@@ -10,6 +10,7 @@ import 'package:journal_app/core/models/block.dart';
 import 'package:journal_app/providers/database_providers.dart';
 import 'package:journal_app/core/database/storage_service.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:journal_app/core/database/daos/oplog_dao.dart';
 
 final syncServiceProvider = Provider<SyncService>((ref) {
   final authService = ref.watch(authServiceProvider);
@@ -19,6 +20,7 @@ final syncServiceProvider = Provider<SyncService>((ref) {
   final journalDao = ref.watch(journalDaoProvider);
   final pageDao = ref.watch(pageDaoProvider);
   final blockDao = ref.watch(blockDaoProvider);
+  final oplogDao = ref.watch(oplogDaoProvider);
 
   return SyncService(
     authService,
@@ -26,6 +28,7 @@ final syncServiceProvider = Provider<SyncService>((ref) {
     journalDao,
     pageDao,
     blockDao,
+    oplogDao,
   );
 });
 
@@ -36,6 +39,8 @@ class SyncService {
   _journalDao; // Typing as dynamic to simplify dependency, ideally strict typed
   final dynamic _pageDao;
   final dynamic _blockDao;
+  // ignore: unused_field - Reserved for Phase 4 HLC sync
+  final OplogDao _oplogDao;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   SyncService(
@@ -44,11 +49,26 @@ class SyncService {
     this._journalDao,
     this._pageDao,
     this._blockDao,
+    this._oplogDao,
   );
 
   String? get _userId => _authService.currentUser?.uid;
 
   Future<void> syncDown() async {
+    // Legacy Naive Sync (to be replaced/augmented by Oplog sync)
+    await _legacySyncDown();
+  }
+
+  // Phase 4: Implement robust HLC-based sync
+  Future<void> syncUp() async {
+    debugPrint('Sync: syncUp not implemented yet.');
+  }
+
+  Future<void> reconcile() async {
+    debugPrint('Sync: reconcile not implemented yet.');
+  }
+
+  Future<void> _legacySyncDown() async {
     final uid = _userId;
     if (uid == null) {
       debugPrint('Sync: No user logged in.');

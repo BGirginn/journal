@@ -318,7 +318,7 @@ class ImageFrameWidget extends StatelessWidget {
           child: Container(
             width: width,
             height: height,
-            color: Colors.blue.withOpacity(0.2),
+            color: Colors.blue.withValues(alpha: 0.2),
           ),
         ),
         Positioned(
@@ -327,7 +327,7 @@ class ImageFrameWidget extends StatelessWidget {
           child: Container(
             width: width,
             height: height,
-            color: Colors.red.withOpacity(0.2),
+            color: Colors.red.withValues(alpha: 0.2),
           ),
         ),
         image,

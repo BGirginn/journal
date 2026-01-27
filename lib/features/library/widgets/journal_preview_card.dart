@@ -105,11 +105,11 @@ class JournalPreviewCard extends ConsumerWidget {
         return blocksAsync.when(
           data: (blocks) => _buildLivePreview(context, ref, firstPage, blocks),
           loading: () => _buildCoverFallback(isLoading: true),
-          error: (_, __) => _buildCoverFallback(),
+          error: (_, _) => _buildCoverFallback(),
         );
       },
       loading: () => _buildCoverFallback(isLoading: true),
-      error: (_, __) => _buildCoverFallback(),
+      error: (_, _) => _buildCoverFallback(),
     );
   }
 

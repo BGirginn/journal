@@ -9,6 +9,10 @@ final userServiceProvider = Provider<UserService>((ref) {
   return UserService(authService, isAvailable: isFirebaseAvailable);
 });
 
+final myProfileProvider = StreamProvider<UserProfile?>((ref) {
+  return ref.watch(userServiceProvider).myProfileStream;
+});
+
 class UserProfile {
   final String uid;
   final String displayId;

@@ -13,7 +13,7 @@ import 'package:journal_app/features/editor/blocks/block_widget.dart';
 import 'package:journal_app/core/ui/book_page_view.dart';
 import 'package:journal_app/features/export/services/pdf_export_service.dart';
 import 'package:journal_app/features/search/journal_search_delegate.dart';
-import 'package:journal_app/features/settings/settings_screen.dart';
+import 'package:journal_app/features/profile/profile_settings_screen.dart';
 import 'package:journal_app/features/editor/drawing/ink_storage.dart';
 
 /// Journal view screen with page flip and previews
@@ -73,7 +73,9 @@ class _JournalViewScreenState extends ConsumerState<JournalViewScreen> {
               if (value == 'settings') {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const ProfileSettingsScreen(),
+                  ),
                 );
               }
             },

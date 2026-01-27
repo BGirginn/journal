@@ -11,8 +11,27 @@ part 'app_database.g.dart';
 
 /// Main database class for the journal app
 @DriftDatabase(
-  tables: [Journals, Pages, Blocks, Assets],
-  daos: [JournalDao, PageDao, BlockDao, AssetDao],
+  tables: [
+    Journals,
+    Pages,
+    Blocks,
+    Assets,
+    Teams,
+    TeamMembers,
+    Invites,
+    UserStickers,
+    Oplogs,
+  ],
+  daos: [
+    JournalDao,
+    PageDao,
+    BlockDao,
+    AssetDao,
+    TeamDao,
+    InviteDao,
+    StickerDao,
+    OplogDao,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());

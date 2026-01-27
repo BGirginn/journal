@@ -113,7 +113,7 @@ class _TextEditDialogState extends State<TextEditDialog> {
   }
 
   String _colorToHex(Color color) {
-    return '#${color.value.toRadixString(16).substring(2).toUpperCase()}';
+    return '#${color.toARGB32().toRadixString(16).substring(2).toUpperCase()}';
   }
 
   @override
@@ -184,7 +184,7 @@ class _TextEditDialogState extends State<TextEditDialog> {
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         itemCount: _fonts.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        separatorBuilder: (_, _) => const SizedBox(width: 8),
                         itemBuilder: (context, index) {
                           final font = _fonts[index];
                           final isSelected = font == _fontFamily;

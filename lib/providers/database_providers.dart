@@ -27,3 +27,8 @@ final blockDaoProvider = Provider((ref) {
 final assetDaoProvider = Provider((ref) {
   return ref.watch(databaseProvider).assetDao;
 });
+
+/// Oplog DAO provider
+final oplogDaoProvider = Provider((ref) {
+  return ref.watch(databaseProvider).oplogDao;
+});

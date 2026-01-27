@@ -11,12 +11,14 @@ import 'package:journal_app/core/theme/nostalgic_themes.dart';
 import 'package:journal_app/core/theme/nostalgic_page_painter.dart';
 import 'package:journal_app/providers/database_providers.dart';
 import 'package:journal_app/features/editor/drawing/ink_storage.dart';
+import 'package:journal_app/features/editor/widgets/sticker_picker.dart';
 import 'package:journal_app/features/editor/widgets/image_picker_service.dart';
 import 'package:journal_app/features/editor/widgets/image_frame_widget.dart';
 import 'package:journal_app/features/editor/widgets/video_block_widget.dart';
 import 'package:journal_app/features/editor/widgets/text_edit_dialog.dart';
 import 'package:journal_app/features/editor/widgets/audio_block_widget.dart';
 import 'package:journal_app/features/editor/services/audio_recorder_service.dart';
+import 'package:journal_app/features/editor/widgets/audio_recording_dialog.dart';
 import 'package:journal_app/core/database/storage_service.dart';
 import 'package:journal_app/core/database/firestore_service.dart';
 import 'package:journal_app/features/preview/page_preview_screen.dart';
@@ -128,57 +130,75 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   Widget build(BuildContext context) {
     final isDark = _theme.id == 'midnight';
 
-    return Scaffold(
-      backgroundColor: isDark
-          ? const Color(0xFF1A1A1A)
-          : const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        title: Text('Sayfa ${widget.page.pageIndex + 1}'),
-        centerTitle: true,
-        backgroundColor: isDark ? const Color(0xFF2C2C2C) : Colors.white,
-        foregroundColor: isDark ? Colors.white : Colors.black87,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () async {
-            if (_isDirty) await _save();
-            if (context.mounted) Navigator.pop(context);
-          },
-        ),
-        actions: [
-          // Preview button
-          IconButton(
-            icon: const Icon(Icons.visibility),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => PagePreviewScreen(
-                    journal: widget.journal,
-                    page: widget.page,
-                  ),
-                ),
-              );
+    return PopScope(
+      canPop: !_isDirty,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        if (_isDirty) {
+          final shouldPop = await _showUnsavedChangesDialog();
+          if (shouldPop && context.mounted) {
+            Navigator.of(context).pop();
+          }
+        }
+      },
+      child: Scaffold(
+        backgroundColor: isDark
+            ? const Color(0xFF1A1A1A)
+            : const Color(0xFFF5F5F5),
+        appBar: AppBar(
+          title: Text('Sayfa ${widget.page.pageIndex + 1}'),
+          centerTitle: true,
+          backgroundColor: isDark ? const Color(0xFF2C2C2C) : Colors.white,
+          foregroundColor: isDark ? Colors.white : Colors.black87,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () async {
+              if (_isDirty) {
+                final shouldPop = await _showUnsavedChangesDialog();
+                if (shouldPop && context.mounted) {
+                  Navigator.of(context).pop();
+                }
+              } else {
+                Navigator.of(context).pop();
+              }
             },
-            tooltip: 'Önizle',
           ),
-          // Save button
-          IconButton(
-            icon: Icon(_isDirty ? Icons.save : Icons.cloud_done),
-            onPressed: _isDirty ? _save : null,
-            tooltip: 'Kaydet',
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                _buildToolbar(isDark),
-                if (_mode == EditorMode.draw) _buildPenOptions(),
-                Expanded(child: _buildCanvas()),
-              ],
+          actions: [
+            // Preview button
+            IconButton(
+              icon: const Icon(Icons.visibility),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PagePreviewScreen(
+                      journal: widget.journal,
+                      page: widget.page,
+                    ),
+                  ),
+                );
+              },
+              tooltip: 'Önizle',
             ),
+            // Save button
+            IconButton(
+              icon: Icon(_isDirty ? Icons.save : Icons.cloud_done),
+              onPressed: _isDirty ? _save : null,
+              tooltip: 'Kaydet',
+            ),
+          ],
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                children: [
+                  _buildToolbar(isDark),
+                  if (_mode == EditorMode.draw) _buildPenOptions(),
+                  Expanded(child: _buildCanvas()),
+                ],
+              ),
+      ),
     );
   }
 
@@ -208,14 +228,80 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             () => setState(() => _mode = EditorMode.draw),
           ),
           _ToolBtn(Icons.add_circle, 'Medya', false, _showMediaPicker),
+          _ToolBtn(
+            Icons.emoji_emotions_outlined,
+            'Sticker',
+            false,
+            _handleStickerPicker,
+          ),
           if (_selectedBlockId != null) ...[
-            if (_getSelectedBlockType() == BlockType.image)
+            if (_getSelectedBlockType() == BlockType.image) ...[
+              _ToolBtn(Icons.rotate_right, 'Döndür', false, _showRotateDialog),
               _ToolBtn(Icons.style, 'Çerçeve', false, _showFramePicker),
+            ],
             _ToolBtn(Icons.delete, 'Sil', false, _deleteSelectedBlock),
           ],
         ],
       ),
     );
+  }
+
+  Future<void> _handleStickerPicker() async {
+    final sticker = await showStickerPicker(context);
+    if (sticker != null) {
+      _insertSticker(sticker);
+    }
+  }
+
+  void _insertSticker(Sticker sticker) {
+    if (!mounted) return;
+
+    final id = const Uuid().v4();
+    Block block;
+
+    if (sticker.isCustom) {
+      // Custom sticker treated as Image Block
+      block = Block(
+        id: id,
+        pageId: widget.page.id,
+        type: BlockType.image,
+        x: 0.3,
+        y: 0.3,
+        width: 0.4,
+        height: 0.4, // Adjust size
+        rotation: 0,
+        zIndex: _blocks.length,
+        payloadJson: ImageBlockPayload(path: sticker.asset).toJsonString(),
+      );
+    } else {
+      // Built-in sticker (Emoji/Text) treated as Text Block
+      // We center it roughly
+      block = Block(
+        id: id,
+        pageId: widget.page.id,
+        type: BlockType.text,
+        x: 0.4,
+        y: 0.4,
+        width: 0.2,
+        height: 0.1,
+        rotation: 0,
+        zIndex: _blocks.length,
+        payloadJson: TextBlockPayload(
+          content: sticker.asset,
+          fontSize: 48, // Large font for stickers
+          textAlign: 'center',
+          color:
+              '#${(sticker.color ?? Colors.black).toARGB32().toRadixString(16).padLeft(8, '0')}',
+        ).toJsonString(),
+      );
+    }
+
+    setState(() {
+      _blocks.add(block);
+      _isDirty = true;
+    });
+
+    ref.read(blockDaoProvider).insertBlock(block);
   }
 
   void _showMediaPicker() {
@@ -951,78 +1037,33 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
   void _recordAudio() async {
     final service = AudioRecorderService();
-    int seconds = 0;
-    Timer? timer;
-    bool isPaused = false;
 
-    // Simple recording dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          // Timer logic needs to be started/managed outside or via init
-          // For simplicity we start timer if not started
-          if (timer == null) {
-            timer = Timer.periodic(const Duration(seconds: 1), (t) {
-              if (!isPaused) {
-                setDialogState(() => seconds++);
-              }
-            });
-          }
-
-          final durationStr =
-              '${(seconds ~/ 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
-
-          return AlertDialog(
-            title: const Text('Ses Kaydediliyor...'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  isPaused ? Icons.pause_circle_filled : Icons.mic,
-                  size: 48,
-                  color: isPaused ? Colors.orange : Colors.red,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  durationStr,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const LinearProgressIndicator(),
-              ],
+    try {
+      if (!await service.hasPermission()) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Mikrofon izni gerekli. Lütfen ayarlardan izin verin.',
+              ),
             ),
-            actions: [
-              IconButton(
-                icon: Icon(isPaused ? Icons.play_arrow : Icons.pause),
-                onPressed: () async {
-                  if (isPaused) {
-                    await service.resume();
-                  } else {
-                    await service.pause();
-                  }
-                  setDialogState(() => isPaused = !isPaused);
-                },
-              ),
-              TextButton(
-                onPressed: () async {
-                  timer?.cancel();
-                  final path = await service.stopRecording();
-                  if (context.mounted) Navigator.pop(context, path);
-                },
-                child: const Text('Durdur ve Kaydet'),
-              ),
-            ],
           );
-        },
-      ),
-    ).then((path) async {
-      timer?.cancel();
+        }
+        return;
+      }
+
+      await service.startRecording();
+
+      if (!mounted) return;
+
+      final path = await showDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AudioRecordingDialog(recorder: service),
+      );
+
       await service.dispose();
+
       if (path != null) {
         final block = Block(
           id: const Uuid().v4(),
@@ -1035,7 +1076,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           zIndex: _blocks.length,
           payloadJson: AudioBlockPayload(
             path: path,
-            durationMs: seconds * 1000,
+            durationMs: service.currentDuration.inMilliseconds,
           ).toJsonString(),
         );
 
@@ -1045,20 +1086,13 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         });
 
         ref.read(blockDaoProvider).insertBlock(block);
-
-        // Upload Audio & Sync
         _uploadAndSyncAudioBlock(block, File(path));
       }
-    });
-
-    try {
-      await service.startRecording();
     } catch (e) {
       if (mounted) {
-        Navigator.pop(context);
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Hata: $e')));
+        ).showSnackBar(SnackBar(content: Text('Kayıt hatası: $e')));
       }
     }
   }
@@ -1243,6 +1277,132 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         _isDirty = true;
       });
     }
+  }
+
+  void _showRotateDialog() {
+    if (_selectedBlockId == null) return;
+
+    final block = _blocks.firstWhere((b) => b.id == _selectedBlockId);
+    double newRotation = block.rotation;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('Resmi Döndür'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Mevcut açı: ${newRotation.toInt()}°'),
+                const SizedBox(height: 16),
+                // Preview
+                Container(
+                  width: 200,
+                  height: 200,
+                  alignment: Alignment.center,
+                  child: Transform.rotate(
+                    angle: newRotation * pi / 180,
+                    child: SizedBox(
+                      width: 150,
+                      height: 150,
+                      child: _buildBlockContent(block),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Quick actions
+                Wrap(
+                  spacing: 8,
+                  children: [0, 90, 180, 270].map((angle) {
+                    return ElevatedButton(
+                      onPressed: () {
+                        setDialogState(() => newRotation = angle.toDouble());
+                      },
+                      child: Text('$angle°'),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                // Slider
+                Slider(
+                  value: newRotation,
+                  min: 0,
+                  max: 360,
+                  divisions: 360,
+                  label: '${newRotation.toInt()}°',
+                  onChanged: (value) {
+                    setDialogState(() => newRotation = value);
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('İptal'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  _rotateImageBlock(newRotation);
+                  Navigator.pop(context);
+                },
+                child: const Text('Uygula'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _rotateImageBlock(double angle) {
+    if (_selectedBlockId == null) return;
+
+    final index = _blocks.indexWhere((b) => b.id == _selectedBlockId);
+    if (index == -1) return;
+
+    setState(() {
+      _blocks[index] = _blocks[index].copyWith(rotation: angle);
+      _isDirty = true;
+    });
+
+    ref.read(blockDaoProvider).updateBlock(_blocks[index]);
+  }
+
+  Future<bool> _showUnsavedChangesDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Kaydedilmemiş Değişiklikler'),
+        content: const Text(
+          'Kaydedilmemiş değişiklikleriniz var. Ne yapmak istersiniz?',
+        ),
+        actions: [
+          // Exit without saving
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Çık (Kaydetme)'),
+          ),
+          // Cancel
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('İptal'),
+          ),
+          // Save and Exit
+          FilledButton(
+            onPressed: () async {
+              await _save();
+              if (context.mounted) Navigator.pop(context, true);
+            },
+            child: const Text('Kaydet ve Çık'),
+          ),
+        ],
+      ),
+    );
+
+    return result ?? false;
   }
 }
 

@@ -11,6 +11,7 @@ import 'package:journal_app/core/auth/auth_service.dart';
 import 'package:journal_app/core/theme/theme_provider.dart';
 import 'package:journal_app/features/auth/login_screen.dart';
 
+@Deprecated('Use ProfileSettingsScreen instead')
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 

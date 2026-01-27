@@ -1,7 +1,12 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:journal_app/core/models/user_sticker.dart' as model;
+import 'package:journal_app/features/stickers/sticker_service.dart';
 
 /// Sticker block type extension
-enum StickerType { emoji, decorative, shape }
+enum StickerType { emoji, decorative, shape, custom }
 
 /// Sticker data
 class Sticker {
@@ -10,6 +15,7 @@ class Sticker {
   final String asset; // emoji character or asset path
   final StickerType type;
   final Color? color;
+  final bool isCustom;
 
   const Sticker({
     required this.id,
@@ -17,6 +23,7 @@ class Sticker {
     required this.asset,
     required this.type,
     this.color,
+    this.isCustom = false,
   });
 }
 
@@ -28,17 +35,10 @@ class BuiltInStickers {
     Sticker(id: 'sun', name: 'Güneş', asset: '☀️', type: StickerType.emoji),
     Sticker(id: 'moon', name: 'Ay', asset: '🌙', type: StickerType.emoji),
     Sticker(id: 'flower', name: 'Çiçek', asset: '🌸', type: StickerType.emoji),
-    Sticker(id: 'leaf', name: 'Yaprak', asset: '🍃', type: StickerType.emoji),
     Sticker(
       id: 'butterfly',
       name: 'Kelebek',
       asset: '🦋',
-      type: StickerType.emoji,
-    ),
-    Sticker(
-      id: 'rainbow',
-      name: 'Gökkuşağı',
-      asset: '🌈',
       type: StickerType.emoji,
     ),
     Sticker(id: 'sparkle', name: 'Işıltı', asset: '✨', type: StickerType.emoji),
@@ -72,23 +72,10 @@ class BuiltInStickers {
       asset: '✗',
       type: StickerType.decorative,
     ),
-    Sticker(id: 'plus', name: 'Artı', asset: '+', type: StickerType.decorative),
-    Sticker(
-      id: 'minus',
-      name: 'Eksi',
-      asset: '−',
-      type: StickerType.decorative,
-    ),
     Sticker(
       id: 'bullet',
       name: 'Madde',
       asset: '•',
-      type: StickerType.decorative,
-    ),
-    Sticker(
-      id: 'diamond',
-      name: 'Elmas',
-      asset: '◆',
       type: StickerType.decorative,
     ),
   ];
@@ -123,27 +110,39 @@ class BuiltInStickers {
       color: Colors.amber,
     ),
   ];
-
-  static List<Sticker> get all => [...emojis, ...decoratives, ...shapes];
 }
 
 /// Sticker picker widget
-class StickerPicker extends StatelessWidget {
+class StickerPicker extends ConsumerWidget {
   final void Function(Sticker) onSelect;
 
   const StickerPicker({super.key, required this.onSelect});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final stickerService = ref.watch(stickerServiceProvider);
+
     return Container(
-      height: 280,
+      height: 350,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Sticker Seç',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Sticker Seç',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              TextButton.icon(
+                onPressed: () {
+                  context.push('/stickers/create');
+                },
+                icon: const Icon(Icons.add),
+                label: const Text('Yeni Ekle'),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           Expanded(
@@ -151,6 +150,49 @@ class StickerPicker extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Custom Stickers Section
+                  StreamBuilder<List<model.UserSticker>>(
+                    stream: stickerService.watchMyStickers(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+
+                      final customStickers = snapshot.data!.map((s) {
+                        String asset = s.content;
+                        // Map UserSticker type to Picker StickerType
+                        StickerType pickerType = StickerType.emoji;
+
+                        if (s.type == model.StickerType.image ||
+                            s.type == model.StickerType.drawing) {
+                          pickerType = StickerType.custom;
+                          if (s.localPath != null &&
+                              File(s.localPath!).existsSync()) {
+                            asset = s.localPath!;
+                          }
+                        } else {
+                          // Emoji
+                          pickerType = StickerType.emoji;
+                        }
+
+                        return Sticker(
+                          id: s.id,
+                          name: 'Custom',
+                          asset: asset,
+                          type: pickerType,
+                          isCustom:
+                              s.type == model.StickerType.image ||
+                              s.type == model.StickerType.drawing,
+                        );
+                      }).toList();
+
+                      return _buildSection(
+                        'Özel Çıkartmalarım',
+                        customStickers,
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
                   _buildSection('Emojiler', BuiltInStickers.emojis),
                   const SizedBox(height: 12),
                   _buildSection('Dekoratif', BuiltInStickers.decoratives),
@@ -196,6 +238,27 @@ class _StickerItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Widget content;
+
+    if (sticker.isCustom && File(sticker.asset).existsSync()) {
+      // It's likely an image path
+      content = Padding(
+        padding: const EdgeInsets.all(4.0),
+        child: Image.file(File(sticker.asset), fit: BoxFit.contain),
+      );
+    } else {
+      // Emoji/Text
+      content = Center(
+        child: Text(
+          sticker.asset,
+          style: TextStyle(
+            fontSize: sticker.type == StickerType.emoji ? 24 : 20,
+            color: sticker.color,
+          ),
+        ),
+      );
+    }
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -206,15 +269,7 @@ class _StickerItem extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: Colors.grey[300]!),
         ),
-        child: Center(
-          child: Text(
-            sticker.asset,
-            style: TextStyle(
-              fontSize: sticker.type == StickerType.emoji ? 24 : 20,
-              color: sticker.color,
-            ),
-          ),
-        ),
+        child: content,
       ),
     );
   }

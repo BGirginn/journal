@@ -1,18 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class AppDrawer extends StatelessWidget {
-  final int selectedIndex;
-  final Function(int) onItemTapped;
-
-  const AppDrawer({
-    super.key,
-    required this.selectedIndex,
-    required this.onItemTapped,
-  });
+  const AppDrawer({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Softer design: Rounded corners on the right side
     final shape = const RoundedRectangleBorder(
       borderRadius: BorderRadius.only(
         topRight: Radius.circular(24),
@@ -26,7 +19,6 @@ class AppDrawer extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Cleaner, softer header simply using padding and text
             Padding(
               padding: const EdgeInsets.fromLTRB(28, 32, 16, 24),
               child: Text(
@@ -37,8 +29,6 @@ class AppDrawer extends StatelessWidget {
                 ),
               ),
             ),
-
-            // Decorative divider or spacing
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 28),
               child: Divider(
@@ -49,35 +39,43 @@ class AppDrawer extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // Navigation Items
             _buildDrawerItem(
               context,
               icon: Icons.home_outlined,
               label: 'Anasayfa',
-              isSelected: selectedIndex == 0,
-              onTap: () => onItemTapped(0),
+              onTap: () {
+                context.pop(); // Close drawer
+                context.go('/');
+              },
             ),
             _buildDrawerItem(
               context,
-              icon: Icons.settings_outlined,
-              label: 'Ayarlar',
-              isSelected: selectedIndex == 1,
-              onTap: () => onItemTapped(1),
+              icon: Icons.group_outlined,
+              label: 'Takımlarım',
+              onTap: () {
+                context.pop();
+                context.push('/teams');
+              },
             ),
             _buildDrawerItem(
               context,
-              icon: Icons.people_outline,
-              label: 'Arkadaşlar',
-              isSelected: selectedIndex == 2,
-              onTap: () => onItemTapped(2),
+              icon: Icons.sticky_note_2_outlined,
+              label: 'Çıkartmalarım',
+              onTap: () {
+                context.pop();
+                context.push('/stickers');
+              },
             ),
             _buildDrawerItem(
               context,
-              icon: Icons.book_outlined,
-              label: 'Journallar',
-              isSelected: selectedIndex == 3,
-              onTap: () => onItemTapped(3),
+              icon: Icons.person_outlined,
+              label: 'Profil ve Ayarlar',
+              onTap: () {
+                context.pop();
+                context.push('/profile');
+              },
             ),
+            // Other items can stay or be removed if redundant with BottomNav
           ],
         ),
       ),

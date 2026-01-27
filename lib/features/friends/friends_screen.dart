@@ -5,14 +5,26 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:journal_app/core/auth/user_service.dart';
 import 'package:journal_app/core/auth/auth_service.dart';
 
-class FriendsScreen extends ConsumerStatefulWidget {
+class FriendsScreen extends StatelessWidget {
   const FriendsScreen({super.key});
 
   @override
-  ConsumerState<FriendsScreen> createState() => _FriendsScreenState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Arkadaşlar'), centerTitle: true),
+      body: const FriendsView(),
+    );
+  }
 }
 
-class _FriendsScreenState extends ConsumerState<FriendsScreen> {
+class FriendsView extends ConsumerStatefulWidget {
+  const FriendsView({super.key});
+
+  @override
+  ConsumerState<FriendsView> createState() => _FriendsViewState();
+}
+
+class _FriendsViewState extends ConsumerState<FriendsView> {
   final TextEditingController _searchController = TextEditingController();
   UserProfile? _searchResult;
   bool _isSearching = false;
@@ -65,111 +77,105 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
   @override
   Widget build(BuildContext context) {
     final isFirebaseAvailable = ref.watch(firebaseAvailableProvider);
-    final myProfileAsync = ref.watch(
-      StreamProvider((ref) => ref.read(userServiceProvider).myProfileStream),
-    );
+    final myProfileAsync = ref.watch(myProfileProvider);
 
     if (!isFirebaseAvailable) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Arkadaşlar'), centerTitle: true),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.cloud_off, size: 64, color: Colors.grey),
-                const SizedBox(height: 16),
-                const Text(
-                  'Firebase bağlantısı kurulamadı.\nSosyal özellikler şu an devre dışı.\nLütfen internet bağlantınızı kontrol edip uygulamayı yeniden başlatın.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey),
-                ),
-                const SizedBox(height: 24),
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.cloud_off, size: 64, color: Colors.grey),
+              const SizedBox(height: 16),
+              const Text(
+                'Firebase bağlantısı kurulamadı.\nSosyal özellikler şu an devre dışı.\nLütfen internet bağlantınızı kontrol edip uygulamayı yeniden başlatın.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey),
+              ),
+              const SizedBox(height: 24),
+              // Only show back button if there is a navigator history to pop
+              if (Navigator.canPop(context))
                 ElevatedButton(
                   onPressed: () => Navigator.pop(context),
                   child: const Text('Geri Dön'),
                 ),
-              ],
-            ),
+            ],
           ),
         ),
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Arkadaşlar'), centerTitle: true),
-      body: myProfileAsync.when(
-        data: (profile) {
-          if (profile == null) {
-            return const Center(
-              child: Text('Profil bulunamadı. Lütfen giriş yapın.'),
-            );
-          }
-
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Personal ID Card
-                _buildMyIdCard(profile),
-                const SizedBox(height: 32),
-
-                // Search Section
-                Text(
-                  'Arkadaş Ekle',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 16),
-                _buildSearchBar(),
-
-                if (_isSearching)
-                  const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
-
-                if (_error != null)
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Center(
-                      child: Text(
-                        _error!,
-                        style: const TextStyle(color: Colors.red),
-                      ),
-                    ),
-                  ),
-
-                if (_searchResult != null)
-                  _buildSearchResultCard(_searchResult!, profile),
-
-                const SizedBox(height: 32),
-
-                // Friends List Section
-                Text(
-                  'Arkadaşlarım',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 16),
-                if (profile.friends.isEmpty)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Text(
-                        'Henüz arkadaşın yok. ID ile arayıp ekleyebilirsin!',
-                      ),
-                    ),
-                  )
-                else
-                  _buildFriendsList(profile.friends),
-              ],
-            ),
+    return myProfileAsync.when(
+      data: (profile) {
+        if (profile == null) {
+          return const Center(
+            child: Text('Profil bulunamadı. Lütfen giriş yapın.'),
           );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Hata: $e')),
-      ),
+        }
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Personal ID Card
+              _buildMyIdCard(profile),
+              const SizedBox(height: 32),
+
+              // Search Section
+              Text(
+                'Arkadaş Ekle',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 16),
+              _buildSearchBar(),
+
+              if (_isSearching)
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Center(
+                    child: Text(
+                      _error!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
+                ),
+
+              if (_searchResult != null)
+                _buildSearchResultCard(_searchResult!, profile),
+
+              const SizedBox(height: 32),
+
+              // Friends List Section
+              Text(
+                'Arkadaşlarım',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 16),
+              if (profile.friends.isEmpty)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text(
+                      'Henüz arkadaşın yok. ID ile arayıp ekleyebilirsin!',
+                    ),
+                  ),
+                )
+              else
+                _buildFriendsList(profile.friends),
+            ],
+          ),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Hata: $e')),
     );
   }
 
@@ -308,7 +314,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: friendUids.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         // Fetching profile in-list (Not most efficient but works for now)
         // A better way: UserProfileProvider

@@ -2,3 +2,8 @@ export 'journals_table.dart';
 export 'pages_table.dart';
 export 'blocks_table.dart';
 export 'assets_table.dart';
+export 'teams_table.dart';
+export 'team_members_table.dart';
+export 'invites_table.dart';
+export 'user_stickers_table.dart';
+export 'oplogs_table.dart';
