@@ -23,10 +23,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   late final PageController _pageController;
 
   final _titles = [
-    'Anasayfa',
-    'Profil ve Ayarlar',
-    'Arkadaşlar',
-    'Günlüklerim',
+    'Anasayfa', // 0
+    'Günlüklerim', // 1
+    'Arkadaşlar', // 2
+    'Profil ve Ayarlar', // 3
   ];
 
   @override
@@ -73,10 +73,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         onPageChanged: _onPageChanged,
         physics: const BouncingScrollPhysics(),
         children: const [
-          HomeScreen(),
-          ProfileSettingsScreen(),
-          FriendsView(),
-          JournalLibraryView(),
+          HomeScreen(), // 0
+          JournalLibraryView(), // 1
+          FriendsView(), // 2
+          ProfileSettingsScreen(), // 3
         ],
       ),
       bottomNavigationBar: CustomBottomNavigation(
@@ -85,7 +85,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       ),
       floatingActionButton:
           _selectedIndex ==
-              3 // Only show FAB on Journals tab
+              1 // Only show FAB on Journals tab (Index 1)
           ? Padding(
               padding: const EdgeInsets.only(bottom: 30),
               child: FloatingActionButton(

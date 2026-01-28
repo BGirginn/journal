@@ -49,28 +49,28 @@ class CustomBottomNavigation extends StatelessWidget {
                 _buildNavItem(
                   context,
                   colorScheme,
-                  0,
+                  0, // Index 0
                   Icons.home_rounded,
                   'Anasayfa',
                 ),
                 _buildNavItem(
                   context,
                   colorScheme,
-                  3,
+                  1, // Index 1
                   Icons.book_rounded,
                   'Günlükler',
                 ),
                 _buildNavItem(
                   context,
                   colorScheme,
-                  2,
+                  2, // Index 2
                   Icons.people_rounded,
                   'Arkadaşlar',
                 ),
                 _buildNavItem(
                   context,
                   colorScheme,
-                  1,
+                  3, // Index 3
                   Icons.person_rounded,
                   'Profil',
                 ),
