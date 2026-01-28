@@ -20,6 +20,7 @@ class LibraryScreen extends ConsumerStatefulWidget {
 
 class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   int _selectedIndex = 0;
+  late final PageController _pageController;
 
   final _titles = [
     'Anasayfa',
@@ -27,6 +28,35 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     'Arkadaşlar',
     'Günlüklerim',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _onPageChanged(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,22 +68,20 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        switchInCurve: Curves.easeOut,
-        switchOutCurve: Curves.easeIn,
-        transitionBuilder: (child, animation) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-        child: _buildBody(),
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: _onPageChanged,
+        physics: const BouncingScrollPhysics(),
+        children: const [
+          HomeScreen(),
+          ProfileSettingsScreen(),
+          FriendsView(),
+          JournalLibraryView(),
+        ],
       ),
       bottomNavigationBar: CustomBottomNavigation(
         selectedIndex: _selectedIndex,
-        onItemSelected: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
+        onItemSelected: _onItemTapped,
       ),
       floatingActionButton:
           _selectedIndex ==
@@ -68,21 +96,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
             )
           : null,
     );
-  }
-
-  Widget _buildBody() {
-    switch (_selectedIndex) {
-      case 0:
-        return const HomeScreen();
-      case 1:
-        return const ProfileSettingsScreen();
-      case 2:
-        return const FriendsView();
-      case 3:
-        return const JournalLibraryView();
-      default:
-        return const HomeScreen();
-    }
   }
 
   // Removed _onItemTapped as it's replaced by onDestinationSelected inline
