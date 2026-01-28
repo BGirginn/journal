@@ -14,11 +14,12 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _isLoading = false;
+  bool _checkTriggered = false; // To prevent multiple triggers
 
   @override
   void initState() {
     super.initState();
-    // Check profile on startup (e.g. after hot restart) if user is logged in
+    // Keep initial check for hot restart / immediate availability cases
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (ref.read(authStateProvider).value != null) {
         _forceProfileCheck();
@@ -34,6 +35,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _forceProfileCheck() async {
+    if (_checkTriggered && mounted) return;
+    _checkTriggered = true;
+
     try {
       final profile = await ref.read(userServiceProvider).ensureProfileExists();
       if (mounted && profile != null) {
@@ -68,6 +72,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Cold Start Fix: Listen for auth state availability and trigger check
+    ref.listen(authStateProvider, (previous, next) {
+      if (next.value != null && !_checkTriggered) {
+        debugPrint('Auth state received: Triggering profile check...');
+        _forceProfileCheck();
+      }
+    });
+
     return Scaffold(
       body: Stack(
         children: [
