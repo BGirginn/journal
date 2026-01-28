@@ -1,19 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:journal_app/core/models/journal.dart';
-import 'package:journal_app/core/models/page.dart' as model;
 import 'package:journal_app/core/theme/journal_theme.dart';
-import 'package:journal_app/providers/providers.dart';
-import 'package:journal_app/features/profile/profile_settings_screen.dart';
-import 'package:journal_app/core/database/firestore_service.dart';
+import 'package:journal_app/providers/journal_providers.dart';
 import 'package:journal_app/core/ui/custom_bottom_navigation.dart';
+import 'package:journal_app/features/profile/profile_settings_screen.dart';
 
 /// Library screen - displays list of journals
 import 'package:journal_app/features/home/home_screen.dart';
 import 'package:journal_app/features/friends/friends_screen.dart';
 import 'package:journal_app/features/library/journal_library_view.dart';
 import 'package:journal_app/features/library/theme_picker_dialog.dart';
-import 'package:journal_app/core/ui/app_drawer.dart';
 
 class LibraryScreen extends ConsumerStatefulWidget {
   const LibraryScreen({super.key});
@@ -36,7 +32,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      drawer: const AppDrawer(),
       appBar: AppBar(
         title: Text(
           _titles[_selectedIndex],
@@ -72,7 +67,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       case 0:
         return const HomeScreen();
       case 1:
-        return const ProfileSettingsView();
+        return const ProfileSettingsScreen();
       case 2:
         return const FriendsView();
       case 3:
@@ -189,23 +184,18 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     String themeId,
   ) async {
     Navigator.pop(context);
-    final journalDao = ref.read(journalDaoProvider);
-    final pageDao = ref.read(pageDaoProvider);
 
-    final journal = Journal(title: title, coverStyle: themeId);
-    await journalDao.insertJournal(journal);
+    // Use the provider which handles ownerId and cloud sync
+    final createJournal = ref.read(createJournalProvider);
 
-    // Create first page
-    final firstPage = model.Page(journalId: journal.id, pageIndex: 0);
-    await pageDao.insertPage(firstPage);
-
-    // Sync to Firestore
     try {
-      final firestoreService = ref.read(firestoreServiceProvider);
-      await firestoreService.createJournal(journal);
-      await firestoreService.createPage(firstPage);
+      await createJournal(title: title, coverStyle: themeId);
     } catch (e) {
-      debugPrint('Firestore Sync Error: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Hata: $e')));
+      }
     }
   }
 }

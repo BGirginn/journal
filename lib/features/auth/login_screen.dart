@@ -17,8 +17,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final authService = ref.read(authServiceProvider);
     setState(() => _isLoading = true);
     try {
-      await authService.signInWithGoogle();
-      // Auth state stream will handle navigation
+      final user = await authService.signInWithGoogle();
+
+      if (user != null && mounted) {
+        // Router will handle navigation based on auth state and profile check
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -45,19 +48,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-              ),
-            ),
-          ),
-
-          // Pattern Overlay (optional)
-          Opacity(
-            opacity: 0.1,
-            child: Container(
-              decoration: const BoxDecoration(
-                image: DecorationImage(
-                  image: AssetImage('assets/images/pattern.png'), // Placeholder
-                  repeat: ImageRepeat.repeat,
-                ),
               ),
             ),
           ),
@@ -135,36 +125,45 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     child: Column(
                       children: [
-                        _LoginButton(
-                          label: 'Google ile Giriş Yap',
-                          icon: Icons.g_mobiledata, // Placeholder
-                          onPressed: _isLoading ? null : _handleGoogleSignIn,
-                          isLoading: _isLoading,
-                        ),
-                        if (!ref.watch(firebaseAvailableProvider)) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            ref.watch(firebaseErrorProvider) ??
-                                'Firebase başlatılamadı.',
-                            style: const TextStyle(
-                              color: Colors.red,
-                              fontSize: 12,
+                        if (ref.watch(authStateProvider).value != null) ...[
+                          const CircularProgressIndicator(color: Colors.white),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Profil kontrol ediliyor...',
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                        ] else ...[
+                          _LoginButton(
+                            label: 'Google ile Giriş Yap',
+                            icon: Icons.g_mobiledata, // Placeholder
+                            onPressed: _isLoading ? null : _handleGoogleSignIn,
+                            isLoading: _isLoading,
+                          ),
+                          if (!ref.watch(firebaseAvailableProvider)) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              ref.watch(firebaseErrorProvider) ??
+                                  'Firebase başlatılamadı.',
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontSize: 12,
+                              ),
+                              textAlign: TextAlign.center,
                             ),
-                            textAlign: TextAlign.center,
+                          ],
+                          const SizedBox(height: 16),
+                          TextButton(
+                            onPressed: () async {
+                              // Update the provider state
+                              ref.read(guestModeProvider.notifier).state = true;
+                            },
+                            child: Text(
+                              'Misafir Olarak Devam Et',
+                              style: Theme.of(context).textTheme.labelLarge
+                                  ?.copyWith(color: Colors.white),
+                            ),
                           ),
                         ],
-                        const SizedBox(height: 16),
-                        TextButton(
-                          onPressed: () async {
-                            // Update the provider state
-                            ref.read(guestModeProvider.notifier).state = true;
-                          },
-                          child: Text(
-                            'Misafir Olarak Devam Et',
-                            style: Theme.of(context).textTheme.labelLarge
-                                ?.copyWith(color: Colors.white),
-                          ),
-                        ),
                       ],
                     ),
                   ).animate().fadeIn(delay: 600.ms).moveY(begin: 50, end: 0),

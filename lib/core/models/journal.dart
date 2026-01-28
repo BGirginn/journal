@@ -9,6 +9,7 @@ class Journal implements BaseEntity {
   final String title;
   final String coverStyle;
   final String? teamId;
+  final String? ownerId; // Added ownerId
 
   @override
   final int schemaVersion;
@@ -27,6 +28,7 @@ class Journal implements BaseEntity {
     required this.title,
     this.coverStyle = 'default',
     this.teamId,
+    this.ownerId,
     this.schemaVersion = 1,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -43,6 +45,7 @@ class Journal implements BaseEntity {
     String? title,
     String? coverStyle,
     String? teamId,
+    String? ownerId,
     int? schemaVersion,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -53,6 +56,7 @@ class Journal implements BaseEntity {
       title: title ?? this.title,
       coverStyle: coverStyle ?? this.coverStyle,
       teamId: teamId ?? this.teamId,
+      ownerId: ownerId ?? this.ownerId,
       schemaVersion: schemaVersion ?? this.schemaVersion,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

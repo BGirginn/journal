@@ -5,12 +5,6 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:journal_app/core/auth/auth_service.dart';
 import 'package:journal_app/core/auth/user_service.dart';
 import 'package:journal_app/core/theme/theme_provider.dart';
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
-import 'package:file_picker/file_picker.dart';
-import 'package:journal_app/providers/database_providers.dart';
-import 'package:journal_app/features/profile/widgets/color_theme_selector.dart';
 
 class ProfileSettingsScreen extends StatelessWidget {
   const ProfileSettingsScreen({super.key});
@@ -57,7 +51,7 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
     return userProfileAsync.when(
       data: (profile) {
         return ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
           children: [
             // Profil Bölümü
             _buildProfileCard(context, profile),
@@ -79,170 +73,68 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
               title: 'Görünüm',
               icon: Icons.palette_outlined,
               children: [
-                ExpansionTile(
-                  leading: const Icon(Icons.brightness_6_outlined),
-                  title: const Text('Tema Modu'),
-                  subtitle: Text(_getThemeModeLabel(themeSettings.mode)),
-                  children: [
-                    RadioGroup<ThemeMode>(
-                      groupValue: themeSettings.mode,
-                      onChanged: (value) {
-                        if (value != null) themeNotifier.setThemeMode(value);
-                      },
-                      child: const Column(
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
-                          RadioListTile<ThemeMode>(
-                            title: Text('Sistem Teması'),
-                            value: ThemeMode.system,
+                          Icon(
+                            Icons.brightness_6_outlined,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
-                          RadioListTile<ThemeMode>(
-                            title: Text('Açık Tema'),
-                            value: ThemeMode.light,
-                          ),
-                          RadioListTile<ThemeMode>(
-                            title: Text('Koyu Tema'),
-                            value: ThemeMode.dark,
+                          const SizedBox(width: 12),
+                          Text(
+                            'Tema Modu',
+                            style: Theme.of(context).textTheme.titleMedium,
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-                const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: ColorThemeSelector(),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: SegmentedButton<ThemeMode>(
+                          segments: const [
+                            ButtonSegment(
+                              value: ThemeMode.system,
+                              icon: Icon(Icons.settings_brightness),
+                              label: Text('Sistem'),
+                            ),
+                            ButtonSegment(
+                              value: ThemeMode.light,
+                              icon: Icon(Icons.light_mode),
+                              label: Text('Açık'),
+                            ),
+                            ButtonSegment(
+                              value: ThemeMode.dark,
+                              icon: Icon(Icons.dark_mode),
+                              label: Text('Koyu'),
+                            ),
+                          ],
+                          selected: {themeSettings.mode},
+                          onSelectionChanged: (Set<ThemeMode> selection) {
+                            themeNotifier.setThemeMode(selection.first);
+                          },
+                          style: SegmentedButton.styleFrom(
+                            selectedBackgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.primaryContainer,
+                            selectedForegroundColor: Theme.of(
+                              context,
+                            ).colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
 
             const SizedBox(height: 16),
-
-            // Veri Yönetimi Bölümü
-            _buildSection(
-              context,
-              title: 'Veri Yönetimi',
-              icon: Icons.storage_outlined,
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.backup_outlined),
-                  title: const Text('Yedekle'),
-                  subtitle: const Text('Verilerinizi yedekleyin'),
-                  onTap: () async {
-                    try {
-                      final dbFolder = await getApplicationDocumentsDirectory();
-                      final file = File(
-                        p.join(dbFolder.path, 'journal_database.sqlite'),
-                      );
-                      if (await file.exists()) {
-                        final backupPath = p.join(
-                          dbFolder.path,
-                          'journal_backup_${DateTime.now().millisecondsSinceEpoch}.sqlite',
-                        );
-                        await file.copy(backupPath);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Yedeklendi: $backupPath')),
-                          );
-                        }
-                      } else {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Veritabanı dosyası bulunamadı.'),
-                            ),
-                          );
-                        }
-                      }
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(
-                          context,
-                        ).showSnackBar(SnackBar(content: Text('Hata: $e')));
-                      }
-                    }
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.restore_outlined),
-                  title: const Text('Geri Yükle'),
-                  subtitle: const Text('Yedekten geri dön'),
-                  onTap: () async {
-                    try {
-                      FilePickerResult? result = await FilePicker.platform
-                          .pickFiles(type: FileType.any);
-
-                      if (result != null && result.files.single.path != null) {
-                        final backupFile = File(result.files.single.path!);
-
-                        if (context.mounted) {
-                          final confirm = await showDialog<bool>(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Geri Yükle?'),
-                              content: const Text(
-                                'Mevcut tüm verileriniz silinecek ve seçilen yedek yüklenecek. Emin misiniz?',
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.pop(context, false),
-                                  child: const Text('İptal'),
-                                ),
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  child: const Text('Evet, Yükle'),
-                                ),
-                              ],
-                            ),
-                          );
-
-                          if (confirm == true) {
-                            // 1. Close DB
-                            await ref.read(databaseProvider).close();
-
-                            // 2. Overwrite file
-                            final dbFolder =
-                                await getApplicationDocumentsDirectory();
-                            final dbFile = File(
-                              p.join(dbFolder.path, 'journal_database.sqlite'),
-                            );
-
-                            await backupFile.copy(dbFile.path);
-
-                            if (context.mounted) {
-                              showDialog(
-                                context: context,
-                                barrierDismissible: false,
-                                builder: (context) => AlertDialog(
-                                  title: const Text('Başarılı'),
-                                  content: const Text(
-                                    'Yedek başarıyla yüklendi. Uygulamanın yeni verileri görmesi için yeniden başlatılması gerekiyor.',
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () {
-                                        exit(0);
-                                      },
-                                      child: const Text('Uygulamayı Kapat'),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }
-                          }
-                        }
-                      }
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Geri yükleme hatası: $e')),
-                        );
-                      }
-                    }
-                  },
-                ),
-              ],
-            ),
 
             const SizedBox(height: 16),
 
@@ -314,7 +206,7 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
               ],
             ),
 
-            const SizedBox(height: 32),
+            const SizedBox(height: 100),
           ],
         );
       },
@@ -368,35 +260,44 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text(
-                        profile.displayId,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontFamily: 'monospace',
-                          letterSpacing: 1.1,
+                  if (profile.username != null) ...[
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Text(
+                          '@${profile.username}',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onPrimaryContainer
+                                    .withValues(alpha: 0.7),
+                              ),
                         ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.copy, size: 16),
-                        onPressed: () {
-                          Clipboard.setData(
-                            ClipboardData(text: profile.displayId),
-                          );
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('ID kopyalandı')),
-                          );
-                        },
-                        tooltip: 'ID Kopyala',
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        style: IconButton.styleFrom(
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: const Icon(Icons.copy, size: 14),
+                          onPressed: () {
+                            Clipboard.setData(
+                              ClipboardData(text: profile.username!),
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Kullanıcı adı kopyalandı'),
+                              ),
+                            );
+                          },
+                          tooltip: 'Kullanıcı Adını Kopyala',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          visualDensity: VisualDensity.compact,
+                          style: IconButton.styleFrom(
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -413,16 +314,5 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
     required List<Widget> children,
   }) {
     return Card(child: Column(children: children));
-  }
-
-  String _getThemeModeLabel(ThemeMode mode) {
-    switch (mode) {
-      case ThemeMode.system:
-        return 'Sistem Teması';
-      case ThemeMode.light:
-        return 'Açık Tema';
-      case ThemeMode.dark:
-        return 'Koyu Tema';
-    }
   }
 }

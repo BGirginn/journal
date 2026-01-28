@@ -47,6 +47,17 @@ class $JournalsTable extends Journals with TableInfo<$JournalsTable, Journal> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _ownerIdMeta = const VerificationMeta(
+    'ownerId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerId = GeneratedColumn<String>(
+    'owner_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _schemaVersionMeta = const VerificationMeta(
     'schemaVersion',
   );
@@ -98,6 +109,7 @@ class $JournalsTable extends Journals with TableInfo<$JournalsTable, Journal> {
     title,
     coverStyle,
     teamId,
+    ownerId,
     schemaVersion,
     createdAt,
     updatedAt,
@@ -138,6 +150,12 @@ class $JournalsTable extends Journals with TableInfo<$JournalsTable, Journal> {
       context.handle(
         _teamIdMeta,
         teamId.isAcceptableOrUnknown(data['team_id']!, _teamIdMeta),
+      );
+    }
+    if (data.containsKey('owner_id')) {
+      context.handle(
+        _ownerIdMeta,
+        ownerId.isAcceptableOrUnknown(data['owner_id']!, _ownerIdMeta),
       );
     }
     if (data.containsKey('schema_version')) {
@@ -196,6 +214,10 @@ class $JournalsTable extends Journals with TableInfo<$JournalsTable, Journal> {
         DriftSqlType.string,
         data['${effectivePrefix}team_id'],
       ),
+      ownerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_id'],
+      ),
       schemaVersion: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}schema_version'],
@@ -226,6 +248,7 @@ class Journal extends DataClass implements Insertable<Journal> {
   final String title;
   final String coverStyle;
   final String? teamId;
+  final String? ownerId;
   final int schemaVersion;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -235,6 +258,7 @@ class Journal extends DataClass implements Insertable<Journal> {
     required this.title,
     required this.coverStyle,
     this.teamId,
+    this.ownerId,
     required this.schemaVersion,
     required this.createdAt,
     required this.updatedAt,
@@ -248,6 +272,9 @@ class Journal extends DataClass implements Insertable<Journal> {
     map['cover_style'] = Variable<String>(coverStyle);
     if (!nullToAbsent || teamId != null) {
       map['team_id'] = Variable<String>(teamId);
+    }
+    if (!nullToAbsent || ownerId != null) {
+      map['owner_id'] = Variable<String>(ownerId);
     }
     map['schema_version'] = Variable<int>(schemaVersion);
     map['created_at'] = Variable<DateTime>(createdAt);
@@ -266,6 +293,9 @@ class Journal extends DataClass implements Insertable<Journal> {
       teamId: teamId == null && nullToAbsent
           ? const Value.absent()
           : Value(teamId),
+      ownerId: ownerId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ownerId),
       schemaVersion: Value(schemaVersion),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
@@ -285,6 +315,7 @@ class Journal extends DataClass implements Insertable<Journal> {
       title: serializer.fromJson<String>(json['title']),
       coverStyle: serializer.fromJson<String>(json['coverStyle']),
       teamId: serializer.fromJson<String?>(json['teamId']),
+      ownerId: serializer.fromJson<String?>(json['ownerId']),
       schemaVersion: serializer.fromJson<int>(json['schemaVersion']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
@@ -299,6 +330,7 @@ class Journal extends DataClass implements Insertable<Journal> {
       'title': serializer.toJson<String>(title),
       'coverStyle': serializer.toJson<String>(coverStyle),
       'teamId': serializer.toJson<String?>(teamId),
+      'ownerId': serializer.toJson<String?>(ownerId),
       'schemaVersion': serializer.toJson<int>(schemaVersion),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
@@ -311,6 +343,7 @@ class Journal extends DataClass implements Insertable<Journal> {
     String? title,
     String? coverStyle,
     Value<String?> teamId = const Value.absent(),
+    Value<String?> ownerId = const Value.absent(),
     int? schemaVersion,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -320,6 +353,7 @@ class Journal extends DataClass implements Insertable<Journal> {
     title: title ?? this.title,
     coverStyle: coverStyle ?? this.coverStyle,
     teamId: teamId.present ? teamId.value : this.teamId,
+    ownerId: ownerId.present ? ownerId.value : this.ownerId,
     schemaVersion: schemaVersion ?? this.schemaVersion,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -333,6 +367,7 @@ class Journal extends DataClass implements Insertable<Journal> {
           ? data.coverStyle.value
           : this.coverStyle,
       teamId: data.teamId.present ? data.teamId.value : this.teamId,
+      ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
       schemaVersion: data.schemaVersion.present
           ? data.schemaVersion.value
           : this.schemaVersion,
@@ -349,6 +384,7 @@ class Journal extends DataClass implements Insertable<Journal> {
           ..write('title: $title, ')
           ..write('coverStyle: $coverStyle, ')
           ..write('teamId: $teamId, ')
+          ..write('ownerId: $ownerId, ')
           ..write('schemaVersion: $schemaVersion, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -363,6 +399,7 @@ class Journal extends DataClass implements Insertable<Journal> {
     title,
     coverStyle,
     teamId,
+    ownerId,
     schemaVersion,
     createdAt,
     updatedAt,
@@ -376,6 +413,7 @@ class Journal extends DataClass implements Insertable<Journal> {
           other.title == this.title &&
           other.coverStyle == this.coverStyle &&
           other.teamId == this.teamId &&
+          other.ownerId == this.ownerId &&
           other.schemaVersion == this.schemaVersion &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
@@ -387,6 +425,7 @@ class JournalsCompanion extends UpdateCompanion<Journal> {
   final Value<String> title;
   final Value<String> coverStyle;
   final Value<String?> teamId;
+  final Value<String?> ownerId;
   final Value<int> schemaVersion;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
@@ -397,6 +436,7 @@ class JournalsCompanion extends UpdateCompanion<Journal> {
     this.title = const Value.absent(),
     this.coverStyle = const Value.absent(),
     this.teamId = const Value.absent(),
+    this.ownerId = const Value.absent(),
     this.schemaVersion = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -408,6 +448,7 @@ class JournalsCompanion extends UpdateCompanion<Journal> {
     required String title,
     this.coverStyle = const Value.absent(),
     this.teamId = const Value.absent(),
+    this.ownerId = const Value.absent(),
     this.schemaVersion = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
@@ -422,6 +463,7 @@ class JournalsCompanion extends UpdateCompanion<Journal> {
     Expression<String>? title,
     Expression<String>? coverStyle,
     Expression<String>? teamId,
+    Expression<String>? ownerId,
     Expression<int>? schemaVersion,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
@@ -433,6 +475,7 @@ class JournalsCompanion extends UpdateCompanion<Journal> {
       if (title != null) 'title': title,
       if (coverStyle != null) 'cover_style': coverStyle,
       if (teamId != null) 'team_id': teamId,
+      if (ownerId != null) 'owner_id': ownerId,
       if (schemaVersion != null) 'schema_version': schemaVersion,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -446,6 +489,7 @@ class JournalsCompanion extends UpdateCompanion<Journal> {
     Value<String>? title,
     Value<String>? coverStyle,
     Value<String?>? teamId,
+    Value<String?>? ownerId,
     Value<int>? schemaVersion,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
@@ -457,6 +501,7 @@ class JournalsCompanion extends UpdateCompanion<Journal> {
       title: title ?? this.title,
       coverStyle: coverStyle ?? this.coverStyle,
       teamId: teamId ?? this.teamId,
+      ownerId: ownerId ?? this.ownerId,
       schemaVersion: schemaVersion ?? this.schemaVersion,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -479,6 +524,9 @@ class JournalsCompanion extends UpdateCompanion<Journal> {
     }
     if (teamId.present) {
       map['team_id'] = Variable<String>(teamId.value);
+    }
+    if (ownerId.present) {
+      map['owner_id'] = Variable<String>(ownerId.value);
     }
     if (schemaVersion.present) {
       map['schema_version'] = Variable<int>(schemaVersion.value);
@@ -505,6 +553,7 @@ class JournalsCompanion extends UpdateCompanion<Journal> {
           ..write('title: $title, ')
           ..write('coverStyle: $coverStyle, ')
           ..write('teamId: $teamId, ')
+          ..write('ownerId: $ownerId, ')
           ..write('schemaVersion: $schemaVersion, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -5811,6 +5860,7 @@ typedef $$JournalsTableCreateCompanionBuilder =
       required String title,
       Value<String> coverStyle,
       Value<String?> teamId,
+      Value<String?> ownerId,
       Value<int> schemaVersion,
       required DateTime createdAt,
       required DateTime updatedAt,
@@ -5823,6 +5873,7 @@ typedef $$JournalsTableUpdateCompanionBuilder =
       Value<String> title,
       Value<String> coverStyle,
       Value<String?> teamId,
+      Value<String?> ownerId,
       Value<int> schemaVersion,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
@@ -5856,6 +5907,11 @@ class $$JournalsTableFilterComposer
 
   ColumnFilters<String> get teamId => $composableBuilder(
     column: $table.teamId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5909,6 +5965,11 @@ class $$JournalsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get schemaVersion => $composableBuilder(
     column: $table.schemaVersion,
     builder: (column) => ColumnOrderings(column),
@@ -5952,6 +6013,9 @@ class $$JournalsTableAnnotationComposer
 
   GeneratedColumn<String> get teamId =>
       $composableBuilder(column: $table.teamId, builder: (column) => column);
+
+  GeneratedColumn<String> get ownerId =>
+      $composableBuilder(column: $table.ownerId, builder: (column) => column);
 
   GeneratedColumn<int> get schemaVersion => $composableBuilder(
     column: $table.schemaVersion,
@@ -6000,6 +6064,7 @@ class $$JournalsTableTableManager
                 Value<String> title = const Value.absent(),
                 Value<String> coverStyle = const Value.absent(),
                 Value<String?> teamId = const Value.absent(),
+                Value<String?> ownerId = const Value.absent(),
                 Value<int> schemaVersion = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
@@ -6010,6 +6075,7 @@ class $$JournalsTableTableManager
                 title: title,
                 coverStyle: coverStyle,
                 teamId: teamId,
+                ownerId: ownerId,
                 schemaVersion: schemaVersion,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -6022,6 +6088,7 @@ class $$JournalsTableTableManager
                 required String title,
                 Value<String> coverStyle = const Value.absent(),
                 Value<String?> teamId = const Value.absent(),
+                Value<String?> ownerId = const Value.absent(),
                 Value<int> schemaVersion = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
@@ -6032,6 +6099,7 @@ class $$JournalsTableTableManager
                 title: title,
                 coverStyle: coverStyle,
                 teamId: teamId,
+                ownerId: ownerId,
                 schemaVersion: schemaVersion,
                 createdAt: createdAt,
                 updatedAt: updatedAt,

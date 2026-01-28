@@ -10,12 +10,21 @@ class JournalDao extends DatabaseAccessor<AppDatabase> with _$JournalDaoMixin {
   JournalDao(super.db);
 
   /// Get all non-deleted journals ordered by update time
-  Stream<List<model.Journal>> watchAllJournals() {
-    return (select(journals)
-          ..where((t) => t.deletedAt.isNull())
-          ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)]))
-        .watch()
-        .map((rows) => rows.map(_rowToModel).toList());
+  /// If userId is provided, filters by ownerId (or null for legacy data if needed)
+  Stream<List<model.Journal>> watchAllJournals({String? userId}) {
+    final query = select(journals)
+      ..where((t) => t.deletedAt.isNull())
+      ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)]);
+
+    if (userId != null) {
+      // Authenticated user: show only their journals
+      query.where((t) => t.ownerId.equals(userId));
+    } else {
+      // Guest/Local: show only journals without an owner
+      query.where((t) => t.ownerId.isNull());
+    }
+
+    return query.watch().map((rows) => rows.map(_rowToModel).toList());
   }
 
   /// Get a single journal by ID
@@ -56,6 +65,7 @@ class JournalDao extends DatabaseAccessor<AppDatabase> with _$JournalDaoMixin {
       title: row.title,
       coverStyle: row.coverStyle,
       teamId: row.teamId,
+      ownerId: row.ownerId, // Added mapping
       schemaVersion: row.schemaVersion,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
@@ -69,6 +79,7 @@ class JournalDao extends DatabaseAccessor<AppDatabase> with _$JournalDaoMixin {
       title: Value(journal.title),
       coverStyle: Value(journal.coverStyle),
       teamId: Value(journal.teamId),
+      ownerId: Value(journal.ownerId), // Added mapping
       schemaVersion: Value(journal.schemaVersion),
       createdAt: Value(journal.createdAt),
       updatedAt: Value(journal.updatedAt),

@@ -6,22 +6,40 @@ import 'package:journal_app/core/models/block.dart';
 import 'package:journal_app/features/editor/drawing/ink_storage.dart';
 import 'database_providers.dart';
 
+import 'package:journal_app/core/auth/auth_service.dart';
+
 /// Stream of all journals
 final journalsProvider = StreamProvider<List<Journal>>((ref) {
   final dao = ref.watch(journalDaoProvider);
-  return dao.watchAllJournals();
+  final authState = ref.watch(authStateProvider);
+  final userId = authState.value?.uid;
+
+  // If no user is logged in, show nothing or guest data?
+  // User asked for journals to be private to users.
+  // If userId is null (guest?), maybe showing empty or guest journals is fine.
+  // But for now let's pass whatever we have.
+  return dao.watchAllJournals(userId: userId);
 });
 
 /// Create a new journal
 final createJournalProvider = Provider((ref) {
   final dao = ref.read(journalDaoProvider);
   final pageDao = ref.read(pageDaoProvider);
-  final firestoreService = ref.read(
-    firestoreServiceProvider,
-  ); // Add this import and provider
+  final authService = ref.read(authServiceProvider);
+  final firestoreService = ref.read(firestoreServiceProvider);
 
-  return (String title) async {
-    final journal = Journal(title: title);
+  return ({
+    required String title,
+    String coverStyle = 'default',
+    String? teamId,
+  }) async {
+    final userId = authService.currentUser?.uid;
+    final journal = Journal(
+      title: title,
+      coverStyle: coverStyle,
+      teamId: teamId,
+      ownerId: userId, // Set ownerId
+    );
     await dao.insertJournal(journal);
 
     // Create first page automatically
@@ -34,7 +52,6 @@ final createJournalProvider = Provider((ref) {
       await firestoreService.createPage(firstPage);
     } catch (e) {
       // Ignore cloud errors for offline-first resilience
-      // Maybe log to Crashlytics later
     }
 
     return journal;

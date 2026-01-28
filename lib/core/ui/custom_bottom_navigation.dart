@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 
 class CustomBottomNavigation extends StatelessWidget {
@@ -12,107 +13,144 @@ class CustomBottomNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Dark background color for the bar itself
-    final barBackgroundColor = const Color(0xFF1E1E2C);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-      child: Container(
-        height: 60,
-        decoration: BoxDecoration(
-          color: barBackgroundColor,
-          borderRadius: BorderRadius.circular(35), // Fully rounded ends
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            height: 64,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.6)
+                  : Colors.white.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : Colors.black.withValues(alpha: 0.05),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.15),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildNavItem(context, 0, Icons.home_rounded, 'Anasayfa'),
-            _buildNavItem(context, 3, Icons.book_rounded, 'Günlükler'),
-            _buildNavItem(context, 2, Icons.people_rounded, 'Arkadaşlar'),
-            _buildNavItem(context, 1, Icons.person_rounded, 'Profil'),
-          ],
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildNavItem(
+                  context,
+                  colorScheme,
+                  0,
+                  Icons.home_rounded,
+                  'Anasayfa',
+                ),
+                _buildNavItem(
+                  context,
+                  colorScheme,
+                  3,
+                  Icons.book_rounded,
+                  'Günlükler',
+                ),
+                _buildNavItem(
+                  context,
+                  colorScheme,
+                  2,
+                  Icons.people_rounded,
+                  'Arkadaşlar',
+                ),
+                _buildNavItem(
+                  context,
+                  colorScheme,
+                  1,
+                  Icons.person_rounded,
+                  'Profil',
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 
-  // Helper to build explicit visual order
-  // But let's look at the mapping in LibraryScreen again.
-  // _titles = ['Anasayfa', 'Ayarlar', 'Arkadaşlar', 'Günlüklerim'];
-  // Index mappings: 0, 1, 2, 3.
-  // I will just render them in index order 0, 2, 3, 1? No, 0,1,2,3 is safest unless I refactor LibraryScreen.
-  // Let's stick to 0, 2, 3, 1 as it looks better: Home, Friends, Journals, Settings.
-
   Widget _buildNavItem(
     BuildContext context,
+    ColorScheme colorScheme,
     int index,
     IconData icon,
     String label,
   ) {
     final isSelected = selectedIndex == index;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return GestureDetector(
       onTap: () => onItemSelected(index),
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        padding: isSelected
-            ? const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
-            : const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+        padding: EdgeInsets.symmetric(
+          horizontal: isSelected ? 18 : 12,
+          vertical: 8,
+        ),
         decoration: isSelected
             ? BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFFD04ED6), // Pink-ish
-                    Color(0xFF834D9B), // Purple
-                  ],
+                gradient: LinearGradient(
+                  colors: [colorScheme.primary, colorScheme.secondary],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(25),
+                borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFD04ED6).withValues(alpha: 0.4),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+                    color: colorScheme.primary.withValues(alpha: 0.4),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               )
             : null,
-        child: Column(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.white : Colors.grey,
-              size: 24,
+            AnimatedScale(
+              scale: isSelected ? 1.1 : 1.0,
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                icon,
+                color: isSelected
+                    ? Colors.white
+                    : isDark
+                    ? Colors.grey[400]
+                    : Colors.grey[600],
+                size: 22,
+              ),
             ),
-            if (!isSelected) ...[
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: const TextStyle(color: Colors.grey, fontSize: 10),
-              ),
-            ] else ...[
-              const SizedBox(height: 2),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              child: isSelected
+                  ? Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Text(
+                        label,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
           ],
         ),
       ),

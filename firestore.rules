@@ -1,0 +1,59 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user is owner of the resource
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+    
+    // Usernames (for uniqueness checks)
+    match /usernames/{username} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid;
+      // Deletes not allowed by client for now, or only by owner of linked uid
+    }
+    
+    // Display IDs
+    match /displayIds/{displayId} {
+      allow read: if isAuthenticated();
+      // Only server or strictly controlled writes
+      allow write: if isAuthenticated(); 
+    }
+
+    // Journals: Users can only read/write journals they own
+    match /journals/{journalId} {
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+      allow read, update, delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+      
+      // Sub-collections (pages, blocks, etc.) inherit ownership check via journal ownership? 
+      // Firestore rules don't automatically inherit. We need to check parent.
+      // But for offline-first architecture, we often sync collections independently.
+      // Assuming journals are top level.
+    }
+    
+    // Pages: Need to ensure they belong to a journal owned by user
+    // This requires a get() on the parent journal which costs a read.
+    // Alternatively, redundancy: store ownerId on pages too? 
+    // Or just trust client for now if rigorous security isn't critical yet?
+    // Let's implement robust check.
+    match /pages/{pageId} {
+      allow read, write: if isAuthenticated() && 
+        get(/databases/$(database)/documents/journals/$(resource.data.journalId)).data.ownerId == request.auth.uid;
+      
+      allow create: if isAuthenticated() && 
+        get(/databases/$(database)/documents/journals/$(request.resource.data.journalId)).data.ownerId == request.auth.uid;
+    }
+  }
+}

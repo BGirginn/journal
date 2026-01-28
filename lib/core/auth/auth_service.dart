@@ -41,6 +41,9 @@ class AuthService {
       throw Exception('Firebase is not initialized. Please use Guest mode.');
     }
     try {
+      // Force account picker by clearing previous session
+      await _googleSignIn.signOut();
+
       // Trigger the authentication flow
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) return null; // Cancelled
