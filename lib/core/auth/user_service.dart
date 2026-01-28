@@ -162,6 +162,43 @@ class UserService {
     return UserProfile.fromMap(userDoc.data()!);
   }
 
+  /// Get user profile by UID
+  Future<UserProfile?> getUserProfile(String uid) async {
+    final firestore = _firestore;
+    if (!_isAvailable || firestore == null) return null;
+
+    final doc = await firestore.collection('users').doc(uid).get();
+    if (!doc.exists) return null;
+    return UserProfile.fromMap(doc.data()!);
+  }
+
+  /// Get multiple profiles by UIDs
+  Future<List<UserProfile>> getProfiles(List<String> uids) async {
+    final firestore = _firestore;
+    if (!_isAvailable || firestore == null || uids.isEmpty) return [];
+
+    // Firestore 'whereIn' supports up to 10 items.
+    // If list is larger, we need to batch or loop.
+    // For simplicity, we'll fetch in batches of 10.
+    final profiles = <UserProfile>[];
+
+    for (var i = 0; i < uids.length; i += 10) {
+      final end = (i + 10 < uids.length) ? i + 10 : uids.length;
+      final batch = uids.sublist(i, end);
+
+      final querySnapshot = await firestore
+          .collection('users')
+          .where('uid', whereIn: batch)
+          .get();
+
+      profiles.addAll(
+        querySnapshot.docs.map((doc) => UserProfile.fromMap(doc.data())),
+      );
+    }
+
+    return profiles;
+  }
+
   /// Send a friend request to a user
   Future<void> sendFriendRequest(String targetUid) async {
     final firestore = _firestore;

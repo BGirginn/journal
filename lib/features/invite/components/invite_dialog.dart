@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal_app/core/models/invite.dart';
 import 'package:journal_app/core/models/team.dart';
 import 'package:journal_app/features/invite/invite_service.dart';
+import 'package:journal_app/core/auth/user_service.dart';
 
 class InviteDialog extends ConsumerStatefulWidget {
   final String targetId;
@@ -25,31 +26,78 @@ class _InviteDialogState extends ConsumerState<InviteDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final myProfileAsync = ref.watch(myProfileProvider);
+
     return AlertDialog(
       title: const Text('Üye Davet Et'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('Kullanıcı ID\'si ile davet et veya link paylaş.'),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _emailController,
-            decoration: const InputDecoration(
-              labelText: 'Kullanıcı ID',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 16),
-          if (_generatedLink != null) ...[
-            const Text('Davet Linki:'),
-            SelectableText(
-              _generatedLink!,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Arkadaş listenizden birini seçin veya link paylaşın.'),
             const SizedBox(height: 16),
+
+            // Friend Selector
+            myProfileAsync.when(
+              data: (profile) {
+                if (profile == null) return const Text('Profil yüklenemedi.');
+                if (profile.friends.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: Text('Henüz arkadaşınız yok. Önce arkadaş ekleyin.'),
+                  );
+                }
+
+                return FutureBuilder<List<UserProfile>>(
+                  future: ref
+                      .read(userServiceProvider)
+                      .getProfiles(profile.friends),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const LinearProgressIndicator();
+                    }
+                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return const Text('Arkadaş listesi alınamadı.');
+                    }
+
+                    final friends = snapshot.data!;
+                    return DropdownButtonFormField<String>(
+                      decoration: const InputDecoration(
+                        labelText: 'Arkadaş Seç',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.person),
+                      ),
+                      items: friends.map((friend) {
+                        return DropdownMenuItem(
+                          value: friend.uid,
+                          child: Text(friend.displayName),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        _emailController.text = value ?? '';
+                      },
+                    );
+                  },
+                );
+              },
+              loading: () => const LinearProgressIndicator(),
+              error: (err, stack) => Text('Hata: $err'),
+            ),
+
+            const SizedBox(height: 16),
+            if (_generatedLink != null) ...[
+              const Text('Davet Linki:'),
+              SelectableText(
+                _generatedLink!,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (_isLoading) const Center(child: CircularProgressIndicator()),
           ],
-          if (_isLoading) const CircularProgressIndicator(),
-        ],
+        ),
       ),
       actions: [
         TextButton(
@@ -60,7 +108,12 @@ class _InviteDialogState extends ConsumerState<InviteDialog> {
           onPressed: _generateLink,
           child: const Text('Link Oluştur'),
         ),
-        FilledButton(onPressed: _sendInvite, child: const Text('Davet Et')),
+        FilledButton(
+          onPressed: _sendInvite,
+          // Disable if no friend selected (controller empty) and no user typed (but user typing is removed now)
+          // But actually we are setting controller text on change.
+          child: const Text('Davet Et'),
+        ),
       ],
     );
   }

@@ -7,6 +7,8 @@ import 'package:journal_app/core/models/team_member.dart';
 import 'package:journal_app/features/invite/components/invite_dialog.dart';
 import 'package:journal_app/core/models/invite.dart';
 
+import 'package:journal_app/core/auth/user_service.dart';
+
 class TeamManagementScreen extends ConsumerStatefulWidget {
   final String teamId;
 
@@ -23,8 +25,7 @@ class _TeamManagementScreenState extends ConsumerState<TeamManagementScreen> {
     final teamService = ref.watch(teamServiceProvider);
 
     // We need to fetch the team details first.
-    // Since we don't have a single team stream exposed yet, let's just use watchMyTeams and find it,
-    // or better, implement getTeamById in service or use FutureBuilder if it's not reactive for properties.
+    // Since we don't have a single team stream exposed yet, let's just use watchMyTeams and find it.
     // Ideally, we should have a `watchTeam(id)` method. But for now, let's find it in the list.
 
     return Scaffold(
@@ -57,7 +58,7 @@ class _TeamManagementScreenState extends ConsumerState<TeamManagementScreen> {
 
           return Column(
             children: [
-              _buildTeamHeader(context, team),
+              _buildTeamHeader(context, team, ref),
               const Divider(),
               Expanded(child: _buildMemberList(context, teamService)),
             ],
@@ -78,37 +79,54 @@ class _TeamManagementScreenState extends ConsumerState<TeamManagementScreen> {
     );
   }
 
-  Widget _buildTeamHeader(BuildContext context, Team team) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: 40,
-            backgroundImage: team.avatarUrl != null
-                ? NetworkImage(team.avatarUrl!)
-                : null,
-            child: team.avatarUrl == null
-                ? Text(
-                    team.name[0].toUpperCase(),
-                    style: const TextStyle(fontSize: 32),
-                  )
-                : null,
+  Widget _buildTeamHeader(BuildContext context, Team team, WidgetRef ref) {
+    return FutureBuilder<UserProfile?>(
+      future: ref.read(userServiceProvider).getUserProfile(team.ownerId),
+      builder: (context, snapshot) {
+        final ownerName = snapshot.data?.displayName ?? 'Bilinmeyen Sahip';
+
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              CircleAvatar(
+                radius: 40,
+                backgroundImage: team.avatarUrl != null
+                    ? NetworkImage(team.avatarUrl!)
+                    : null,
+                child: team.avatarUrl == null
+                    ? Text(
+                        team.name[0].toUpperCase(),
+                        style: const TextStyle(fontSize: 32),
+                      )
+                    : null,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                team.name,
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Sahip: $ownerName',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+              ),
+              if (team.description != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  team.description!,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ],
           ),
-          const SizedBox(height: 16),
-          Text(team.name, style: Theme.of(context).textTheme.headlineMedium),
-          if (team.description != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              team.description!,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -139,35 +157,55 @@ class _TeamManagementScreenState extends ConsumerState<TeamManagementScreen> {
               return ListView.builder(
                 itemCount: members.length,
                 itemBuilder: (context, index) {
-                  final member = members[index];
-                  // Note: User details (name, photo) should be fetched for this member.userId
-                  // For now, show userId.
-
-                  return ListTile(
-                    leading: const CircleAvatar(child: Icon(Icons.person)),
-                    title: Text(member.userId), // Placeholder for name
-                    subtitle: Text(member.role.displayName),
-                    trailing: PopupMenuButton(
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(
-                          value: 'remove',
-                          child: Text(
-                            'Çıkar',
-                            style: TextStyle(color: Colors.red),
-                          ),
-                        ),
-                      ],
-                      onSelected: (value) {
-                        // Handle removal
-                      },
-                    ),
-                  );
+                  return _MemberTile(member: members[index]);
                 },
               );
             },
           ),
         ),
       ],
+    );
+  }
+}
+
+class _MemberTile extends ConsumerWidget {
+  final TeamMember member;
+
+  const _MemberTile({required this.member});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userService = ref.watch(userServiceProvider);
+
+    return FutureBuilder<UserProfile?>(
+      future: userService.getUserProfile(member.userId),
+      builder: (context, snapshot) {
+        final user = snapshot.data;
+        final name = user?.displayName ?? member.userId;
+        final email = user?.firstName != null ? '@${user?.username}' : '';
+
+        return ListTile(
+          leading: CircleAvatar(
+            backgroundImage: user?.photoUrl != null
+                ? NetworkImage(user!.photoUrl!)
+                : null,
+            child: user?.photoUrl == null ? const Icon(Icons.person) : null,
+          ),
+          title: Text(name),
+          subtitle: Text('${member.role.displayName} $email'),
+          trailing: PopupMenuButton(
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'remove',
+                child: Text('Çıkar', style: TextStyle(color: Colors.red)),
+              ),
+            ],
+            onSelected: (value) {
+              // Handle removal
+            },
+          ),
+        );
+      },
     );
   }
 }
