@@ -51,6 +51,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               ref.read(needsProfileSetupProvider.notifier).state = true;
               profileNotifier.value = true;
             });
+      } else {
+        // User logged out - reset profile setup state for next user
+        ref.read(needsProfileSetupProvider.notifier).state = null;
+        profileNotifier.value = false;
       }
     }
   });

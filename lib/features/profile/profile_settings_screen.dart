@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:journal_app/core/auth/auth_service.dart';
 import 'package:journal_app/core/auth/user_service.dart';
 import 'package:journal_app/core/theme/theme_provider.dart';
+import 'package:journal_app/core/navigation/app_router.dart';
 
 class ProfileSettingsScreen extends StatelessWidget {
   const ProfileSettingsScreen({super.key});
@@ -176,6 +177,9 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
 
                     if (confirmed == true) {
                       await ref.read(authServiceProvider).signOut();
+                      // Reset profile setup state for next user
+                      ref.read(needsProfileSetupProvider.notifier).state = null;
+                      ref.read(guestModeProvider.notifier).state = false;
                       if (context.mounted) {
                         Navigator.of(
                           context,
