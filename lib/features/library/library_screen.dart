@@ -38,7 +38,15 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
-      body: _buildBody(),
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        switchInCurve: Curves.easeOut,
+        switchOutCurve: Curves.easeIn,
+        transitionBuilder: (child, animation) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        child: _buildBody(),
+      ),
       bottomNavigationBar: CustomBottomNavigation(
         selectedIndex: _selectedIndex,
         onItemSelected: (index) {

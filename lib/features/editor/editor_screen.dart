@@ -60,16 +60,15 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   }
 
   Future<void> _loadContent() async {
-    // Load blocks
+    // Load blocks once (not watching continuously during editing)
     final blockDao = ref.read(blockDaoProvider);
-    blockDao.watchBlocksForPage(widget.page.id).listen((blocks) {
-      if (mounted) {
-        setState(() {
-          _blocks = blocks;
-          _isLoading = false;
-        });
-      }
-    });
+    final blocks = await blockDao.getBlocksForPage(widget.page.id);
+    if (mounted) {
+      setState(() {
+        _blocks = blocks;
+        _isLoading = false;
+      });
+    }
 
     // Load ink strokes from page
     final pageDao = ref.read(pageDaoProvider);
@@ -609,7 +608,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               clipBehavior: Clip.none,
               children: [
                 // Content
-                Positioned.fill(child: _buildBlockContent(block)),
+                Positioned.fill(child: _buildBlockContent(block, pageSize)),
 
                 // Selection handles
                 if (isSelected) ...[
@@ -730,7 +729,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     );
   }
 
-  Widget _buildBlockContent(Block block) {
+  Widget _buildBlockContent(Block block, Size pageSize) {
     switch (block.type) {
       case BlockType.text:
         final payload = TextBlockPayload.fromJson(block.payload);
@@ -752,12 +751,15 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         return VideoBlockWidget(path: payload.path ?? '', isReadOnly: true);
       case BlockType.image:
         final payload = ImageBlockPayload.fromJson(block.payload);
-        if (payload.path != null && File(payload.path!).existsSync()) {
+        if (payload.path != null) {
+          // Calculate dimensions from pageSize instead of MediaQuery
+          final width = block.width * pageSize.width;
+          final height = block.height * pageSize.height;
           return ImageFrameWidget(
             imageProvider: FileImage(File(payload.path!)),
             frameStyle: payload.frameStyle,
-            width: block.width * MediaQuery.of(context).size.width,
-            height: block.height * MediaQuery.of(context).size.height,
+            width: width,
+            height: height,
           );
         }
         return Container(
@@ -782,19 +784,16 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
   void _onPanStart(DragStartDetails details, Size pageSize) {
     if (_mode == EditorMode.draw) {
-      // Start new stroke
+      // Start new stroke - add to existing list instead of recreating
       final point = details.localPosition;
-      setState(() {
-        _strokes = [
-          ..._strokes,
-          InkStrokeData(
-            points: [point],
-            colorValue: _penColor.toARGB32(),
-            width: _penWidth,
-          ),
-        ];
-        _isDirty = true;
-      });
+      final stroke = InkStrokeData(
+        points: [point],
+        colorValue: _penColor.toARGB32(),
+        width: _penWidth,
+      );
+      _strokes.add(stroke);
+      _isDirty = true;
+      setState(() {});
     } else if (_mode == EditorMode.select && _selectedBlockId != null) {
       // Start dragging selected block
       _dragStart = details.localPosition;
@@ -805,19 +804,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
   void _onPanUpdate(DragUpdateDetails details, Size pageSize) {
     if (_mode == EditorMode.draw && _strokes.isNotEmpty) {
-      // Continue stroke
+      // Continue stroke - optimize by mutating instead of recreating list
       final point = details.localPosition;
-      setState(() {
-        final lastStroke = _strokes.last;
-        _strokes = [
-          ..._strokes.sublist(0, _strokes.length - 1),
-          InkStrokeData(
-            points: [...lastStroke.points, point],
-            colorValue: lastStroke.colorValue,
-            width: lastStroke.width,
-          ),
-        ];
-      });
+      _strokes.last.points.add(point);
+      // Trigger repaint without full rebuild
+      setState(() {});
     } else if (_mode == EditorMode.select &&
         _selectedBlockId != null &&
         _dragStart != null &&
@@ -1306,7 +1297,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                     child: SizedBox(
                       width: 150,
                       height: 150,
-                      child: _buildBlockContent(block),
+                      child: _buildBlockContent(block, const Size(150, 150)),
                     ),
                   ),
                 ),

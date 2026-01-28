@@ -3,15 +3,15 @@ import 'package:flutter/material.dart';
 
 /// Optimized ink stroke storage
 class InkStrokeData {
-  final List<Offset> points;
+  final List<Offset> points; // Mutable for performance during drawing
   final int colorValue;
   final double width;
 
-  const InkStrokeData({
-    required this.points,
+  InkStrokeData({
+    List<Offset>? points,
     required this.colorValue,
     required this.width,
-  });
+  }) : points = points ?? [];
 
   Color get color => Color(colorValue);
 

@@ -2,8 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Tracks if the user is in guest mode
-final guestModeProvider = StateProvider<bool>((ref) => false);
+// guestMode removed
 
 final firebaseErrorProvider = StateProvider<String?>((ref) => null);
 
@@ -38,7 +37,7 @@ class AuthService {
 
   Future<UserCredential?> signInWithGoogle() async {
     if (_auth == null) {
-      throw Exception('Firebase is not initialized. Please use Guest mode.');
+      throw Exception('Firebase başlatılamadı veya yapılandırma hatası.');
     }
     try {
       // Force account picker by clearing previous session

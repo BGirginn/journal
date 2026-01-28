@@ -41,7 +41,7 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
     });
 
     try {
-      final user = await ref.read(userServiceProvider).searchByDisplayId(query);
+      final user = await ref.read(userServiceProvider).searchByUsername(query);
       if (mounted) {
         setState(() {
           _searchResult = user;
@@ -55,15 +55,14 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
     }
   }
 
-  void _handleAddFriend(UserProfile friend) async {
+  void _handleSendRequest(UserProfile user) async {
     try {
-      await ref.read(userServiceProvider).addFriend(friend.uid);
+      await ref.read(userServiceProvider).sendFriendRequest(user.uid);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${friend.displayName} eklendi!')),
+          SnackBar(content: Text('${user.displayName}\'e istek gönderildi!')),
         );
-        setState(() => _searchResult = null);
-        _searchController.clear();
+        setState(() {}); // Refresh UI
       }
     } catch (e) {
       if (mounted) {
@@ -71,6 +70,75 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
           SnackBar(content: Text('Hata: $e'), backgroundColor: Colors.red),
         );
       }
+    }
+  }
+
+  void _handleAcceptRequest(String uid, String name) async {
+    try {
+      await ref.read(userServiceProvider).acceptFriendRequest(uid);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$name ile artık arkadaşsınız!')),
+        );
+      }
+    } catch (e) {
+      debugPrint('Hata: $e');
+    }
+  }
+
+  void _handleRejectRequest(String uid) async {
+    try {
+      await ref.read(userServiceProvider).rejectFriendRequest(uid);
+    } catch (e) {
+      debugPrint('Hata: $e');
+    }
+  }
+
+  void _handleCancelRequest(String uid) async {
+    try {
+      await ref.read(userServiceProvider).cancelFriendRequest(uid);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('İstek iptal edildi.')));
+        setState(() {});
+      }
+    } catch (e) {
+      debugPrint('Hata: $e');
+    }
+  }
+
+  void _handleRemoveFriend(String uid, String name) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Arkadaşı Çıkar'),
+        content: Text('$name listenizden çıkarılacak. Emin misiniz?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('İptal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Çıkar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await ref.read(userServiceProvider).removeFriend(uid);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$name arkadaşlardan çıkarıldı.')),
+        );
+      }
+    } catch (e) {
+      debugPrint('Hata: $e');
     }
   }
 
@@ -94,7 +162,6 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
                 style: TextStyle(color: Colors.grey),
               ),
               const SizedBox(height: 24),
-              // Only show back button if there is a navigator history to pop
               if (Navigator.canPop(context))
                 ElevatedButton(
                   onPressed: () => Navigator.pop(context),
@@ -153,6 +220,42 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
 
               const SizedBox(height: 32),
 
+              // Friend Requests Section
+              if (profile.receivedFriendRequests.isNotEmpty) ...[
+                Row(
+                  children: [
+                    Text(
+                      'Gelen İstekler',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${profile.receivedFriendRequests.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _buildRequestsList(profile.receivedFriendRequests),
+                const SizedBox(height: 32),
+              ],
+
               // Friends List Section
               Text(
                 'Arkadaşlarım',
@@ -164,7 +267,7 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
                   child: Padding(
                     padding: EdgeInsets.all(24),
                     child: Text(
-                      'Henüz arkadaşın yok. ID ile arayıp ekleyebilirsin!',
+                      'Henüz arkadaşın yok. Kullanıcı adı ile arayıp ekleyebilirsin!',
                     ),
                   ),
                 )
@@ -179,6 +282,7 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
     );
   }
 
+  // Id Card and Search Bar remains same...
   Widget _buildMyIdCard(UserProfile profile) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -224,7 +328,7 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
                   ),
                 ),
                 Text(
-                  'ID: ${profile.displayId}',
+                  '@${profile.username}',
                   style: const TextStyle(color: Colors.white70, fontSize: 14),
                 ),
               ],
@@ -233,10 +337,10 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
           IconButton(
             icon: const Icon(Icons.copy, color: Colors.white),
             onPressed: () {
-              Clipboard.setData(ClipboardData(text: profile.displayId));
+              Clipboard.setData(ClipboardData(text: profile.username ?? ''));
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('ID kopyalandı!'),
+                  content: Text('Kullanıcı adı kopyalandı!'),
                   duration: Duration(seconds: 1),
                 ),
               );
@@ -254,7 +358,7 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
           child: TextField(
             controller: _searchController,
             decoration: InputDecoration(
-              hintText: 'Örn: J-1234',
+              hintText: 'Kullanıcı adı ile arkadaş ara...',
               prefixIcon: const Icon(Icons.search),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(15),
@@ -280,8 +384,52 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
   }
 
   Widget _buildSearchResultCard(UserProfile user, UserProfile currentMe) {
-    final isAlreadyFriend = currentMe.friends.contains(user.uid);
     final isMe = user.uid == currentMe.uid;
+    final isReason = currentMe.receivedFriendRequests.contains(user.uid);
+    final isSent = currentMe.sentFriendRequests.contains(user.uid);
+    final isFriend = currentMe.friends.contains(user.uid);
+
+    Widget trailing;
+
+    if (isMe) {
+      trailing = const Text('(Sen)', style: TextStyle(color: Colors.grey));
+    } else if (isFriend) {
+      trailing = const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.check_circle, color: Colors.green, size: 20),
+          SizedBox(width: 4),
+          Text('Arkadaşsınız'),
+        ],
+      );
+    } else if (isReason) {
+      trailing = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('İstek Var'),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.check, color: Colors.green),
+            onPressed: () => _handleAcceptRequest(user.uid, user.displayName),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.red),
+            onPressed: () => _handleRejectRequest(user.uid),
+          ),
+        ],
+      );
+    } else if (isSent) {
+      trailing = OutlinedButton(
+        onPressed: () => _handleCancelRequest(user.uid),
+        child: const Text('İstek Gönderildi (İptal)'),
+      );
+    } else {
+      trailing = ElevatedButton.icon(
+        icon: const Icon(Icons.person_add, size: 18),
+        label: const Text('Ekle'),
+        onPressed: () => _handleSendRequest(user),
+      );
+    }
 
     return Card(
       margin: const EdgeInsets.only(top: 16),
@@ -294,31 +442,105 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
           child: user.photoUrl == null ? const Icon(Icons.person) : null,
         ),
         title: Text(user.displayName),
-        subtitle: Text(user.displayId),
-        trailing: isMe
-            ? const Text('(Sen)')
-            : isAlreadyFriend
-            ? const Icon(Icons.check_circle, color: Colors.green)
-            : IconButton(
-                icon: const Icon(Icons.person_add_alt_1),
-                color: Theme.of(context).colorScheme.primary,
-                onPressed: () => _handleAddFriend(user),
-              ),
+        subtitle: Text('@${user.username}'),
+        trailing: trailing,
       ),
     );
   }
 
+  Widget _buildRequestsList(List<String> requestUids) {
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: requestUids.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        return _FriendRequestListTile(
+          uid: requestUids[index],
+          onAccept: (uid, name) => _handleAcceptRequest(uid, name),
+          onReject: (uid) => _handleRejectRequest(uid),
+        );
+      },
+    );
+  }
+
   Widget _buildFriendsList(List<String> friendUids) {
-    // Ideally use a FutureProvider to fetch multiple profiles
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: friendUids.length,
       separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
-        // Fetching profile in-list (Not most efficient but works for now)
-        // A better way: UserProfileProvider
-        return _FriendListTile(uid: friendUids[index]);
+        return _FriendListTile(
+          uid: friendUids[index],
+          onRemove: (uid, name) => _handleRemoveFriend(uid, name),
+        );
+      },
+    );
+  }
+}
+
+class _FriendRequestListTile extends StatelessWidget {
+  final String uid;
+  final Function(String, String) onAccept;
+  final Function(String) onReject;
+
+  const _FriendRequestListTile({
+    required this.uid,
+    required this.onAccept,
+    required this.onReject,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('users').doc(uid).get(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData ||
+            snapshot.data == null ||
+            !snapshot.data!.exists) {
+          return const SizedBox.shrink();
+        }
+        final data = snapshot.data!.data() as Map<String, dynamic>?;
+        if (data == null) return const SizedBox.shrink();
+
+        final user = UserProfile.fromMap(data);
+
+        return Card(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.3),
+            ),
+          ),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundImage: user.photoUrl != null
+                  ? NetworkImage(user.photoUrl!)
+                  : null,
+              child: user.photoUrl == null ? const Icon(Icons.person) : null,
+            ),
+            title: Text(user.displayName),
+            subtitle: Text('@${user.username}'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.check, color: Colors.green),
+                  onPressed: () => onAccept(user.uid, user.displayName),
+                  tooltip: 'Kabul Et',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.red),
+                  onPressed: () => onReject(user.uid),
+                  tooltip: 'Reddet',
+                ),
+              ],
+            ),
+          ),
+        );
       },
     );
   }
@@ -326,7 +548,9 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
 
 class _FriendListTile extends ConsumerWidget {
   final String uid;
-  const _FriendListTile({required this.uid});
+  final Function(String, String) onRemove;
+
+  const _FriendListTile({required this.uid, required this.onRemove});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -358,7 +582,12 @@ class _FriendListTile extends ConsumerWidget {
               child: friend.photoUrl == null ? const Icon(Icons.person) : null,
             ),
             title: Text(friend.displayName),
-            subtitle: Text(friend.displayId),
+            subtitle: Text('@${friend.username ?? "boş"}'),
+            trailing: IconButton(
+              icon: const Icon(Icons.person_remove, color: Colors.red),
+              onPressed: () => onRemove(friend.uid, friend.displayName),
+              tooltip: 'Arkadaşı Çıkar',
+            ),
           ),
         );
       },

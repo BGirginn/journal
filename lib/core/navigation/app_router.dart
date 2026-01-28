@@ -72,24 +72,34 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     }
   });
 
+  // Also listen to the state provider directly, in case it's updated manually
+  ref.listen(needsProfileSetupProvider, (_, next) {
+    if (next != null) {
+      // Toggle value to valid boolean to trigger refresh
+      // We use current 'next' value logic for consistency
+      profileNotifier.value = next; // Logic: true=needs setup, false=complete
+      // Note: ValueNotifier only notifies if value changes.
+      // If we need to force, we might need notifyListeners(), but changing boolean is usually enough for flow.
+      // If next is same as current, Router won't care anyway.
+    }
+  });
+
   return GoRouter(
     initialLocation: '/',
     refreshListenable: Listenable.merge([authNotifier, profileNotifier]),
     redirect: (context, state) {
       final authState = ref.read(authStateProvider);
       final isLoggedIn = authState.value != null;
-      final isGuest = ref.read(guestModeProvider);
       final needsProfileSetup = ref.read(needsProfileSetupProvider);
 
-      final canAccess = isLoggedIn || isGuest;
       final isLoginRoute = state.uri.path == '/login';
       final isProfileSetupRoute = state.uri.path == '/profile-setup';
 
       // Not logged in -> login
-      if (!canAccess && !isLoginRoute) return '/login';
+      if (!isLoggedIn && !isLoginRoute) return '/login';
 
       // Logged in but on login page -> redirect
-      if (canAccess && isLoginRoute) {
+      if (isLoggedIn && isLoginRoute) {
         // Check if needs profile setup
         if (needsProfileSetup == true) return '/profile-setup';
 
@@ -101,14 +111,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       // Logged in, needs setup (or unknown), not on setup page -> redirect
-      if (canAccess && !isGuest && !isProfileSetupRoute) {
+      if (isLoggedIn && !isProfileSetupRoute) {
         if (needsProfileSetup == true) return '/profile-setup';
         // If unknown (null), go back to login (loading state)
         if (needsProfileSetup == null) return '/login';
       }
 
       // Profile complete but on setup page -> go home
-      if (canAccess && needsProfileSetup == false && isProfileSetupRoute) {
+      if (isLoggedIn && needsProfileSetup == false && isProfileSetupRoute) {
         return '/';
       }
 

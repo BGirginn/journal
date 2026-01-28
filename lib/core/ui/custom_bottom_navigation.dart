@@ -96,8 +96,8 @@ class CustomBottomNavigation extends StatelessWidget {
       onTap: () => onItemSelected(index),
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOutCubic,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
         padding: EdgeInsets.symmetric(
           horizontal: isSelected ? 18 : 12,
           vertical: 8,
@@ -110,13 +110,7 @@ class CustomBottomNavigation extends StatelessWidget {
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: colorScheme.primary.withValues(alpha: 0.4),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                // BoxShadow removed as requested
               )
             : null,
         child: Row(

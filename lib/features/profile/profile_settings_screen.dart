@@ -179,7 +179,6 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
                       await ref.read(authServiceProvider).signOut();
                       // Reset profile setup state for next user
                       ref.read(needsProfileSetupProvider.notifier).state = null;
-                      ref.read(guestModeProvider.notifier).state = false;
                       if (context.mounted) {
                         Navigator.of(
                           context,

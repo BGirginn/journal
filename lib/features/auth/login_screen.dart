@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:journal_app/core/auth/auth_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:journal_app/core/navigation/app_router.dart';
+import 'package:journal_app/core/auth/user_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -13,6 +15,36 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _isLoading = false;
 
+  @override
+  void initState() {
+    super.initState();
+    // Check profile on startup (e.g. after hot restart) if user is logged in
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (ref.read(authStateProvider).value != null) {
+        _forceProfileCheck();
+      }
+    });
+  }
+
+  @override
+  void reassemble() {
+    super.reassemble();
+    debugPrint('Hot reload detected: Forcing profile check...');
+    _forceProfileCheck();
+  }
+
+  Future<void> _forceProfileCheck() async {
+    try {
+      final profile = await ref.read(userServiceProvider).ensureProfileExists();
+      if (mounted && profile != null) {
+        final needsSetup = !profile.isProfileComplete;
+        ref.read(needsProfileSetupProvider.notifier).state = needsSetup;
+      }
+    } catch (e) {
+      debugPrint('Force profile check failed: $e');
+    }
+  }
+
   void _handleGoogleSignIn() async {
     final authService = ref.read(authServiceProvider);
     setState(() => _isLoading = true);
@@ -20,7 +52,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final user = await authService.signInWithGoogle();
 
       if (user != null && mounted) {
-        // Router will handle navigation based on auth state and profile check
+        // Force profile fetch immediately to trigger router update
+        await _forceProfileCheck();
       }
     } catch (e) {
       if (mounted) {
@@ -132,6 +165,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             'Profil kontrol ediliyor...',
                             style: TextStyle(color: Colors.white70),
                           ),
+                          const SizedBox(height: 24),
+                          TextButton.icon(
+                            onPressed: () async {
+                              await ref.read(authServiceProvider).signOut();
+                              // Reset provider states
+                              ref
+                                      .read(needsProfileSetupProvider.notifier)
+                                      .state =
+                                  null;
+                            },
+                            icon: const Icon(
+                              Icons.logout,
+                              color: Colors.white70,
+                            ),
+                            label: const Text(
+                              'Çıkış Yap',
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                          ),
                         ] else ...[
                           _LoginButton(
                             label: 'Google ile Giriş Yap',
@@ -152,17 +204,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ],
                           const SizedBox(height: 16),
-                          TextButton(
-                            onPressed: () async {
-                              // Update the provider state
-                              ref.read(guestModeProvider.notifier).state = true;
-                            },
-                            child: Text(
-                              'Misafir Olarak Devam Et',
-                              style: Theme.of(context).textTheme.labelLarge
-                                  ?.copyWith(color: Colors.white),
-                            ),
-                          ),
                         ],
                       ],
                     ),

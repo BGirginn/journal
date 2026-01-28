@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart' as import_firebase_auth;
 import 'package:journal_app/core/theme/app_theme.dart';
 import 'package:journal_app/core/auth/auth_service.dart';
 import 'firebase_options.dart';
@@ -34,6 +35,20 @@ void main() async {
           'Native bağlantı hatası: Lütfen uygulamayı tamamen durdurup "flutter clean" sonrası yeniden başlatın.';
     } else {
       firebaseError = e.toString();
+    }
+  }
+
+  // Check for first run and clear lingering auth tokens if necessary
+  if (isFirebaseAvailable) {
+    final isFirstRun = prefs.getBool('is_first_run') ?? true;
+    if (isFirstRun) {
+      try {
+        await import_firebase_auth.FirebaseAuth.instance.signOut();
+        await prefs.setBool('is_first_run', false);
+        debugPrint('First run detected: Signed out any existing session.');
+      } catch (e) {
+        debugPrint('Error signing out on first run: $e');
+      }
     }
   }
 
