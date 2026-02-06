@@ -22,6 +22,8 @@ class TeamService {
   // Subscription cache to avoid multiple listeners
   StreamSubscription? _teamsSubscription;
   StreamSubscription? _membersSubscription;
+  final Map<String, StreamSubscription> _teamSyncSubscriptions = {};
+  final Map<String, StreamSubscription> _memberSyncSubscriptions = {};
 
   TeamService(this._teamDao, this._authService) {
     _initSync();
@@ -71,19 +73,24 @@ class TeamService {
   }
 
   void _syncTeam(String teamId) {
-    _firestore.collection('teams').doc(teamId).snapshots().listen((doc) async {
+    if (_teamSyncSubscriptions.containsKey(teamId)) return;
+    _teamSyncSubscriptions[teamId] = _firestore
+        .collection('teams')
+        .doc(teamId)
+        .snapshots()
+        .listen((doc) async {
       if (doc.exists) {
         final team = model.Team.fromJson(doc.data()!);
         await _teamDao.insertTeam(team);
       } else {
-        // Handle deletion if needed
         await _teamDao.softDeleteTeam(teamId);
       }
     });
   }
 
   void _syncTeamMembers(String teamId) {
-    _firestore
+    if (_memberSyncSubscriptions.containsKey(teamId)) return;
+    _memberSyncSubscriptions[teamId] = _firestore
         .collection('team_members')
         .where('teamId', isEqualTo: teamId)
         .snapshots()
@@ -94,7 +101,6 @@ class TeamService {
               final member = member_model.TeamMember.fromJson(doc.doc.data()!);
               await _teamDao.insertMember(member);
             }
-            // Handle removals?
           }
         });
   }
@@ -176,5 +182,13 @@ class TeamService {
   void dispose() {
     _teamsSubscription?.cancel();
     _membersSubscription?.cancel();
+    for (final sub in _teamSyncSubscriptions.values) {
+      sub.cancel();
+    }
+    _teamSyncSubscriptions.clear();
+    for (final sub in _memberSyncSubscriptions.values) {
+      sub.cancel();
+    }
+    _memberSyncSubscriptions.clear();
   }
 }

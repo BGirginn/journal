@@ -53,6 +53,9 @@ class Block implements BaseEntity {
   @override
   final DateTime? deletedAt;
 
+  /// Cached decoded payload to avoid repeated JSON parsing
+  Map<String, dynamic>? _cachedPayload;
+
   Block({
     String? id,
     required this.pageId,
@@ -76,8 +79,9 @@ class Block implements BaseEntity {
   @override
   bool get isDeleted => deletedAt != null;
 
-  /// Parse the payload JSON
-  Map<String, dynamic> get payload => jsonDecode(payloadJson);
+  /// Parse the payload JSON (cached after first access)
+  Map<String, dynamic> get payload =>
+      _cachedPayload ??= jsonDecode(payloadJson);
 
   Block copyWith({
     String? id,

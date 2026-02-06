@@ -106,19 +106,6 @@ class JournalLibraryView extends ConsumerWidget {
               Navigator.pop(context);
               final deleteJournal = ref.read(deleteJournalProvider);
               await deleteJournal(journal.id);
-
-              try {
-                // We're inside a consumer widget, but extracting provider reading in static/methods
-                // might be tricky if we don't pass ref.
-                // Wait, deleteJournalProvider already handles firestore logic?
-                // Let's check original implementation.
-                // The original had separate firestore call in the UI code.
-                // Adapting here...
-                // Ideally the provider should handle it all.
-                // But for now let's just stick to the provider call which is cleaner.
-              } catch (e) {
-                debugPrint('Delete Error: $e');
-              }
             },
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,

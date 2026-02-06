@@ -23,7 +23,7 @@ void main() {
     });
 
     test('toMap works', () {
-      final hlc = Hlc(1000, 1, 'd1');
+      const hlc = Hlc(1000, 1, 'd1');
       final entry = OplogEntry(
         opId: 'op1',
         journalId: 'j1',

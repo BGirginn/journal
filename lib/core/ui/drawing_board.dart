@@ -11,7 +11,7 @@ class DrawingBoard extends StatefulWidget {
 }
 
 class DrawingController extends ChangeNotifier {
-  List<Offset?> _points = [];
+  final List<Offset?> _points = [];
   Color color = Colors.black;
   double strokeWidth = 5.0;
 

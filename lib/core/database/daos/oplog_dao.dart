@@ -8,7 +8,7 @@ part 'oplog_dao.g.dart';
 
 @DriftAccessor(tables: [Oplogs])
 class OplogDao extends DatabaseAccessor<AppDatabase> with _$OplogDaoMixin {
-  OplogDao(AppDatabase db) : super(db);
+  OplogDao(super.db);
 
   Future<void> insertOplog(OplogEntry entry) {
     return into(oplogs).insert(

@@ -16,14 +16,18 @@ class FirestoreService {
 
   FirestoreService(this._authService);
 
-  String? get _userId => _authService.currentUser?.uid;
+  String get _userId {
+    final uid = _authService.currentUser?.uid;
+    if (uid == null) {
+      throw StateError('FirestoreService: User is not authenticated');
+    }
+    return uid;
+  }
 
   // --- Journals ---
 
   Future<void> createJournal(Journal journal) async {
     final uid = _userId;
-    if (uid == null) return; // Silent return or throw?
-
     await _firestore
         .collection('users')
         .doc(uid)
@@ -34,8 +38,6 @@ class FirestoreService {
 
   Future<void> updateJournal(Journal journal) async {
     final uid = _userId;
-    if (uid == null) return;
-
     await _firestore
         .collection('users')
         .doc(uid)
@@ -46,8 +48,6 @@ class FirestoreService {
 
   Future<void> deleteJournal(String journalId) async {
     final uid = _userId;
-    if (uid == null) return;
-
     await _firestore
         .collection('users')
         .doc(uid)
@@ -60,8 +60,6 @@ class FirestoreService {
 
   Future<void> createPage(Page page) async {
     final uid = _userId;
-    if (uid == null) return;
-
     await _firestore
         .collection('users')
         .doc(uid)
@@ -74,8 +72,6 @@ class FirestoreService {
 
   Future<void> updatePage(Page page) async {
     final uid = _userId;
-    if (uid == null) return;
-
     await _firestore
         .collection('users')
         .doc(uid)
@@ -90,29 +86,16 @@ class FirestoreService {
 
   Future<void> createBlock(Block block) async {
     final uid = _userId;
-    if (uid == null) return;
-
-    // We need to fetch the journalId for the block, which is tricky as Block only knows PageId.
-    // Ideally, we pass journalId or we have a flat blocks collection (sub-optimal).
-    // Better strategy: Store blocks in a top-level collection `users/{uid}/blocks`
-    // OR fetch the page first to get journalId.
-    // For performance, let's assume we can query efficiently or pass context.
-    // For now, let's put blocks under pages: `.../pages/{pageId}/blocks/{blockId}`.
-    // But we need journalId to construct the path.
-    // Workaround: We will use a top-level collection group query OR change schema.
-    // Simplified Schema for MVP: `users/{uid}/pages/{pageId}/blocks`.
-    // BUT we stuck to the hierarchy in the plan.
-    // Let's modify the plan: Blocks will be subcollection of Pages.
-    // We need `journalId` to traverse.
-    // Option: `users/{uid}/blocks` with `pageId` field. Easier for writes.
-
-    await _firestore.collection('users').doc(uid).set(_blockToMap(block));
+    await _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('blocks')
+        .doc(block.id)
+        .set(_blockToMap(block));
   }
 
   Future<void> deleteBlock(String blockId) async {
     final uid = _userId;
-    if (uid == null) return;
-
     await _firestore
         .collection('users')
         .doc(uid)
@@ -153,7 +136,7 @@ class FirestoreService {
     return {
       'id': block.id,
       'pageId': block.pageId,
-      'type': block.type.name, // Enum to string
+      'type': block.type.name,
       'x': block.x,
       'y': block.y,
       'width': block.width,

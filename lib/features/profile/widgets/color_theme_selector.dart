@@ -14,11 +14,6 @@ class ColorThemeSelector extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        /*Text(
-          'Renk Şeması',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 16),*/
         Wrap(
           spacing: 12,
           runSpacing: 12,

@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Lightweight wrapper to run the repo‑local Flutter SDK without touching
+# any global install or analytics files that sit outside the workspace.
+
+ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+FLUTTER_ROOT="${ROOT_DIR}/.flutter_sdk"
+DART_BIN="${FLUTTER_ROOT}/bin/cache/dart-sdk/bin/dart"
+SNAPSHOT="${FLUTTER_ROOT}/bin/cache/flutter_tools.snapshot"
+
+if [[ ! -f "$SNAPSHOT" ]]; then
+  echo "flutterw: snapshot not found at $SNAPSHOT" >&2
+  echo "Run: FLUTTER_SUPPRESS_ANALYTICS=true DART_SUPPRESS_ANALYTICS=true \\"
+  echo "     $DART_BIN --disable-dart-dev --packages=$FLUTTER_ROOT/packages/flutter_tools/.dart_tool/package_config.json \\"
+  echo "     --snapshot=$SNAPSHOT --snapshot-kind=app-jit \\"
+  echo "     $FLUTTER_ROOT/packages/flutter_tools/bin/flutter_tools.dart" >&2
+  exit 1
+fi
+
+export FLUTTER_ROOT
+export FLUTTER_SUPPRESS_ANALYTICS=true
+export DART_SUPPRESS_ANALYTICS=true
+
+exec "$DART_BIN" --disable-dart-dev "$SNAPSHOT" "$@"

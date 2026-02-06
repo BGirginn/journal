@@ -68,17 +68,11 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = _theme.id == 'midnight';
-
     return Scaffold(
-      backgroundColor: isDark
-          ? const Color(0xFF1A1A1A)
-          : const Color(0xFFF5F5F5),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text('Sayfa ${widget.page.pageIndex + 1}'),
         centerTitle: true,
-        backgroundColor: isDark ? const Color(0xFF2C2C2C) : Colors.white,
-        foregroundColor: isDark ? Colors.white : Colors.black87,
         elevation: 0,
       ),
       body: _isLoading

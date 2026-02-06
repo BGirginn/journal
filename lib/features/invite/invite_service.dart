@@ -88,12 +88,15 @@ class InviteService {
     if (uid == null) throw Exception('Not logged in');
 
     // Verify invite
-    if (invite.status != InviteStatus.pending)
+    if (invite.status != InviteStatus.pending) {
       throw Exception('Invite not pending');
-    if (invite.expiresAt.isBefore(DateTime.now()))
+    }
+    if (invite.expiresAt.isBefore(DateTime.now())) {
       throw Exception('Invite expired');
-    if (invite.inviteeId != null && invite.inviteeId != uid)
+    }
+    if (invite.inviteeId != null && invite.inviteeId != uid) {
       throw Exception('Invite not for you');
+    }
 
     // Add to Team/Journal
     if (invite.type == InviteType.team) {

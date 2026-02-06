@@ -82,7 +82,11 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
         );
       }
     } catch (e) {
-      debugPrint('Hata: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('İstek kabul edilemedi: $e')),
+        );
+      }
     }
   }
 
@@ -90,7 +94,11 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
     try {
       await ref.read(userServiceProvider).rejectFriendRequest(uid);
     } catch (e) {
-      debugPrint('Hata: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('İstek reddedilemedi: $e')),
+        );
+      }
     }
   }
 
@@ -104,7 +112,11 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
         setState(() {});
       }
     } catch (e) {
-      debugPrint('Hata: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('İstek iptal edilemedi: $e')),
+        );
+      }
     }
   }
 
@@ -138,7 +150,11 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
         );
       }
     } catch (e) {
-      debugPrint('Hata: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Arkadaş çıkarılamadı: $e')),
+        );
+      }
     }
   }
 

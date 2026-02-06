@@ -10,13 +10,15 @@ import 'package:journal_app/core/models/block.dart';
 import 'package:journal_app/providers/database_providers.dart';
 import 'package:journal_app/core/database/storage_service.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:journal_app/core/database/daos/journal_dao.dart';
+import 'package:journal_app/core/database/daos/page_dao.dart';
+import 'package:journal_app/core/database/daos/block_dao.dart';
 import 'package:journal_app/core/database/daos/oplog_dao.dart';
 
 final syncServiceProvider = Provider<SyncService>((ref) {
   final authService = ref.watch(authServiceProvider);
   final storageService = ref.watch(storageServiceProvider);
 
-  // DAOs
   final journalDao = ref.watch(journalDaoProvider);
   final pageDao = ref.watch(pageDaoProvider);
   final blockDao = ref.watch(blockDaoProvider);
@@ -35,11 +37,11 @@ final syncServiceProvider = Provider<SyncService>((ref) {
 class SyncService {
   final AuthService _authService;
   final StorageService _storageService;
-  final dynamic
-  _journalDao; // Typing as dynamic to simplify dependency, ideally strict typed
-  final dynamic _pageDao;
-  final dynamic _blockDao;
-  // ignore: unused_field - Reserved for Phase 4 HLC sync
+  final JournalDao _journalDao;
+  final PageDao _pageDao;
+  final BlockDao _blockDao;
+  // Reserved for Phase 4 HLC sync
+  // ignore: unused_field
   final OplogDao _oplogDao;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 

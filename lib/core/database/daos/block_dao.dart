@@ -81,6 +81,19 @@ class BlockDao extends DatabaseAccessor<AppDatabase> with _$BlockDaoMixin {
     );
   }
 
+  /// Update multiple blocks in a single transaction
+  Future<void> updateBlocks(List<model.Block> blockList) async {
+    await batch((b) {
+      for (final block in blockList) {
+        b.update(
+          blocks,
+          _modelToCompanion(block.copyWith(updatedAt: DateTime.now())),
+          where: (t) => t.id.equals(block.id),
+        );
+      }
+    });
+  }
+
   /// Update block transform (position, size, rotation)
   Future<void> updateTransform(
     String id, {

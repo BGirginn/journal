@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal_app/core/models/invite.dart';
-import 'package:journal_app/core/models/team.dart';
 import 'package:journal_app/features/invite/invite_service.dart';
 import 'package:journal_app/core/auth/user_service.dart';
 

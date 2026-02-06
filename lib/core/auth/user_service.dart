@@ -369,20 +369,28 @@ class UserService {
 
     final normalizedUsername = username.toLowerCase().trim();
 
-    // Reserve username
-    await firestore.collection('usernames').doc(normalizedUsername).set({
-      'uid': uid,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    // Reserve username atomically with a transaction
+    await firestore.runTransaction((transaction) async {
+      final usernameDoc =
+          firestore.collection('usernames').doc(normalizedUsername);
+      final snapshot = await transaction.get(usernameDoc);
 
-    // Update profile
-    final displayName = '$firstName $lastName';
-    await firestore.collection('users').doc(uid).update({
-      'firstName': firstName.trim(),
-      'lastName': lastName.trim(),
-      'username': normalizedUsername,
-      'displayName': displayName,
-      'isProfileComplete': true,
+      if (snapshot.exists) {
+        throw Exception('Bu kullanıcı adı zaten alınmış');
+      }
+
+      transaction.set(usernameDoc, {
+        'uid': uid,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      transaction.update(firestore.collection('users').doc(uid), {
+        'firstName': firstName.trim(),
+        'lastName': lastName.trim(),
+        'username': normalizedUsername,
+        'displayName': '$firstName $lastName',
+        'isProfileComplete': true,
+      });
     });
 
     // Fetch and return updated profile

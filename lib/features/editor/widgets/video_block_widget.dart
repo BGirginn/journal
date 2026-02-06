@@ -17,7 +17,7 @@ class VideoBlockWidget extends StatefulWidget {
 }
 
 class _VideoBlockWidgetState extends State<VideoBlockWidget> {
-  late VideoPlayerController _controller;
+  VideoPlayerController? _controller;
   bool _isInitialized = false;
 
   @override
@@ -30,10 +30,13 @@ class _VideoBlockWidgetState extends State<VideoBlockWidget> {
     final file = File(widget.path);
     if (!file.existsSync()) return;
 
-    _controller = VideoPlayerController.file(file);
+    final controller = VideoPlayerController.file(file);
+    _controller = controller;
     try {
-      await _controller.initialize();
-      setState(() => _isInitialized = true);
+      await controller.initialize();
+      if (mounted) {
+        setState(() => _isInitialized = true);
+      }
     } catch (e) {
       debugPrint('Error initializing video: $e');
     }
@@ -41,13 +44,14 @@ class _VideoBlockWidgetState extends State<VideoBlockWidget> {
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_isInitialized) {
+    final controller = _controller;
+    if (!_isInitialized || controller == null) {
       return Container(
         color: Colors.black12,
         child: const Center(child: CircularProgressIndicator()),
@@ -58,17 +62,17 @@ class _VideoBlockWidgetState extends State<VideoBlockWidget> {
       alignment: Alignment.center,
       children: [
         AspectRatio(
-          aspectRatio: _controller.value.aspectRatio,
-          child: VideoPlayer(_controller),
+          aspectRatio: controller.value.aspectRatio,
+          child: VideoPlayer(controller),
         ),
         if (!widget.isReadOnly)
           GestureDetector(
             onTap: () {
               setState(() {
-                if (_controller.value.isPlaying) {
-                  _controller.pause();
+                if (controller.value.isPlaying) {
+                  controller.pause();
                 } else {
-                  _controller.play();
+                  controller.play();
                 }
               });
             },
@@ -82,7 +86,7 @@ class _VideoBlockWidgetState extends State<VideoBlockWidget> {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    _controller.value.isPlaying
+                    controller.value.isPlaying
                         ? Icons.pause
                         : Icons.play_arrow,
                     color: Colors.white,

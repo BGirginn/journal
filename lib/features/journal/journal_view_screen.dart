@@ -1,5 +1,3 @@
-// import 'dart:io';
-// import 'package:journal_app/features/editor/widgets/image_frame_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal_app/core/models/journal.dart';
@@ -44,7 +42,6 @@ class _JournalViewScreenState extends ConsumerState<JournalViewScreen> {
   @override
   Widget build(BuildContext context) {
     final pagesAsync = ref.watch(pagesProvider(widget.journal.id));
-    // final isDark = _theme.id == 'midnight';
 
     return Scaffold(
       // Use app theme background
@@ -145,7 +142,7 @@ class _JournalViewScreenState extends ConsumerState<JournalViewScreen> {
           child: Text(
             'Sayfa ${_currentPage + 1} / ${pages.length}',
             style: TextStyle(
-              color: _theme.id == 'midnight'
+              color: Theme.of(context).brightness == Brightness.dark
                   ? Colors.grey[400]
                   : Colors.grey[600],
             ),
@@ -156,7 +153,7 @@ class _JournalViewScreenState extends ConsumerState<JournalViewScreen> {
   }
 
   Widget _buildPageIndicator(int pageCount) {
-    final isDark = _theme.id == 'midnight';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),

@@ -83,7 +83,7 @@ class HitTestService {
       maxY = max(maxY, corner.dy);
     }
 
-    final aabb = Rect.fromLTRB(minX, maxX, minY, maxY);
+    final aabb = Rect.fromLTRB(minX, minY, maxX, maxY);
     return aabb.inflate(touchTolerance).contains(point);
   }
 

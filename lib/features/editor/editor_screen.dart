@@ -86,32 +86,32 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final inkJson = InkStrokeData.encodeStrokes(_strokes);
     await pageDao.updateInkData(widget.page.id, inkJson);
 
-    // Save blocks
+    // Save blocks in batch
     final blockDao = ref.read(blockDaoProvider);
-    for (final block in _blocks) {
-      await blockDao.updateBlock(block);
-    }
+    await blockDao.updateBlocks(_blocks);
 
     // Sync to Firestore
     try {
       final firestoreService = ref.read(firestoreServiceProvider);
 
-      // Sync Page (Ink Data)
-      // We need to construct the updated page object
       final updatedPage = widget.page.copyWith(
         inkData: inkJson,
         updatedAt: DateTime.now(),
       );
       await firestoreService.updatePage(updatedPage);
 
-      // Sync Blocks
       for (final block in _blocks) {
-        await firestoreService.createBlock(
-          block,
-        ); // createBlock uses set() (upsert)
+        await firestoreService.createBlock(block);
       }
     } catch (e) {
-      debugPrint('Firestore Save Error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Yerel kaydedildi, bulut senkronizasyonu başarısız: $e'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     }
 
     setState(() => _isDirty = false);
@@ -127,7 +127,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = _theme.id == 'midnight';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return PopScope(
       canPop: !_isDirty,
@@ -733,7 +733,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     switch (block.type) {
       case BlockType.text:
         final payload = TextBlockPayload.fromJson(block.payload);
-        final isDark = _theme.id == 'midnight';
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         return Padding(
           padding: const EdgeInsets.all(4),
           child: Text(

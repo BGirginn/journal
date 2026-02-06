@@ -7,6 +7,12 @@ class AutosaveController extends ChangeNotifier {
   /// Debounce duration in milliseconds
   static const int debounceDurationMs = 1500;
 
+  /// Maximum retry attempts on save failure
+  static const int maxRetries = 3;
+
+  /// Current retry count
+  int _retryCount = 0;
+
   /// Current save state
   AutosaveState _state = AutosaveState.saved;
   AutosaveState get state => _state;
@@ -77,18 +83,30 @@ class AutosaveController extends ChangeNotifier {
       await onSave();
       _lastSaveTime = DateTime.now();
       _state = AutosaveState.saved;
+      _retryCount = 0;
     } catch (e) {
-      _state = AutosaveState.error;
-      debugPrint('Autosave error: $e');
+      _retryCount++;
+      if (_retryCount < maxRetries) {
+        _state = AutosaveState.dirty;
+        _pendingSave = true;
+      } else {
+        _state = AutosaveState.error;
+        debugPrint('Autosave failed after $maxRetries retries: $e');
+      }
     } finally {
       _isSaving = false;
       notifyListeners();
 
-      // Check if there's a pending save
+      // Retry or process pending save
       if (_pendingSave) {
         _pendingSave = false;
         _state = AutosaveState.dirty;
-        markDirty();
+        // Delay retry with exponential backoff
+        final delay = _retryCount > 0
+            ? Duration(milliseconds: debounceDurationMs * _retryCount)
+            : const Duration(milliseconds: debounceDurationMs);
+        _debounceTimer?.cancel();
+        _debounceTimer = Timer(delay, () => _performSave());
       }
     }
   }
