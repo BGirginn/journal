@@ -161,13 +161,51 @@ class TextBlockPayload {
 }
 
 /// Image block payload
+class ImageFrameStyles {
+  static const String none = 'none';
+  static const String circle = 'circle';
+  static const String rounded = 'rounded';
+  static const String polaroid = 'polaroid';
+  static const String tape = 'tape';
+  static const String shadow = 'shadow';
+  static const String film = 'film';
+  static const String stacked = 'stacked';
+  static const String sticker = 'sticker';
+  static const String simpleBorder = 'simple_border';
+  static const String gradient = 'gradient';
+  static const String vintage = 'vintage';
+  static const String layered = 'layered';
+  static const String tapeCorners = 'tape_corners';
+  static const String polaroidClassic = 'polaroid_classic';
+  static const String vintageEdge = 'vintage_edge';
+
+  static const List<String> all = <String>[
+    none,
+    circle,
+    rounded,
+    polaroid,
+    tape,
+    shadow,
+    film,
+    stacked,
+    sticker,
+    simpleBorder,
+    gradient,
+    vintage,
+    layered,
+    tapeCorners,
+    polaroidClassic,
+    vintageEdge,
+  ];
+}
+
 class ImageBlockPayload {
   final String? assetId;
   final String? path; // Direct file path
   final int? originalWidth;
   final int? originalHeight;
   final String? caption;
-  final String frameStyle; // 'none', 'polaroid', 'tape', 'shadow'
+  final String frameStyle;
   final String? storagePath; // Cloud Storage path (optional)
 
   ImageBlockPayload({
@@ -176,7 +214,7 @@ class ImageBlockPayload {
     this.originalWidth,
     this.originalHeight,
     this.caption,
-    this.frameStyle = 'none',
+    this.frameStyle = ImageFrameStyles.none,
     this.storagePath,
   });
 
@@ -197,7 +235,7 @@ class ImageBlockPayload {
       originalWidth: json['originalWidth'] as int?,
       originalHeight: json['originalHeight'] as int?,
       caption: json['caption'] as String?,
-      frameStyle: json['frameStyle'] as String? ?? 'none',
+      frameStyle: json['frameStyle'] as String? ?? ImageFrameStyles.none,
       storagePath: json['storagePath'] as String?,
     );
   }

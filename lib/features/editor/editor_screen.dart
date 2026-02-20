@@ -9,6 +9,7 @@ import 'package:journal_app/core/models/page.dart' as model;
 import 'package:journal_app/core/models/block.dart';
 import 'package:journal_app/core/theme/nostalgic_themes.dart';
 import 'package:journal_app/core/theme/nostalgic_page_painter.dart';
+import 'dart:ui' as ui;
 import 'package:journal_app/providers/database_providers.dart';
 import 'package:journal_app/features/editor/drawing/ink_storage.dart';
 import 'package:journal_app/features/editor/widgets/sticker_picker.dart';
@@ -21,7 +22,12 @@ import 'package:journal_app/features/editor/services/audio_recorder_service.dart
 import 'package:journal_app/features/editor/widgets/audio_recording_dialog.dart';
 import 'package:journal_app/core/database/storage_service.dart';
 import 'package:journal_app/core/database/firestore_service.dart';
+import 'package:journal_app/core/observability/telemetry_service.dart';
 import 'package:journal_app/features/preview/page_preview_screen.dart';
+import 'package:journal_app/features/export/services/pdf_export_service.dart';
+import 'package:journal_app/features/editor/widgets/drawing_canvas_screen.dart';
+import 'package:journal_app/features/editor/widgets/tag_editor_widget.dart';
+import 'package:journal_app/core/services/notification_service.dart';
 
 /// Complete editor with working transform and save
 class EditorScreen extends ConsumerStatefulWidget {
@@ -40,32 +46,67 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   List<InkStrokeData> _strokes = [];
   bool _isLoading = true;
   bool _isDirty = false;
+  ui.Image? _bgImage;
 
   // Editor state
   EditorMode _mode = EditorMode.select;
   String? _selectedBlockId;
   Color _penColor = Colors.black;
   double _penWidth = 2.0;
+  Offset? _eraserPreviewPoint;
 
   // Transform state
   Offset? _dragStart;
   Offset? _originalPosition;
   _HandleType? _activeHandle;
+  final TransformationController _pageTransformController =
+      TransformationController();
+  int _activePointerCount = 0;
+  Size? _canvasSize;
+
+  _ScaleTarget _activeScaleTarget = _ScaleTarget.none;
+  String? _activeScaleBlockId;
+  _BlockScaleSnapshot? _scaleStartBlockSnapshot;
+  Matrix4? _scaleStartPageMatrix;
 
   @override
   void initState() {
     super.initState();
     _theme = NostalgicThemes.getById(widget.journal.coverStyle);
+    final pageLooksDark =
+        _theme.visuals.assetPath != null ||
+        _theme.visuals.pageColor.computeLuminance() < 0.3;
+    if (pageLooksDark) {
+      _penColor = Colors.white;
+    }
     _loadContent();
   }
 
+  @override
+  void dispose() {
+    _pageTransformController.value = Matrix4.identity();
+    _pageTransformController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadContent() async {
-    // Load blocks once (not watching continuously during editing)
     final blockDao = ref.read(blockDaoProvider);
     final blocks = await blockDao.getBlocksForPage(widget.page.id);
+
+    // Load background image if theme has one
+    ui.Image? bgImage;
+    if (_theme.visuals.assetPath != null) {
+      try {
+        bgImage = await _loadImage(_theme.visuals.assetPath!);
+      } catch (e) {
+        debugPrint('Failed to load background image: $e');
+      }
+    }
+
     if (mounted) {
       setState(() {
         _blocks = blocks;
+        _bgImage = bgImage;
         _isLoading = false;
       });
     }
@@ -80,7 +121,33 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     }
   }
 
+  Future<ui.Image> _loadImage(String assetPath) async {
+    final completer = Completer<ui.Image>();
+    final imageProvider = AssetImage(assetPath);
+    final stream = imageProvider.resolve(const ImageConfiguration());
+
+    late ImageStreamListener listener;
+    listener = ImageStreamListener(
+      (ImageInfo info, bool synchronousCall) {
+        if (!completer.isCompleted) {
+          completer.complete(info.image);
+        }
+        stream.removeListener(listener);
+      },
+      onError: (dynamic exception, StackTrace? stackTrace) {
+        if (!completer.isCompleted) {
+          completer.completeError(exception);
+        }
+        stream.removeListener(listener);
+      },
+    );
+
+    stream.addListener(listener);
+    return completer.future;
+  }
+
   Future<void> _save() async {
+    final stopwatch = Stopwatch()..start();
     // Save ink strokes to page
     final pageDao = ref.read(pageDaoProvider);
     final inkJson = InkStrokeData.encodeStrokes(_strokes);
@@ -101,18 +168,35 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       await firestoreService.updatePage(updatedPage);
 
       for (final block in _blocks) {
-        await firestoreService.createBlock(block);
+        await firestoreService.updateBlock(
+          block,
+          journalId: widget.page.journalId,
+        );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Yerel kaydedildi, bulut senkronizasyonu başarısız: $e'),
+            content: Text(
+              'Yerel kaydedildi, bulut senkronizasyonu başarısız: $e',
+            ),
             duration: const Duration(seconds: 3),
           ),
         );
       }
     }
+    stopwatch.stop();
+
+    ref
+        .read(telemetryServiceProvider)
+        .track(
+          'save_duration',
+          params: {
+            'duration_ms': stopwatch.elapsedMilliseconds,
+            'block_count': _blocks.length,
+            'stroke_count': _strokes.length,
+          },
+        );
 
     setState(() => _isDirty = false);
     if (mounted) {
@@ -123,6 +207,246 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _insertBlockWithSync(Block block) async {
+    await ref.read(blockDaoProvider).insertBlock(block);
+    if (mounted && _blocks.every((candidate) => candidate.id != block.id)) {
+      setState(() {
+        _blocks.add(block);
+      });
+    }
+    try {
+      await ref
+          .read(firestoreServiceProvider)
+          .createBlock(block, journalId: widget.page.journalId);
+    } catch (_) {
+      // Offline-first: local write remains source of truth.
+    }
+  }
+
+  Future<void> _updateBlockWithSync(Block block) async {
+    await ref.read(blockDaoProvider).updateBlock(block);
+    try {
+      await ref
+          .read(firestoreServiceProvider)
+          .updateBlock(block, journalId: widget.page.journalId);
+    } catch (_) {
+      // Offline-first: cloud retry handled by oplog queue.
+    }
+  }
+
+  Future<void> _updatePayloadWithSync(
+    String blockId,
+    String payloadJson,
+  ) async {
+    await ref.read(blockDaoProvider).updatePayload(blockId, payloadJson);
+    try {
+      final block = _blocks
+          .firstWhere((candidate) => candidate.id == blockId)
+          .copyWith(payloadJson: payloadJson);
+      await ref
+          .read(firestoreServiceProvider)
+          .updateBlock(block, journalId: widget.page.journalId);
+    } catch (_) {
+      // Ignore and rely on sync retry.
+    }
+  }
+
+  double get _currentPageScale =>
+      _pageTransformController.value.getMaxScaleOnAxis();
+
+  bool get _enablePagePinch =>
+      _mode == EditorMode.select &&
+      _activePointerCount >= 2 &&
+      _activeScaleTarget != _ScaleTarget.block;
+
+  Offset _toScene(Offset viewportPoint) {
+    return _pageTransformController.toScene(viewportPoint);
+  }
+
+  Offset _toSceneDelta(Offset viewportDelta) {
+    final scale = _currentPageScale.clamp(1.0, 4.0);
+    return Offset(viewportDelta.dx / scale, viewportDelta.dy / scale);
+  }
+
+  void _onPointerDown(PointerDownEvent _) {
+    final next = _activePointerCount + 1;
+    if (next != _activePointerCount) {
+      setState(() => _activePointerCount = next);
+    }
+  }
+
+  void _onPointerUp(PointerEvent _) {
+    final next = max(0, _activePointerCount - 1);
+    if (next != _activePointerCount) {
+      setState(() {
+        _activePointerCount = next;
+        if (next < 2 && _activeScaleTarget == _ScaleTarget.page) {
+          _activeScaleTarget = _ScaleTarget.none;
+        }
+      });
+    }
+  }
+
+  void _resetPageZoom() {
+    _pageTransformController.value = Matrix4.identity();
+    setState(() {
+      _activeScaleTarget = _ScaleTarget.none;
+    });
+  }
+
+  bool _isPointInsideBlock({
+    required Offset scenePoint,
+    required Block block,
+    required Size pageSize,
+  }) {
+    final center = Offset(
+      (block.x + (block.width / 2)) * pageSize.width,
+      (block.y + (block.height / 2)) * pageSize.height,
+    );
+    final local = scenePoint - center;
+    final radians = -block.rotation * pi / 180;
+    final rotated = Offset(
+      local.dx * cos(radians) - local.dy * sin(radians),
+      local.dx * sin(radians) + local.dy * cos(radians),
+    );
+
+    return rotated.dx.abs() <= (block.width * pageSize.width / 2) &&
+        rotated.dy.abs() <= (block.height * pageSize.height / 2);
+  }
+
+  void _onScaleStart(ScaleStartDetails details) {
+    if (!_enablePagePinch || _canvasSize == null || _selectedBlockId == null) {
+      if (_mode == EditorMode.select && _activePointerCount >= 2) {
+        _activeScaleTarget = _ScaleTarget.page;
+        _scaleStartPageMatrix = Matrix4.copy(_pageTransformController.value);
+      }
+      return;
+    }
+
+    final pageSize = _canvasSize!;
+    final selectedIndex = _blocks.indexWhere((b) => b.id == _selectedBlockId);
+    if (selectedIndex == -1) {
+      _activeScaleTarget = _ScaleTarget.page;
+      _scaleStartPageMatrix = Matrix4.copy(_pageTransformController.value);
+      return;
+    }
+
+    final selectedBlock = _blocks[selectedIndex];
+    final sceneFocal = _toScene(details.localFocalPoint);
+    final startsOnSelectedBlock = _isPointInsideBlock(
+      scenePoint: sceneFocal,
+      block: selectedBlock,
+      pageSize: pageSize,
+    );
+
+    if (startsOnSelectedBlock) {
+      _scaleStartPageMatrix = Matrix4.copy(_pageTransformController.value);
+      _activeScaleTarget = _ScaleTarget.block;
+      _activeScaleBlockId = selectedBlock.id;
+      _scaleStartBlockSnapshot = _BlockScaleSnapshot.fromBlock(selectedBlock);
+    } else {
+      _activeScaleTarget = _ScaleTarget.page;
+      _scaleStartPageMatrix = Matrix4.copy(_pageTransformController.value);
+    }
+
+    setState(() {});
+  }
+
+  void _onScaleUpdate(ScaleUpdateDetails details) {
+    if (_mode != EditorMode.select) return;
+
+    if (_activeScaleTarget == _ScaleTarget.block) {
+      _applyBlockPinchTransform(details);
+      if (_scaleStartPageMatrix != null) {
+        _pageTransformController.value = Matrix4.copy(_scaleStartPageMatrix!);
+      }
+      return;
+    }
+
+    if (_activeScaleTarget == _ScaleTarget.page) {
+      setState(() {});
+    }
+  }
+
+  void _onScaleEnd(ScaleEndDetails details) {
+    if (_activeScaleTarget == _ScaleTarget.block &&
+        _activeScaleBlockId != null) {
+      final idx = _blocks.indexWhere((b) => b.id == _activeScaleBlockId);
+      if (idx != -1) {
+        _updateBlockWithSync(_blocks[idx]);
+      }
+    }
+
+    setState(() {
+      _activeScaleTarget = _ScaleTarget.none;
+      _activeScaleBlockId = null;
+      _scaleStartBlockSnapshot = null;
+      _scaleStartPageMatrix = null;
+    });
+  }
+
+  void _applyBlockPinchTransform(ScaleUpdateDetails details) {
+    if (_canvasSize == null ||
+        _activeScaleBlockId == null ||
+        _scaleStartBlockSnapshot == null) {
+      return;
+    }
+
+    final snapshot = _scaleStartBlockSnapshot!;
+    final index = _blocks.indexWhere((b) => b.id == _activeScaleBlockId);
+    if (index == -1) return;
+
+    final centerX = snapshot.x + (snapshot.width / 2);
+    final centerY = snapshot.y + (snapshot.height / 2);
+    final scaledWidth = (snapshot.width * details.scale).clamp(0.05, 0.9);
+    final scaledHeight = (snapshot.height * details.scale).clamp(0.05, 0.9);
+    final maxX = max(0.0, 1.0 - scaledWidth);
+    final maxY = max(0.0, 1.0 - scaledHeight);
+    final x = (centerX - (scaledWidth / 2)).clamp(0.0, maxX);
+    final y = (centerY - (scaledHeight / 2)).clamp(0.0, maxY);
+    final rotation = snapshot.rotation + (details.rotation * 180 / pi);
+
+    setState(() {
+      _blocks[index] = _blocks[index].copyWith(
+        x: x,
+        y: y,
+        width: scaledWidth,
+        height: scaledHeight,
+        rotation: rotation,
+      );
+      _isDirty = true;
+    });
+  }
+
+  _InsertPlacement _computeInsertPlacement({
+    required double baseWidth,
+    required double baseHeight,
+  }) {
+    final pageSize = _canvasSize;
+    final scale = _currentPageScale.clamp(1.0, 4.0);
+    final width = (baseWidth / scale).clamp(0.05, 0.9);
+    final height = (baseHeight / scale).clamp(0.05, 0.9);
+
+    if (pageSize == null || pageSize.isEmpty) {
+      final fallbackX = ((0.5 - width / 2)).clamp(0.0, 1.0 - width);
+      final fallbackY = ((0.5 - height / 2)).clamp(0.0, 1.0 - height);
+      return _InsertPlacement(
+        x: fallbackX,
+        y: fallbackY,
+        width: width,
+        height: height,
+      );
+    }
+
+    final viewportCenter = Offset(pageSize.width / 2, pageSize.height / 2);
+    final sceneCenter = _toScene(viewportCenter);
+    final normalizedCenterX = sceneCenter.dx / pageSize.width;
+    final normalizedCenterY = sceneCenter.dy / pageSize.height;
+    final x = (normalizedCenterX - (width / 2)).clamp(0.0, 1.0 - width);
+    final y = (normalizedCenterY - (height / 2)).clamp(0.0, 1.0 - height);
+    return _InsertPlacement(x: x, y: y, width: width, height: height);
   }
 
   @override
@@ -164,6 +488,41 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             },
           ),
           actions: [
+            // Share/Export button
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.share),
+              tooltip: 'Paylaş',
+              onSelected: (value) async {
+                if (value == 'pdf') {
+                  final messenger = ScaffoldMessenger.of(context);
+                  try {
+                    messenger.showSnackBar(
+                      const SnackBar(content: Text('PDF hazırlanıyor...')),
+                    );
+                    final pageDao = ref.read(pageDaoProvider);
+                    final pages = await pageDao.getPagesForJournal(
+                      widget.journal.id,
+                    );
+                    final exportService = PdfExportService(
+                      ref.read(blockDaoProvider),
+                    );
+                    await exportService.exportJournal(widget.journal, pages);
+                  } catch (e) {
+                    messenger.showSnackBar(SnackBar(content: Text('Hata: $e')));
+                  }
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'pdf',
+                  child: ListTile(
+                    leading: Icon(Icons.picture_as_pdf),
+                    title: Text('PDF Olarak Dışa Aktar'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
+            ),
             // Preview button
             IconButton(
               icon: const Icon(Icons.visibility),
@@ -174,6 +533,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                     builder: (context) => PagePreviewScreen(
                       journal: widget.journal,
                       page: widget.page,
+                      initialBlocks: List<Block>.from(_blocks),
+                      initialStrokes: List<InkStrokeData>.from(_strokes),
                     ),
                   ),
                 );
@@ -193,7 +554,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             : Column(
                 children: [
                   _buildToolbar(isDark),
-                  if (_mode == EditorMode.draw) _buildPenOptions(),
+                  if (_mode == EditorMode.draw || _mode == EditorMode.erase)
+                    _buildPenOptions(),
                   Expanded(child: _buildCanvas()),
                 ],
               ),
@@ -212,7 +574,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             Icons.pan_tool_alt,
             'Seç',
             _mode == EditorMode.select,
-            () => setState(() => _mode = EditorMode.select),
+            () => setState(() {
+              _mode = EditorMode.select;
+              _eraserPreviewPoint = null;
+            }),
           ),
           _ToolBtn(
             Icons.text_fields,
@@ -224,7 +589,24 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             Icons.edit,
             'Çiz',
             _mode == EditorMode.draw,
-            () => setState(() => _mode = EditorMode.draw),
+            () => setState(() {
+              _mode = EditorMode.draw;
+              _eraserPreviewPoint = null;
+              if (_penColor == Colors.black) {
+                final pageLooksDark =
+                    _theme.visuals.assetPath != null ||
+                    _theme.visuals.pageColor.computeLuminance() < 0.3;
+                if (pageLooksDark) {
+                  _penColor = Colors.white;
+                }
+              }
+            }),
+          ),
+          _ToolBtn(
+            Icons.cleaning_services_outlined,
+            'Silgi',
+            _mode == EditorMode.erase,
+            () => setState(() => _mode = EditorMode.erase),
           ),
           _ToolBtn(Icons.add_circle, 'Medya', false, _showMediaPicker),
           _ToolBtn(
@@ -233,6 +615,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             false,
             _handleStickerPicker,
           ),
+          _ToolBtn(Icons.label_outline, 'Etiket', false, _showTagEditor),
+          if (_mode == EditorMode.select)
+            _ToolBtn(Icons.filter_1, '1x', false, _resetPageZoom),
           if (_selectedBlockId != null) ...[
             if (_getSelectedBlockType() == BlockType.image) ...[
               _ToolBtn(Icons.rotate_right, 'Döndür', false, _showRotateDialog),
@@ -256,6 +641,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     if (!mounted) return;
 
     final id = const Uuid().v4();
+    final placement = sticker.isCustom
+        ? _computeInsertPlacement(baseWidth: 0.4, baseHeight: 0.4)
+        : _computeInsertPlacement(baseWidth: 0.2, baseHeight: 0.1);
     Block block;
 
     if (sticker.isCustom) {
@@ -264,10 +652,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         id: id,
         pageId: widget.page.id,
         type: BlockType.image,
-        x: 0.3,
-        y: 0.3,
-        width: 0.4,
-        height: 0.4, // Adjust size
+        x: placement.x,
+        y: placement.y,
+        width: placement.width,
+        height: placement.height,
         rotation: 0,
         zIndex: _blocks.length,
         payloadJson: ImageBlockPayload(path: sticker.asset).toJsonString(),
@@ -279,10 +667,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         id: id,
         pageId: widget.page.id,
         type: BlockType.text,
-        x: 0.4,
-        y: 0.4,
-        width: 0.2,
-        height: 0.1,
+        x: placement.x,
+        y: placement.y,
+        width: placement.width,
+        height: placement.height,
         rotation: 0,
         zIndex: _blocks.length,
         payloadJson: TextBlockPayload(
@@ -300,7 +688,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       _isDirty = true;
     });
 
-    ref.read(blockDaoProvider).insertBlock(block);
+    _insertBlockWithSync(block);
   }
 
   void _showMediaPicker() {
@@ -355,12 +743,118 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                 _recordAudio();
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.brush, color: Colors.purple),
+              title: const Text('Çizim'),
+              subtitle: const Text('Serbest çizim yapın'),
+              onTap: () {
+                Navigator.pop(context);
+                _openDrawingCanvas();
+              },
+            ),
             const SizedBox(height: 16),
           ],
         ),
       ),
     );
   }
+
+  Future<void> _openDrawingCanvas() async {
+    final imagePath = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (context) => const DrawingCanvasScreen()),
+    );
+
+    if (imagePath != null && mounted) {
+      final placement = _computeInsertPlacement(
+        baseWidth: 0.9,
+        baseHeight: 0.4,
+      );
+      // Insert drawing as image block
+      final id = const Uuid().v4();
+      final block = Block(
+        id: id,
+        pageId: widget.page.id,
+        type: BlockType.image,
+        x: placement.x,
+        y: placement.y,
+        width: placement.width,
+        height: placement.height,
+        rotation: 0,
+        zIndex: _blocks.length,
+        payloadJson: ImageBlockPayload(path: imagePath).toJsonString(),
+      );
+
+      setState(() {
+        _blocks.add(block);
+        _isDirty = true;
+      });
+
+      _insertBlockWithSync(block);
+      NotificationService.logEvent('drawing_created');
+    }
+  }
+
+  void _showTagEditor() {
+    final currentTags = widget.page.tagList;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Sayfa Etiketleri',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            TagEditorWidget(
+              tags: currentTags,
+              onTagsChanged: (newTags) {
+                final tagsStr = newTags.join(',');
+                final pageDao = ref.read(pageDaoProvider);
+                pageDao.updatePage(
+                  widget.page.copyWith(
+                    tags: tagsStr,
+                    updatedAt: DateTime.now(),
+                  ),
+                );
+                setState(() => _isDirty = true);
+              },
+            ),
+            const SizedBox(height: 8),
+            const TagSuggestions(
+              suggestions: [
+                'anı',
+                'seyahat',
+                'yemek',
+                'spor',
+                'müzik',
+                'iş',
+                'aile',
+              ],
+              selectedTags: [],
+              onTagTapped: _noOp,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static void _noOp(String tag) {}
 
   Future<void> _addVideoBlock() async {
     final service = ImagePickerService();
@@ -380,7 +874,13 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               onTap: () async {
                 Navigator.pop(context);
                 final file = await service.pickVideoFromGallery();
-                if (file != null) _insertVideoBlock(file);
+                if (file != null) {
+                  _insertVideoBlock(file);
+                } else if (mounted && service.lastErrorMessage != null) {
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    SnackBar(content: Text(service.lastErrorMessage!)),
+                  );
+                }
               },
             ),
             ListTile(
@@ -389,7 +889,13 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               onTap: () async {
                 Navigator.pop(context);
                 final file = await service.pickVideoFromCamera();
-                if (file != null) _insertVideoBlock(file);
+                if (file != null) {
+                  _insertVideoBlock(file);
+                } else if (mounted && service.lastErrorMessage != null) {
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    SnackBar(content: Text(service.lastErrorMessage!)),
+                  );
+                }
               },
             ),
           ],
@@ -400,6 +906,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
   void _insertVideoBlock(File file) {
     if (!mounted) return;
+    final placement = _computeInsertPlacement(baseWidth: 0.8, baseHeight: 0.3);
 
     // Create audio/video block
     // We reuse logic similar to Image but for Video
@@ -408,10 +915,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       id: id,
       pageId: widget.page.id,
       type: BlockType.video,
-      x: 0.1,
-      y: 0.1,
-      width: 0.8,
-      height: 0.3, // Approximate 16:9
+      x: placement.x,
+      y: placement.y,
+      width: placement.width,
+      height: placement.height,
       rotation: 0,
       zIndex: _blocks.length,
       payloadJson: VideoBlockPayload(
@@ -425,7 +932,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       _isDirty = true;
     });
 
-    ref.read(blockDaoProvider).insertBlock(block);
+    _insertBlockWithSync(block);
   }
 
   BlockType? _getSelectedBlockType() {
@@ -438,33 +945,81 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   }
 
   Widget _buildPenOptions() {
+    final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
+    final pageLooksDark =
+        _theme.visuals.assetPath != null ||
+        _theme.visuals.pageColor.computeLuminance() < 0.35;
+    final useDarkPanel = isDarkTheme || pageLooksDark;
+    final panelColor = useDarkPanel
+        ? const Color(0xFF252230)
+        : const Color(0xFFF6F3FC);
+    final textColor = useDarkPanel
+        ? const Color(0xFFF4F0FC)
+        : const Color(0xFF2E2A38);
+    final dividerColor = useDarkPanel
+        ? Colors.white.withValues(alpha: 0.2)
+        : Colors.black.withValues(alpha: 0.16);
+    final selectedBg = useDarkPanel
+        ? const Color(0xFF8A71E8).withValues(alpha: 0.28)
+        : const Color(0xFF6C4CD8).withValues(alpha: 0.16);
+    final selectedBorderColor = useDarkPanel
+        ? Colors.white.withValues(alpha: 0.55)
+        : Colors.black.withValues(alpha: 0.2);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: Colors.grey[100],
+      decoration: BoxDecoration(
+        color: panelColor,
+        border: Border(top: BorderSide(color: dividerColor, width: 0.8)),
+      ),
       child: Row(
         children: [
-          // Colors
-          ...[Colors.black, Colors.blue, Colors.red, Colors.green].map(
-            (c) => GestureDetector(
-              onTap: () => setState(() => _penColor = c),
-              child: Container(
-                width: 28,
-                height: 28,
-                margin: const EdgeInsets.only(right: 8),
-                decoration: BoxDecoration(
-                  color: c,
-                  shape: BoxShape.circle,
-                  border: _penColor == c
-                      ? Border.all(color: Colors.white, width: 2)
-                      : null,
-                  boxShadow: _penColor == c
-                      ? [BoxShadow(color: c, blurRadius: 6)]
-                      : null,
+          if (_mode == EditorMode.draw) ...[
+            // Colors
+            ...[
+              Colors.black,
+              Colors.white,
+              Colors.blue,
+              Colors.red,
+              Colors.green,
+            ].map(
+              (c) => GestureDetector(
+                onTap: () => setState(() => _penColor = c),
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: BoxDecoration(
+                    color: c,
+                    shape: BoxShape.circle,
+                    // Keep white swatch visible on light surfaces.
+                    border: c == Colors.white
+                        ? Border.all(color: dividerColor, width: 1.2)
+                        : null,
+                  ),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: _penColor == c
+                          ? Border.all(
+                              color: useDarkPanel
+                                  ? Colors.white
+                                  : const Color(0xFF6C4CD8),
+                              width: 2.5,
+                            )
+                          : null,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-          const VerticalDivider(),
+            VerticalDivider(color: dividerColor),
+          ] else ...[
+            Icon(Icons.cleaning_services_outlined, color: textColor),
+            const SizedBox(width: 8),
+            Text('Silgi boyutu', style: TextStyle(color: textColor)),
+            const SizedBox(width: 12),
+          ],
           // Widths
           ...[2.0, 4.0, 8.0].map(
             (w) => GestureDetector(
@@ -474,17 +1029,20 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                 height: 32,
                 margin: const EdgeInsets.only(right: 4),
                 decoration: BoxDecoration(
-                  color: _penWidth == w
-                      ? Colors.deepPurple.withAlpha(30)
-                      : null,
-                  borderRadius: BorderRadius.circular(4),
+                  color: _penWidth == w ? selectedBg : null,
+                  border: Border.all(
+                    color: _penWidth == w
+                        ? selectedBorderColor
+                        : Colors.transparent,
+                  ),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Center(
                   child: Container(
                     width: w * 2,
                     height: w * 2,
                     decoration: BoxDecoration(
-                      color: _penColor,
+                      color: _mode == EditorMode.erase ? textColor : _penColor,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -495,7 +1053,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           const Spacer(),
           // Clear
           IconButton(
-            icon: const Icon(Icons.delete_outline),
+            icon: Icon(Icons.delete_outline, color: textColor),
             onPressed: () {
               setState(() {
                 _strokes = [];
@@ -512,51 +1070,104 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final pageSize = Size(constraints.maxWidth, constraints.maxHeight);
+        _canvasSize = pageSize;
+        final sortedBlocks = List<Block>.from(_blocks)
+          ..sort((a, b) => a.zIndex.compareTo(b.zIndex));
 
-        return GestureDetector(
-          onPanStart: (d) => _onPanStart(d, pageSize),
-          onPanUpdate: (d) => _onPanUpdate(d, pageSize),
-          onPanEnd: (d) => _onPanEnd(),
-          onTapUp: (d) => _onTapUp(d, pageSize),
-          child: Container(
-            margin: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: _theme.visuals.pageColor,
-              borderRadius: _theme.visuals.cornerRadius,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(30),
-                  blurRadius: 15,
-                  offset: const Offset(0, 5),
+        return Listener(
+          onPointerDown: _onPointerDown,
+          onPointerUp: _onPointerUp,
+          onPointerCancel: _onPointerUp,
+          child: InteractiveViewer(
+            transformationController: _pageTransformController,
+            minScale: 1.0,
+            maxScale: 4.0,
+            panEnabled: _enablePagePinch,
+            scaleEnabled: _enablePagePinch,
+            onInteractionStart: _onScaleStart,
+            onInteractionUpdate: _onScaleUpdate,
+            onInteractionEnd: _onScaleEnd,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapDown: (d) => _onTapDown(d, pageSize),
+              onPanStart: (d) => _onPanStart(d, pageSize),
+              onPanUpdate: (d) => _onPanUpdate(d, pageSize),
+              onPanEnd: (d) => _onPanEnd(),
+              onPanCancel: _onPanEnd,
+              onTapUp: (d) => _onTapUp(d, pageSize),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: _theme.visuals.pageColor,
+                  borderRadius: _theme.visuals.cornerRadius,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(30),
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: _theme.visuals.cornerRadius,
-              child: Stack(
-                children: [
-                  // Page background
-                  RepaintBoundary(
-                    child: CustomPaint(
-                      painter: NostalgicPagePainter(theme: _theme),
-                      size: Size.infinite,
-                    ),
-                  ),
-
-                  // Ink strokes
-                  RepaintBoundary(
-                    child: CustomPaint(
-                      painter: OptimizedInkPainter(
-                        strokes: _strokes,
-                        currentStroke: null,
+                child: ClipRRect(
+                  borderRadius: _theme.visuals.cornerRadius,
+                  child: Stack(
+                    children: [
+                      // Page background
+                      RepaintBoundary(
+                        child: CustomPaint(
+                          painter: NostalgicPagePainter(
+                            theme: _theme,
+                            preloadedImage: _bgImage,
+                          ),
+                          size: Size.infinite,
+                        ),
                       ),
-                      size: Size.infinite,
-                    ),
-                  ),
 
-                  // Blocks
-                  ..._blocks.map((block) => _buildBlock(block, pageSize)),
-                ],
+                      // Blocks
+                      IgnorePointer(
+                        ignoring:
+                            _mode == EditorMode.draw ||
+                            _mode == EditorMode.erase,
+                        child: Stack(
+                          children: [
+                            ...sortedBlocks.map(
+                              (block) => _buildBlock(block, pageSize),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Ink strokes should stay visible above full-page image/asset blocks.
+                      RepaintBoundary(
+                        child: IgnorePointer(
+                          child: CustomPaint(
+                            painter: OptimizedInkPainter(
+                              strokes: _strokes,
+                              currentStroke: null,
+                            ),
+                            size: Size.infinite,
+                          ),
+                        ),
+                      ),
+
+                      if (_mode == EditorMode.erase &&
+                          _eraserPreviewPoint != null)
+                        IgnorePointer(
+                          child: CustomPaint(
+                            painter: _EraserPreviewPainter(
+                              point: _eraserPreviewPoint!,
+                              radius: _eraseRadius,
+                              color:
+                                  (_theme.visuals.pageColor.computeLuminance() <
+                                      0.45
+                                  ? Colors.white
+                                  : Colors.black),
+                            ),
+                            size: Size.infinite,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -575,7 +1186,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
       if (newPayload != null) {
         final newBlock = block.copyWith(payloadJson: newPayload.toJsonString());
-        ref.read(blockDaoProvider).updateBlock(newBlock);
+        _updateBlockWithSync(newBlock);
       }
     }
   }
@@ -752,14 +1363,58 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       case BlockType.image:
         final payload = ImageBlockPayload.fromJson(block.payload);
         if (payload.path != null) {
+          final path = payload.path!;
           // Calculate dimensions from pageSize instead of MediaQuery
           final width = block.width * pageSize.width;
           final height = block.height * pageSize.height;
-          return ImageFrameWidget(
-            imageProvider: FileImage(File(payload.path!)),
-            frameStyle: payload.frameStyle,
-            width: width,
-            height: height,
+          if (path.startsWith('assets/')) {
+            return ImageFrameWidget(
+              imageProvider: AssetImage(path),
+              frameStyle: payload.frameStyle,
+              width: width,
+              height: height,
+            );
+          }
+
+          final file = File(path);
+          if (file.existsSync()) {
+            return ImageFrameWidget(
+              imageProvider: FileImage(file),
+              frameStyle: payload.frameStyle,
+              width: width,
+              height: height,
+            );
+          }
+        }
+
+        if (payload.storagePath != null) {
+          final width = block.width * pageSize.width;
+          final height = block.height * pageSize.height;
+          return FutureBuilder<String?>(
+            future: ref
+                .read(storageServiceProvider)
+                .getDownloadUrl(payload.storagePath!),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (snapshot.hasData && snapshot.data != null) {
+                return ImageFrameWidget(
+                  imageProvider: NetworkImage(snapshot.data!),
+                  frameStyle: payload.frameStyle,
+                  width: width,
+                  height: height,
+                );
+              }
+
+              return Container(
+                color: Colors.grey[200],
+                child: const Center(
+                  child: Icon(Icons.broken_image, color: Colors.grey),
+                ),
+              );
+            },
           );
         }
         return Container(
@@ -775,28 +1430,48 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     }
   }
 
+  void _onTapDown(TapDownDetails details, Size pageSize) {
+    final scenePoint = _toScene(details.localPosition);
+    if (_mode == EditorMode.erase) {
+      _eraseAtPoint(scenePoint);
+    }
+  }
+
   void _onTapUp(TapUpDetails details, Size pageSize) {
     if (_mode == EditorMode.select) {
       // Deselect if tapping empty area
       setState(() => _selectedBlockId = null);
+      return;
+    }
+
+    if (_mode == EditorMode.erase && _eraserPreviewPoint != null) {
+      setState(() => _eraserPreviewPoint = null);
     }
   }
 
   void _onPanStart(DragStartDetails details, Size pageSize) {
+    if (_mode == EditorMode.select &&
+        (_activePointerCount >= 2 || _activeScaleTarget != _ScaleTarget.none)) {
+      return;
+    }
+    final scenePoint = _toScene(details.localPosition);
     if (_mode == EditorMode.draw) {
-      // Start new stroke - add to existing list instead of recreating
-      final point = details.localPosition;
+      // Start a new immutable stroke list so painter sees a changed reference.
+      final point = scenePoint;
       final stroke = InkStrokeData(
         points: [point],
         colorValue: _penColor.toARGB32(),
         width: _penWidth,
       );
-      _strokes.add(stroke);
-      _isDirty = true;
-      setState(() {});
+      setState(() {
+        _strokes = [..._strokes, stroke];
+        _isDirty = true;
+      });
+    } else if (_mode == EditorMode.erase) {
+      _eraseAtPoint(scenePoint);
     } else if (_mode == EditorMode.select && _selectedBlockId != null) {
       // Start dragging selected block
-      _dragStart = details.localPosition;
+      _dragStart = scenePoint;
       final block = _blocks.firstWhere((b) => b.id == _selectedBlockId);
       _originalPosition = Offset(block.x, block.y);
     }
@@ -804,17 +1479,30 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
   void _onPanUpdate(DragUpdateDetails details, Size pageSize) {
     if (_mode == EditorMode.draw && _strokes.isNotEmpty) {
-      // Continue stroke - optimize by mutating instead of recreating list
-      final point = details.localPosition;
-      _strokes.last.points.add(point);
-      // Trigger repaint without full rebuild
-      setState(() {});
+      // Append point immutably so CustomPainter always repaints immediately.
+      final point = _toScene(details.localPosition);
+      final lastStroke = _strokes.last;
+      final updatedLastStroke = InkStrokeData(
+        points: [...lastStroke.points, point],
+        colorValue: lastStroke.colorValue,
+        width: lastStroke.width,
+      );
+      setState(() {
+        _strokes = [
+          ..._strokes.sublist(0, _strokes.length - 1),
+          updatedLastStroke,
+        ];
+        _isDirty = true;
+      });
+    } else if (_mode == EditorMode.erase) {
+      _eraseAtPoint(_toScene(details.localPosition));
     } else if (_mode == EditorMode.select &&
         _selectedBlockId != null &&
         _dragStart != null &&
         _activeHandle == null) {
       // Move block
-      final delta = details.localPosition - _dragStart!;
+      final scenePosition = _toScene(details.localPosition);
+      final delta = scenePosition - _dragStart!;
       final dx = delta.dx / pageSize.width;
       final dy = delta.dy / pageSize.height;
 
@@ -840,6 +1528,86 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   void _onPanEnd() {
     _dragStart = null;
     _originalPosition = null;
+    if (_eraserPreviewPoint != null) {
+      setState(() => _eraserPreviewPoint = null);
+    }
+  }
+
+  double get _eraseRadius => (_penWidth * 6).clamp(10.0, 36.0).toDouble();
+
+  void _eraseAtPoint(Offset point) {
+    final eraseRadius = _eraseRadius;
+    final eraseRadiusSq = eraseRadius * eraseRadius;
+    var changed = false;
+    final next = <InkStrokeData>[];
+
+    for (final stroke in _strokes) {
+      if (stroke.points.isEmpty) {
+        continue;
+      }
+
+      final hit = stroke.points.any((p) {
+        final dx = p.dx - point.dx;
+        final dy = p.dy - point.dy;
+        return (dx * dx) + (dy * dy) <= eraseRadiusSq;
+      });
+
+      if (!hit) {
+        next.add(stroke);
+        continue;
+      }
+
+      changed = true;
+      var segment = <Offset>[];
+
+      for (final p in stroke.points) {
+        final dx = p.dx - point.dx;
+        final dy = p.dy - point.dy;
+        final inside = (dx * dx) + (dy * dy) <= eraseRadiusSq;
+
+        if (inside) {
+          if (segment.isNotEmpty) {
+            next.add(
+              InkStrokeData(
+                points: List<Offset>.from(segment),
+                colorValue: stroke.colorValue,
+                width: stroke.width,
+              ),
+            );
+            segment = <Offset>[];
+          }
+          continue;
+        }
+
+        segment.add(p);
+      }
+
+      if (segment.isNotEmpty) {
+        next.add(
+          InkStrokeData(
+            points: List<Offset>.from(segment),
+            colorValue: stroke.colorValue,
+            width: stroke.width,
+          ),
+        );
+      }
+    }
+
+    final previewPoint = _eraserPreviewPoint;
+    final previewMoved =
+        previewPoint == null ||
+        ((previewPoint.dx - point.dx).abs() > 0.5 ||
+            (previewPoint.dy - point.dy).abs() > 0.5);
+
+    if (changed || previewMoved) {
+      setState(() {
+        _eraserPreviewPoint = point;
+        if (changed) {
+          _strokes = next;
+          _isDirty = true;
+        }
+      });
+    }
   }
 
   void _onResize(
@@ -848,9 +1616,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     _HandleType type,
     Size pageSize,
   ) {
+    final sceneDelta = _toSceneDelta(details.delta);
     final delta = Offset(
-      details.delta.dx / pageSize.width,
-      details.delta.dy / pageSize.height,
+      sceneDelta.dx / pageSize.width,
+      sceneDelta.dy / pageSize.height,
     );
 
     setState(() {
@@ -922,32 +1691,37 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   }
 
   void _addTextBlock() async {
+    final placement = _computeInsertPlacement(baseWidth: 0.4, baseHeight: 0.08);
     final block = Block(
       pageId: widget.page.id,
       type: BlockType.text,
-      x: 0.1,
-      y: 0.2,
-      width: 0.4,
-      height: 0.08,
+      x: placement.x,
+      y: placement.y,
+      width: placement.width,
+      height: placement.height,
       zIndex: _blocks.length,
       payloadJson: TextBlockPayload(content: '').toJsonString(),
     );
 
-    await ref.read(blockDaoProvider).insertBlock(block);
+    await _insertBlockWithSync(block);
     setState(() => _isDirty = true);
   }
 
   void _addImage() async {
     final file = await showImageSourcePicker(context);
     if (file == null) return;
+    final placement = _computeInsertPlacement(
+      baseWidth: 0.35,
+      baseHeight: 0.25,
+    );
 
     final block = Block(
       pageId: widget.page.id,
       type: BlockType.image,
-      x: 0.1,
-      y: 0.3,
-      width: 0.35,
-      height: 0.25,
+      x: placement.x,
+      y: placement.y,
+      width: placement.width,
+      height: placement.height,
       zIndex: _blocks.length,
       payloadJson: ImageBlockPayload(
         assetId: null,
@@ -955,7 +1729,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       ).toJsonString(),
     );
 
-    await ref.read(blockDaoProvider).insertBlock(block);
+    await _insertBlockWithSync(block);
 
     // Upload to Firebase Storage & Sync Database
     _uploadAndSyncBlock(block, file);
@@ -967,7 +1741,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     try {
       final storageService = ref.read(storageServiceProvider);
       final firestoreService = ref.read(firestoreServiceProvider);
-      final blockDao = ref.read(blockDaoProvider);
 
       // 1. Upload File
       final storagePath = await storageService.uploadFile(file);
@@ -986,14 +1759,17 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         );
 
         // Update local DB
-        await blockDao.updatePayload(block.id, newPayload.toJsonString());
+        await _updatePayloadWithSync(block.id, newPayload.toJsonString());
 
         // Update valid block reference for Firestore sync
         block = block.copyWith(payloadJson: newPayload.toJsonString());
       }
 
       // 3. Sync Block Metadata to Firestore
-      await firestoreService.createBlock(block);
+      await firestoreService.createBlock(
+        block,
+        journalId: widget.page.journalId,
+      );
     } catch (e) {
       debugPrint('Sync Error: $e');
     }
@@ -1003,7 +1779,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     try {
       final storageService = ref.read(storageServiceProvider);
       final firestoreService = ref.read(firestoreServiceProvider);
-      final blockDao = ref.read(blockDaoProvider);
 
       final storagePath = await storageService.uploadFile(file);
 
@@ -1016,11 +1791,14 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           storagePath: storagePath,
         );
 
-        await blockDao.updatePayload(block.id, newPayload.toJsonString());
+        await _updatePayloadWithSync(block.id, newPayload.toJsonString());
         block = block.copyWith(payloadJson: newPayload.toJsonString());
       }
 
-      await firestoreService.createBlock(block);
+      await firestoreService.createBlock(
+        block,
+        journalId: widget.page.journalId,
+      );
     } catch (e) {
       debugPrint('Audio Sync Error: $e');
     }
@@ -1056,14 +1834,18 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       await service.dispose();
 
       if (path != null) {
+        final placement = _computeInsertPlacement(
+          baseWidth: 0.6,
+          baseHeight: 0.1,
+        );
         final block = Block(
           id: const Uuid().v4(),
           pageId: widget.page.id,
           type: BlockType.audio,
-          x: 0.1,
-          y: 0.4,
-          width: 0.6,
-          height: 0.1,
+          x: placement.x,
+          y: placement.y,
+          width: placement.width,
+          height: placement.height,
           zIndex: _blocks.length,
           payloadJson: AudioBlockPayload(
             path: path,
@@ -1076,7 +1858,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           _isDirty = true;
         });
 
-        ref.read(blockDaoProvider).insertBlock(block);
+        _insertBlockWithSync(block);
         _uploadAndSyncAudioBlock(block, File(path));
       }
     } catch (e) {
@@ -1112,80 +1894,98 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                 children: [
                   _FrameOption(
                     'Yok',
-                    'none',
+                    ImageFrameStyles.none,
                     Icons.crop_square,
                     currentPayload.frameStyle,
                   ),
                   _FrameOption(
                     'Yuvarlak',
-                    'circle',
+                    ImageFrameStyles.circle,
                     Icons.circle,
                     currentPayload.frameStyle,
                   ),
                   _FrameOption(
                     'Köşeli',
-                    'rounded',
+                    ImageFrameStyles.rounded,
                     Icons.rounded_corner,
                     currentPayload.frameStyle,
                   ),
                   _FrameOption(
                     'Polaroid',
-                    'polaroid',
+                    ImageFrameStyles.polaroid,
                     Icons.photo,
                     currentPayload.frameStyle,
                   ),
                   _FrameOption(
                     'Bant',
-                    'tape',
+                    ImageFrameStyles.tape,
                     Icons.horizontal_rule,
                     currentPayload.frameStyle,
                   ),
                   _FrameOption(
                     'Gölge',
-                    'shadow',
+                    ImageFrameStyles.shadow,
                     Icons.layers,
                     currentPayload.frameStyle,
                   ),
                   _FrameOption(
                     'Film',
-                    'film',
+                    ImageFrameStyles.film,
                     Icons.movie,
                     currentPayload.frameStyle,
                   ),
                   _FrameOption(
                     'Yığın',
-                    'stacked',
+                    ImageFrameStyles.stacked,
                     Icons.filter_none,
                     currentPayload.frameStyle,
                   ),
                   _FrameOption(
                     'Etiket',
-                    'sticker',
+                    ImageFrameStyles.sticker,
                     Icons.label,
                     currentPayload.frameStyle,
                   ),
                   _FrameOption(
                     'Kenarlık',
-                    'simple_border',
+                    ImageFrameStyles.simpleBorder,
                     Icons.crop_free,
                     currentPayload.frameStyle,
                   ),
                   _FrameOption(
                     'Gradyan',
-                    'gradient',
+                    ImageFrameStyles.gradient,
                     Icons.gradient,
                     currentPayload.frameStyle,
                   ),
                   _FrameOption(
                     'Nostalji',
-                    'vintage',
+                    ImageFrameStyles.vintage,
                     Icons.history,
                     currentPayload.frameStyle,
                   ),
                   _FrameOption(
                     'Katman',
-                    'layered',
+                    ImageFrameStyles.layered,
                     Icons.layers_outlined,
+                    currentPayload.frameStyle,
+                  ),
+                  _FrameOption(
+                    'Bant Köşe',
+                    ImageFrameStyles.tapeCorners,
+                    Icons.bookmark,
+                    currentPayload.frameStyle,
+                  ),
+                  _FrameOption(
+                    'Polaroid Klasik',
+                    ImageFrameStyles.polaroidClassic,
+                    Icons.photo_size_select_actual,
+                    currentPayload.frameStyle,
+                  ),
+                  _FrameOption(
+                    'Vintage Kenar',
+                    ImageFrameStyles.vintageEdge,
+                    Icons.photo_filter,
                     currentPayload.frameStyle,
                   ),
                 ],
@@ -1204,11 +2004,13 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         originalHeight: currentPayload.originalHeight,
         caption: currentPayload.caption,
         frameStyle: style,
+        storagePath: currentPayload.storagePath,
       );
 
-      await ref
-          .read(blockDaoProvider)
-          .updatePayload(_selectedBlockId!, newPayload.toJsonString());
+      await _updatePayloadWithSync(
+        _selectedBlockId!,
+        newPayload.toJsonString(),
+      );
 
       // Sync update to Firestore
       final firestoreService = ref.read(firestoreServiceProvider);
@@ -1218,9 +2020,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         final updatedBlock = _blocks
             .firstWhere((b) => b.id == _selectedBlockId)
             .copyWith(payloadJson: newPayload.toJsonString());
-        await firestoreService.createBlock(
+        await firestoreService.updateBlock(
           updatedBlock,
-        ); // createBlock uses set (upsert)
+          journalId: widget.page.journalId,
+        );
       } catch (e) {
         /* ignore */
       }
@@ -1257,7 +2060,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       // Sync deletion to Firestore
       try {
         final firestoreService = ref.read(firestoreServiceProvider);
-        await firestoreService.deleteBlock(_selectedBlockId!);
+        await firestoreService.deleteBlock(
+          _selectedBlockId!,
+          journalId: widget.page.journalId,
+          pageId: widget.page.id,
+        );
       } catch (e) {
         debugPrint('Sync Delete Error: $e');
       }
@@ -1358,7 +2165,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       _isDirty = true;
     });
 
-    ref.read(blockDaoProvider).updateBlock(_blocks[index]);
+    _updateBlockWithSync(_blocks[index]);
   }
 
   Future<bool> _showUnsavedChangesDialog() async {
@@ -1397,9 +2204,92 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   }
 }
 
-enum EditorMode { select, text, draw }
+class _EraserPreviewPainter extends CustomPainter {
+  final Offset point;
+  final double radius;
+  final Color color;
+
+  const _EraserPreviewPainter({
+    required this.point,
+    required this.radius,
+    required this.color,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final outerStroke = Paint()
+      ..color = (color == Colors.white ? Colors.black : Colors.white)
+          .withValues(alpha: 0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+
+    final fill = Paint()
+      ..color = color.withValues(alpha: 0.14)
+      ..style = PaintingStyle.fill;
+
+    final stroke = Paint()
+      ..color = color.withValues(alpha: 0.95)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8;
+
+    canvas.drawCircle(point, radius, outerStroke);
+    canvas.drawCircle(point, radius, fill);
+    canvas.drawCircle(point, radius, stroke);
+  }
+
+  @override
+  bool shouldRepaint(covariant _EraserPreviewPainter oldDelegate) {
+    return oldDelegate.point != point ||
+        oldDelegate.radius != radius ||
+        oldDelegate.color != color;
+  }
+}
+
+enum EditorMode { select, text, draw, erase }
 
 enum _HandleType { topLeft, topRight, bottomLeft, bottomRight, rotate }
+
+enum _ScaleTarget { none, page, block }
+
+class _BlockScaleSnapshot {
+  final double x;
+  final double y;
+  final double width;
+  final double height;
+  final double rotation;
+
+  const _BlockScaleSnapshot({
+    required this.x,
+    required this.y,
+    required this.width,
+    required this.height,
+    required this.rotation,
+  });
+
+  factory _BlockScaleSnapshot.fromBlock(Block block) {
+    return _BlockScaleSnapshot(
+      x: block.x,
+      y: block.y,
+      width: block.width,
+      height: block.height,
+      rotation: block.rotation,
+    );
+  }
+}
+
+class _InsertPlacement {
+  final double x;
+  final double y;
+  final double width;
+  final double height;
+
+  const _InsertPlacement({
+    required this.x,
+    required this.y,
+    required this.width,
+    required this.height,
+  });
+}
 
 class _ToolBtn extends StatelessWidget {
   final IconData icon;

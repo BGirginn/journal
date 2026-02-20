@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:journal_app/core/models/block.dart';
 
 /// Renders an image with various frame styles
 class ImageFrameWidget extends StatelessWidget {
@@ -33,31 +34,37 @@ class ImageFrameWidget extends StatelessWidget {
     );
 
     switch (frameStyle) {
-      case 'polaroid':
+      case ImageFrameStyles.polaroid:
         return _buildPolaroid(image);
-      case 'tape':
+      case ImageFrameStyles.tape:
         return _buildTape(image);
-      case 'shadow':
+      case ImageFrameStyles.shadow:
         return _buildShadow(image);
-      case 'simple_border':
+      case ImageFrameStyles.simpleBorder:
         return _buildSimpleBorder(image);
-      case 'circle':
+      case ImageFrameStyles.circle:
         return _buildCircle(image);
-      case 'rounded':
+      case ImageFrameStyles.rounded:
         return _buildRounded(image);
-      case 'stacked':
+      case ImageFrameStyles.stacked:
         return _buildStacked(image);
-      case 'film':
+      case ImageFrameStyles.film:
         return _buildFilm(image);
-      case 'sticker':
+      case ImageFrameStyles.sticker:
         return _buildSticker(image);
-      case 'gradient':
+      case ImageFrameStyles.gradient:
         return _buildGradient(image);
-      case 'vintage':
+      case ImageFrameStyles.vintage:
         return _buildVintage(image);
-      case 'layered':
+      case ImageFrameStyles.layered:
         return _buildLayered(image);
-      case 'none':
+      case ImageFrameStyles.tapeCorners:
+        return _buildTapeCorners(image);
+      case ImageFrameStyles.polaroidClassic:
+        return _buildPolaroidClassic(image);
+      case ImageFrameStyles.vintageEdge:
+        return _buildVintageEdge(image);
+      case ImageFrameStyles.none:
       default:
         return ClipRRect(borderRadius: BorderRadius.circular(4), child: image);
     }
@@ -332,6 +339,119 @@ class ImageFrameWidget extends StatelessWidget {
         ),
         image,
       ],
+    );
+  }
+
+  Widget _buildTapeCorners(Widget image) {
+    Widget tape(double angle) {
+      return Transform.rotate(
+        angle: angle,
+        child: Container(
+          width: width * 0.18,
+          height: height * 0.08,
+          decoration: BoxDecoration(
+            color: const Color(0xBFF9E4A8),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      );
+    }
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: image,
+        ),
+        Positioned(top: -8, left: -6, child: tape(-0.18)),
+        Positioned(top: -8, right: -6, child: tape(0.14)),
+        Positioned(bottom: -8, left: -6, child: tape(0.12)),
+        Positioned(bottom: -8, right: -6, child: tape(-0.16)),
+      ],
+    );
+  }
+
+  Widget _buildPolaroidClassic(Widget image) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 34),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFDFDFD),
+        border: Border.all(color: const Color(0xFFE8E8E8), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 14,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFFDFDFDF), width: 0.8),
+        ),
+        child: image,
+      ),
+    );
+  }
+
+  Widget _buildVintageEdge(Widget image) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF6B4D2E), Color(0xFF4B3421)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.24),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFFE0CDA5), width: 2),
+        ),
+        child: ColorFiltered(
+          colorFilter: const ColorFilter.matrix(<double>[
+            0.9,
+            0.0,
+            0.0,
+            0.0,
+            8.0,
+            0.0,
+            0.82,
+            0.0,
+            0.0,
+            6.0,
+            0.0,
+            0.0,
+            0.7,
+            0.0,
+            -8.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+          ]),
+          child: image,
+        ),
+      ),
     );
   }
 }
