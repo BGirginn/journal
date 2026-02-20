@@ -52,24 +52,33 @@ class TeamService {
         .where('userId', isEqualTo: uid)
         .where('deletedAt', isNull: true)
         .snapshots()
-        .listen((snapshot) async {
-          // For each membership, insert/update local
-          for (var doc in snapshot.docChanges) {
-            if (doc.type == DocumentChangeType.added ||
-                doc.type == DocumentChangeType.modified) {
-              final member = member_model.TeamMember.fromJson(doc.doc.data()!);
-              await _teamDao.insertMember(member);
+        .listen(
+          (snapshot) async {
+            // For each membership, insert/update local
+            for (var doc in snapshot.docChanges) {
+              if (doc.type == DocumentChangeType.added ||
+                  doc.type == DocumentChangeType.modified) {
+                final member = member_model.TeamMember.fromJson(
+                  doc.doc.data()!,
+                );
+                await _teamDao.insertMember(member);
 
-              // Also fetch/sync the team itself
-              _syncTeam(member.teamId);
-              // And sync other members of this team
-              _syncTeamMembers(member.teamId);
-            } else if (doc.type == DocumentChangeType.removed) {
-              final member = member_model.TeamMember.fromJson(doc.doc.data()!);
-              await _teamDao.removeMember(member.teamId, member.userId);
+                // Also fetch/sync the team itself
+                _syncTeam(member.teamId);
+                // And sync other members of this team
+                _syncTeamMembers(member.teamId);
+              } else if (doc.type == DocumentChangeType.removed) {
+                final member = member_model.TeamMember.fromJson(
+                  doc.doc.data()!,
+                );
+                await _teamDao.removeMember(member.teamId, member.userId);
+              }
             }
-          }
-        });
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            debugPrint('Team memberships listener error: $error');
+          },
+        );
   }
 
   void _syncTeam(String teamId) {
@@ -78,14 +87,19 @@ class TeamService {
         .collection('teams')
         .doc(teamId)
         .snapshots()
-        .listen((doc) async {
-      if (doc.exists) {
-        final team = model.Team.fromJson(doc.data()!);
-        await _teamDao.insertTeam(team);
-      } else {
-        await _teamDao.softDeleteTeam(teamId);
-      }
-    });
+        .listen(
+          (doc) async {
+            if (doc.exists) {
+              final team = model.Team.fromJson(doc.data()!);
+              await _teamDao.insertTeam(team);
+            } else {
+              await _teamDao.softDeleteTeam(teamId);
+            }
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            debugPrint('Team doc listener error ($teamId): $error');
+          },
+        );
   }
 
   void _syncTeamMembers(String teamId) {
@@ -94,15 +108,22 @@ class TeamService {
         .collection('team_members')
         .where('teamId', isEqualTo: teamId)
         .snapshots()
-        .listen((snapshot) async {
-          for (var doc in snapshot.docChanges) {
-            if (doc.type == DocumentChangeType.added ||
-                doc.type == DocumentChangeType.modified) {
-              final member = member_model.TeamMember.fromJson(doc.doc.data()!);
-              await _teamDao.insertMember(member);
+        .listen(
+          (snapshot) async {
+            for (var doc in snapshot.docChanges) {
+              if (doc.type == DocumentChangeType.added ||
+                  doc.type == DocumentChangeType.modified) {
+                final member = member_model.TeamMember.fromJson(
+                  doc.doc.data()!,
+                );
+                await _teamDao.insertMember(member);
+              }
             }
-          }
-        });
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            debugPrint('Team members listener error ($teamId): $error');
+          },
+        );
   }
 
   // --- Actions ---

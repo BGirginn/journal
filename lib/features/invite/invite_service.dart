@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal_app/core/auth/auth_service.dart';
 import 'package:journal_app/providers/database_providers.dart';
@@ -36,18 +37,23 @@ class InviteService {
         .where('inviteeId', isEqualTo: uid)
         .where('status', isEqualTo: 'pending')
         .snapshots()
-        .listen((snapshot) async {
-          for (var doc in snapshot.docChanges) {
-            if (doc.type == DocumentChangeType.added ||
-                doc.type == DocumentChangeType.modified) {
-              final invite = Invite.fromJson(doc.doc.data()!);
-              await _inviteDao.insertInvite(invite);
-            } else if (doc.type == DocumentChangeType.removed) {
-              // Soft delete or hard delete?
-              await _inviteDao.deleteInvite(doc.doc.id);
+        .listen(
+          (snapshot) async {
+            for (var doc in snapshot.docChanges) {
+              if (doc.type == DocumentChangeType.added ||
+                  doc.type == DocumentChangeType.modified) {
+                final invite = Invite.fromJson(doc.doc.data()!);
+                await _inviteDao.insertInvite(invite);
+              } else if (doc.type == DocumentChangeType.removed) {
+                // Soft delete or hard delete?
+                await _inviteDao.deleteInvite(doc.doc.id);
+              }
             }
-          }
-        });
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            debugPrint('Invite sync listener error: $error');
+          },
+        );
   }
 
   Stream<List<Invite>> watchMyInvites() {
