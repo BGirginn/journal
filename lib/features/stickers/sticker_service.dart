@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal_app/core/auth/auth_service.dart';
 import 'package:journal_app/providers/database_providers.dart';
@@ -32,17 +33,22 @@ class StickerService {
         .collection('user_stickers')
         .where('userId', isEqualTo: uid)
         .snapshots()
-        .listen((snapshot) async {
-          for (var doc in snapshot.docChanges) {
-            if (doc.type == DocumentChangeType.added ||
-                doc.type == DocumentChangeType.modified) {
-              final sticker = UserSticker.fromJson(doc.doc.data()!);
-              await _stickerDao.insertSticker(sticker);
-            } else if (doc.type == DocumentChangeType.removed) {
-              await _stickerDao.deleteSticker(doc.doc.id);
+        .listen(
+          (snapshot) async {
+            for (var doc in snapshot.docChanges) {
+              if (doc.type == DocumentChangeType.added ||
+                  doc.type == DocumentChangeType.modified) {
+                final sticker = UserSticker.fromJson(doc.doc.data()!);
+                await _stickerDao.insertSticker(sticker);
+              } else if (doc.type == DocumentChangeType.removed) {
+                await _stickerDao.deleteSticker(doc.doc.id);
+              }
             }
-          }
-        });
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            debugPrint('Sticker sync listener error: $error');
+          },
+        );
   }
 
   Stream<List<UserSticker>> watchMyStickers() {

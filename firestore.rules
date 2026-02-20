@@ -54,7 +54,7 @@ service cloud.firestore {
     }
 
     // Team Members
-    match /teamMembers/{memberId} {
+    match /team_members/{memberId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
       allow update, delete: if isAuthenticated() && (
@@ -77,10 +77,33 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && resource.data.inviterId == request.auth.uid;
     }
 
+    // User stickers
+    match /user_stickers/{stickerId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
     // Oplogs
     match /oplogs/{opId} {
-      allow read: if isAuthenticated() && resource.data.actorId == request.auth.uid;
-      allow create: if isAuthenticated() && request.resource.data.actorId == request.auth.uid;
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.actorId == request.auth.uid
+      );
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == request.auth.uid ||
+        request.resource.data.actorId == request.auth.uid
+      );
+      allow update: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.actorId == request.auth.uid
+      ) && (
+        request.resource.data.userId == request.auth.uid ||
+        request.resource.data.actorId == request.auth.uid
+      );
     }
   }
 }
