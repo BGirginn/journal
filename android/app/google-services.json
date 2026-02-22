@@ -14,11 +14,27 @@
       },
       "oauth_client": [
         {
+          "client_id": "317674243768-50kru3bhhhpvpdr0fr9uqe7j2lfk0b4g.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.bgirginn.journal_app",
+            "certificate_hash": "d6348cd42c2064be6464eb81ee9c42a8ba1632f9"
+          }
+        },
+        {
           "client_id": "317674243768-ldc0pr0p5odtkr750jkb2jq3stg8geic.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.bgirginn.journal_app",
             "certificate_hash": "f6d66c61ca4a1a406664217a93d09d373a0f332f"
+          }
+        },
+        {
+          "client_id": "317674243768-oiph7j9ph2e5mp2tt8trdsjngsn3p3gr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.bgirginn.journal_app",
+            "certificate_hash": "2145897e6cd17c1a5d512f35f573dabe744b2072"
           }
         },
         {
