@@ -64,8 +64,10 @@ class DefaultFirebaseOptions {
     messagingSenderId: '317674243768',
     projectId: 'journal-cf6d7',
     storageBucket: 'journal-cf6d7.firebasestorage.app',
-    androidClientId: '317674243768-ldc0pr0p5odtkr750jkb2jq3stg8geic.apps.googleusercontent.com',
-    iosClientId: '317674243768-d01a007ul3ta3djjlre1h0b7q2s0f3gt.apps.googleusercontent.com',
+    androidClientId:
+        '317674243768-ldc0pr0p5odtkr750jkb2jq3stg8geic.apps.googleusercontent.com',
+    iosClientId:
+        '317674243768-d01a007ul3ta3djjlre1h0b7q2s0f3gt.apps.googleusercontent.com',
     iosBundleId: 'com.bgirginn.journalApp',
   );
 
@@ -75,8 +77,10 @@ class DefaultFirebaseOptions {
     messagingSenderId: '317674243768',
     projectId: 'journal-cf6d7',
     storageBucket: 'journal-cf6d7.firebasestorage.app',
-    androidClientId: '317674243768-ldc0pr0p5odtkr750jkb2jq3stg8geic.apps.googleusercontent.com',
-    iosClientId: '317674243768-d01a007ul3ta3djjlre1h0b7q2s0f3gt.apps.googleusercontent.com',
+    androidClientId:
+        '317674243768-ldc0pr0p5odtkr750jkb2jq3stg8geic.apps.googleusercontent.com',
+    iosClientId:
+        '317674243768-d01a007ul3ta3djjlre1h0b7q2s0f3gt.apps.googleusercontent.com',
     iosBundleId: 'com.bgirginn.journalApp',
   );
 
@@ -89,5 +93,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'journal-cf6d7.firebasestorage.app',
     measurementId: 'G-SC8REJ8TTG',
   );
-
 }

@@ -1,7 +1,8 @@
+import 'dart:math';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
-/// Widget to display and play an audio block
+/// Widget to display and play an audio block with waveform visualization
 class AudioBlockWidget extends StatefulWidget {
   final String path;
   final int? durationMs;
@@ -18,9 +19,17 @@ class _AudioBlockWidgetState extends State<AudioBlockWidget> {
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
 
+  // Simulated waveform bars (in real app, extract from audio file)
+  late final List<double> _waveformBars;
+
   @override
   void initState() {
     super.initState();
+
+    // Generate deterministic waveform from path hash
+    final rng = Random(widget.path.hashCode);
+    _waveformBars = List.generate(40, (_) => rng.nextDouble() * 0.7 + 0.3);
+
     _player.onPlayerStateChanged.listen((state) {
       if (mounted) setState(() => _playerState = state);
     });
@@ -33,7 +42,6 @@ class _AudioBlockWidgetState extends State<AudioBlockWidget> {
       if (mounted) setState(() => _duration = dur);
     });
 
-    // Set initial duration from metadata if available
     if (widget.durationMs != null) {
       _duration = Duration(milliseconds: widget.durationMs!);
     }
@@ -53,6 +61,15 @@ class _AudioBlockWidgetState extends State<AudioBlockWidget> {
     }
   }
 
+  Future<void> _seekTo(double ratio) async {
+    if (_duration.inMilliseconds > 0) {
+      final pos = Duration(
+        milliseconds: (ratio * _duration.inMilliseconds).round(),
+      );
+      await _player.seek(pos);
+    }
+  }
+
   String _formatDuration(Duration d) {
     final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
@@ -62,70 +79,93 @@ class _AudioBlockWidgetState extends State<AudioBlockWidget> {
   @override
   Widget build(BuildContext context) {
     final isPlaying = _playerState == PlayerState.playing;
+    final colorScheme = Theme.of(context).colorScheme;
+    final progress = _duration.inMilliseconds > 0
+        ? _position.inMilliseconds / _duration.inMilliseconds
+        : 0.0;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: Border.all(color: Colors.grey.shade300),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+        ),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
+          // Play/Pause Button
           GestureDetector(
             onTap: _togglePlay,
             child: Container(
-              width: 36,
-              height: 36,
-              decoration: const BoxDecoration(
-                color: Colors.deepPurple,
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: colorScheme.primary,
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                isPlaying ? Icons.pause : Icons.play_arrow,
-                color: Colors.white,
-                size: 20,
+                isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                color: colorScheme.onPrimary,
+                size: 22,
               ),
             ),
           ),
-          const SizedBox(width: 12),
-          // Waveform placeholder or progress bar
+          const SizedBox(width: 10),
+          // Waveform + Time
           Expanded(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                LinearProgressIndicator(
-                  value: _duration.inMilliseconds > 0
-                      ? _position.inMilliseconds / _duration.inMilliseconds
-                      : 0.0,
-                  backgroundColor: Colors.grey.shade200,
-                  valueColor: const AlwaysStoppedAnimation<Color>(
-                    Colors.deepPurple,
+                // Waveform bars
+                GestureDetector(
+                  onTapDown: (details) {
+                    final box = context.findRenderObject() as RenderBox;
+                    final localX = details.localPosition.dx;
+                    // Approximate: waveform starts ~62px from left
+                    final waveWidth = box.size.width - 62;
+                    if (waveWidth > 0) {
+                      _seekTo((localX / waveWidth).clamp(0.0, 1.0));
+                    }
+                  },
+                  child: SizedBox(
+                    height: 32,
+                    child: CustomPaint(
+                      painter: _WaveformPainter(
+                        bars: _waveformBars,
+                        progress: progress,
+                        activeColor: colorScheme.primary,
+                        inactiveColor: colorScheme.primary.withValues(
+                          alpha: 0.25,
+                        ),
+                      ),
+                      size: Size.infinite,
+                    ),
                   ),
-                  minHeight: 4,
-                  borderRadius: BorderRadius.circular(2),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  _formatDuration(
-                    isPlaying || _position > Duration.zero
-                        ? _position
-                        : _duration,
-                  ),
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
+                // Duration text
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _formatDuration(_position),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      _formatDuration(_duration),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -134,4 +174,50 @@ class _AudioBlockWidgetState extends State<AudioBlockWidget> {
       ),
     );
   }
+}
+
+/// Custom painter for waveform visualization
+class _WaveformPainter extends CustomPainter {
+  final List<double> bars;
+  final double progress;
+  final Color activeColor;
+  final Color inactiveColor;
+
+  _WaveformPainter({
+    required this.bars,
+    required this.progress,
+    required this.activeColor,
+    required this.inactiveColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (bars.isEmpty) return;
+
+    final barWidth = size.width / (bars.length * 2 - 1);
+    final maxHeight = size.height;
+
+    for (int i = 0; i < bars.length; i++) {
+      final x = i * barWidth * 2;
+      final barHeight = bars[i] * maxHeight;
+      final y = (maxHeight - barHeight) / 2;
+
+      final isActive = (i / bars.length) <= progress;
+      final paint = Paint()
+        ..color = isActive ? activeColor : inactiveColor
+        ..style = PaintingStyle.fill;
+
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(x, y, barWidth, barHeight),
+          const Radius.circular(2),
+        ),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WaveformPainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }

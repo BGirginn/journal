@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal_app/core/models/journal.dart';
+import 'package:journal_app/core/models/block.dart';
 import 'package:journal_app/core/models/page.dart' as model;
 import 'package:journal_app/core/theme/nostalgic_themes.dart';
 import 'package:journal_app/core/theme/nostalgic_page_painter.dart';
@@ -142,9 +143,7 @@ class _JournalViewScreenState extends ConsumerState<JournalViewScreen> {
           child: Text(
             'Sayfa ${_currentPage + 1} / ${pages.length}',
             style: TextStyle(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.grey[400]
-                  : Colors.grey[600],
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
         ),
@@ -153,7 +152,7 @@ class _JournalViewScreenState extends ConsumerState<JournalViewScreen> {
   }
 
   Widget _buildPageIndicator(int pageCount) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -171,8 +170,8 @@ class _JournalViewScreenState extends ConsumerState<JournalViewScreen> {
                 height: 8,
                 decoration: BoxDecoration(
                   color: i == _currentPage
-                      ? Colors.deepPurple
-                      : (isDark ? Colors.grey[600] : Colors.grey[300]),
+                      ? colorScheme.primary
+                      : colorScheme.outlineVariant,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -181,7 +180,7 @@ class _JournalViewScreenState extends ConsumerState<JournalViewScreen> {
           if (pageCount > 7)
             Text(
               ' +${pageCount - 7}',
-              style: TextStyle(color: Colors.grey[500]),
+              style: TextStyle(color: colorScheme.onSurfaceVariant),
             ),
         ],
       ),
@@ -189,15 +188,20 @@ class _JournalViewScreenState extends ConsumerState<JournalViewScreen> {
   }
 
   Widget _buildEmptyState() {
+    final colorScheme = Theme.of(context).colorScheme;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.note_add_outlined, size: 64, color: Colors.grey[400]),
+          Icon(
+            Icons.note_add_outlined,
+            size: 64,
+            color: colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(height: 16),
           Text(
             'Sayfa yok',
-            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 18, color: colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 24),
           FilledButton.icon(
@@ -264,6 +268,7 @@ class _PageCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final blocksAsync = ref.watch(blocksProvider(page.id));
+    final colorScheme = Theme.of(context).colorScheme;
 
     // Decode ink strokes if any
     final strokes = page.inkData.isNotEmpty
@@ -282,9 +287,7 @@ class _PageCard extends ConsumerWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(
-                alpha: 0.2,
-              ), // Updated for Flutter 3
+              color: colorScheme.shadow.withValues(alpha: 0.18),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -294,16 +297,27 @@ class _PageCard extends ConsumerWidget {
           borderRadius: BorderRadius.circular(12),
           child: blocksAsync.when(
             data: (blocks) {
+              final sortedBlocks = List<Block>.from(blocks)
+                ..sort((a, b) => a.zIndex.compareTo(b.zIndex));
               final hasContent = blocks.isNotEmpty || strokes.isNotEmpty;
 
               if (!hasContent) {
                 return Stack(
+                  fit: StackFit.expand,
                   children: [
-                    CustomPaint(
-                      painter: NostalgicPagePainter(theme: theme),
-                      size: Size.infinite,
-                    ),
-                    _buildTapHint(),
+                    if (theme.visuals.assetPath != null)
+                      Positioned.fill(
+                        child: Image.asset(
+                          theme.visuals.assetPath!,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    else
+                      CustomPaint(
+                        painter: NostalgicPagePainter(theme: theme),
+                        size: Size.infinite,
+                      ),
+                    _buildTapHint(context),
                   ],
                 );
               }
@@ -322,25 +336,23 @@ class _PageCard extends ConsumerWidget {
                     clipBehavior: Clip.none,
                     children: [
                       // Background
-                      CustomPaint(
-                        painter: NostalgicPagePainter(theme: theme),
-                        size: Size.infinite,
-                      ),
-
-                      // Ink
-                      if (strokes.isNotEmpty)
-                        CustomPaint(
-                          painter: OptimizedInkPainter(
-                            strokes: strokes,
-                            currentStroke: null,
+                      if (theme.visuals.assetPath != null)
+                        Positioned.fill(
+                          child: Image.asset(
+                            theme.visuals.assetPath!,
+                            fit: BoxFit.cover,
                           ),
+                        )
+                      else
+                        CustomPaint(
+                          painter: NostalgicPagePainter(theme: theme),
                           size: Size.infinite,
                         ),
 
                       // Blocks
                       Stack(
                         clipBehavior: Clip.none,
-                        children: blocks.map((block) {
+                        children: sortedBlocks.map((block) {
                           return BlockWidget(
                             block: block,
                             pageSize: referenceSize,
@@ -349,6 +361,18 @@ class _PageCard extends ConsumerWidget {
                           );
                         }).toList(),
                       ),
+
+                      // Ink (top layer)
+                      if (strokes.isNotEmpty)
+                        IgnorePointer(
+                          child: CustomPaint(
+                            painter: OptimizedInkPainter(
+                              strokes: strokes,
+                              currentStroke: null,
+                            ),
+                            size: Size.infinite,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -364,8 +388,8 @@ class _PageCard extends ConsumerWidget {
 
   // _buildContentPreview is removed/replaced by the visual preview above
 
-  Widget _buildTapHint() {
-    final isDark = theme.id == 'midnight';
+  Widget _buildTapHint(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Center(
       child: Column(
@@ -374,15 +398,12 @@ class _PageCard extends ConsumerWidget {
           Icon(
             Icons.touch_app_outlined,
             size: 48,
-            color: isDark ? Colors.grey[600] : Colors.grey[400],
+            color: colorScheme.onSurfaceVariant,
           ),
           const SizedBox(height: 12),
           Text(
             'Düzenlemek için dokunun',
-            style: TextStyle(
-              color: isDark ? Colors.grey[500] : Colors.grey[500],
-              fontSize: 14,
-            ),
+            style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 14),
           ),
         ],
       ),

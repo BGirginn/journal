@@ -1,0 +1,388 @@
+{
+  "generated_at": "2026-02-13",
+  "project": "journal_app",
+  "scope": "ios_android",
+  "assumptions": {
+    "team_capacity": "6+ dev squad",
+    "sprint_length_weeks": 2,
+    "business_model": "freemium_growth"
+  },
+  "items": [
+    {
+      "id": "BL-01",
+      "title": "Android release signing and hardening",
+      "category": "security",
+      "severity": "critical",
+      "reach": 10,
+      "impact": 3,
+      "confidence": 0.95,
+      "effort_person_weeks": 1,
+      "rice_score": 28.5,
+      "priority": "P0",
+      "evidence": [
+        "android/app/build.gradle.kts:40"
+      ],
+      "epic": "Release and Security Baseline",
+      "stories": [
+        {
+          "id": "ST-01",
+          "title": "Configure release keystore and signing",
+          "tasks": [
+            "add key.properties-based release signing",
+            "store keystore in CI secrets",
+            "block debug signing in release pipeline"
+          ]
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "BL-02",
+      "title": "Sync v2 implementation (syncUp/reconcile/oplog processing)",
+      "category": "architecture",
+      "severity": "critical",
+      "reach": 10,
+      "impact": 3,
+      "confidence": 0.8,
+      "effort_person_weeks": 6,
+      "rice_score": 4.0,
+      "priority": "P0",
+      "evidence": [
+        "lib/core/sync/sync_service.dart:65",
+        "lib/core/sync/sync_service.dart:69",
+        "lib/core/database/daos/oplog_dao.dart:13"
+      ],
+      "epic": "Sync Reliability",
+      "stories": [
+        {
+          "id": "ST-02",
+          "title": "Produce oplog entries from write paths",
+          "tasks": [
+            "wire insertOplog calls from journal/page/block mutations",
+            "assign stable deviceId and hlc in producer"
+          ]
+        },
+        {
+          "id": "ST-03",
+          "title": "Upload pending oplogs and ack",
+          "tasks": [
+            "implement syncUp uploader loop",
+            "retry/backoff and status transitions"
+          ]
+        },
+        {
+          "id": "ST-04",
+          "title": "Implement reconcile and conflict policy",
+          "tasks": [
+            "deterministic merge rules",
+            "integration tests for A/B conflict scenarios"
+          ]
+        }
+      ],
+      "dependencies": [
+        "BL-03",
+        "BL-07"
+      ]
+    },
+    {
+      "id": "BL-03",
+      "title": "Normalize Firestore collection naming and rules",
+      "category": "security",
+      "severity": "high",
+      "reach": 8,
+      "impact": 3,
+      "confidence": 0.9,
+      "effort_person_weeks": 1,
+      "rice_score": 21.6,
+      "priority": "P0",
+      "evidence": [
+        "lib/features/team/team_service.dart:51",
+        "firestore.rules:57"
+      ],
+      "epic": "Release and Security Baseline",
+      "stories": [
+        {
+          "id": "ST-05",
+          "title": "Align rules and code to one collection name",
+          "tasks": [
+            "rename collection path usage",
+            "update firestore.rules and deploy",
+            "add emulator allow/deny tests"
+          ]
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "BL-04",
+      "title": "CI quality gates (analyze/test/security/build)",
+      "category": "delivery",
+      "severity": "high",
+      "reach": 10,
+      "impact": 2,
+      "confidence": 0.9,
+      "effort_person_weeks": 2,
+      "rice_score": 9.0,
+      "priority": "P0",
+      "evidence": [
+        ".github/workflows (missing)",
+        "md_files/ci_cd.md"
+      ],
+      "epic": "Quality Automation",
+      "stories": [
+        {
+          "id": "ST-06",
+          "title": "Add PR and release workflows",
+          "tasks": [
+            "flutter analyze gate",
+            "flutter test gate",
+            "secret/dependency scan gate",
+            "release build artifact checks"
+          ]
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "BL-05",
+      "title": "Stabilize widget tests and remove pending timers",
+      "category": "test",
+      "severity": "high",
+      "reach": 8,
+      "impact": 2,
+      "confidence": 0.9,
+      "effort_person_weeks": 1,
+      "rice_score": 14.4,
+      "priority": "P1",
+      "evidence": [
+        "test/widget_test.dart:11",
+        "flutter test output: timersPending assertion"
+      ],
+      "epic": "Quality Automation",
+      "stories": [
+        {
+          "id": "ST-07",
+          "title": "Make app render test deterministic",
+          "tasks": [
+            "disable or settle flutter_animate timers in tests",
+            "add smoke test for login->library shell"
+          ]
+        }
+      ],
+      "dependencies": [
+        "BL-04"
+      ]
+    },
+    {
+      "id": "BL-06",
+      "title": "Implement at-rest encryption for local data",
+      "category": "security",
+      "severity": "high",
+      "reach": 7,
+      "impact": 3,
+      "confidence": 0.7,
+      "effort_person_weeks": 5,
+      "rice_score": 2.94,
+      "priority": "P1",
+      "evidence": [
+        "lib/core/database/app_database.dart",
+        "pubspec.yaml (no secure storage/sqlcipher dependency)"
+      ],
+      "epic": "Release and Security Baseline",
+      "stories": [
+        {
+          "id": "ST-08",
+          "title": "Encrypt DB and key material",
+          "tasks": [
+            "choose SQLCipher strategy",
+            "store keys in Keychain/Keystore",
+            "migration and rollback plan"
+          ]
+        }
+      ],
+      "dependencies": [
+        "BL-02"
+      ]
+    },
+    {
+      "id": "BL-07",
+      "title": "Standardize error model and telemetry",
+      "category": "reliability",
+      "severity": "high",
+      "reach": 8,
+      "impact": 2,
+      "confidence": 0.85,
+      "effort_person_weeks": 3,
+      "rice_score": 4.53,
+      "priority": "P1",
+      "evidence": [
+        "lib/core/database/storage_service.dart:46",
+        "lib/providers/journal_providers.dart:53",
+        "lib/core/sync/sync_service.dart:113"
+      ],
+      "epic": "Sync Reliability",
+      "stories": [
+        {
+          "id": "ST-09",
+          "title": "Replace silent catches with typed errors",
+          "tasks": [
+            "define AppError hierarchy",
+            "add structured logs with redaction",
+            "emit sync/save failure telemetry"
+          ]
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "BL-08",
+      "title": "Modularize EditorScreen",
+      "category": "technical_debt",
+      "severity": "high",
+      "reach": 8,
+      "impact": 2,
+      "confidence": 0.8,
+      "effort_person_weeks": 5,
+      "rice_score": 2.56,
+      "priority": "P1",
+      "evidence": [
+        "lib/features/editor/editor_screen.dart:27",
+        "lib/features/editor/editor_screen.dart:83"
+      ],
+      "epic": "Editor Refactor",
+      "stories": [
+        {
+          "id": "ST-10",
+          "title": "Split UI, state, and sync concerns",
+          "tasks": [
+            "extract editor controller/viewmodel",
+            "extract media sync service",
+            "reduce widget file size and complexity"
+          ]
+        }
+      ],
+      "dependencies": [
+        "BL-07"
+      ]
+    },
+    {
+      "id": "BL-09",
+      "title": "Accessibility baseline improvements",
+      "category": "ux",
+      "severity": "medium",
+      "reach": 7,
+      "impact": 2,
+      "confidence": 0.8,
+      "effort_person_weeks": 2,
+      "rice_score": 5.6,
+      "priority": "P2",
+      "evidence": [
+        "lib/features/home/home_screen.dart",
+        "lib/features/auth/login_screen.dart"
+      ],
+      "epic": "UX and Accessibility",
+      "stories": [
+        {
+          "id": "ST-11",
+          "title": "Add semantics and minimum touch targets",
+          "tasks": [
+            "screen-reader labels/hints",
+            "contrast and target-size verification",
+            "reduce motion setting support"
+          ]
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "BL-10",
+      "title": "Localization infrastructure (TR/EN)",
+      "category": "ux",
+      "severity": "medium",
+      "reach": 6,
+      "impact": 2,
+      "confidence": 0.8,
+      "effort_person_weeks": 2,
+      "rice_score": 4.8,
+      "priority": "P2",
+      "evidence": [
+        "pubspec.yaml (no flutter_localizations)",
+        "hardcoded strings across lib/features"
+      ],
+      "epic": "UX and Accessibility",
+      "stories": [
+        {
+          "id": "ST-12",
+          "title": "Adopt ARB-based localization",
+          "tasks": [
+            "enable flutter_localizations",
+            "extract strings to ARB",
+            "TR/EN language switch coverage"
+          ]
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "BL-11",
+      "title": "Integrate responsive/tablet views",
+      "category": "ux",
+      "severity": "medium",
+      "reach": 5,
+      "impact": 1,
+      "confidence": 0.7,
+      "effort_person_weeks": 3,
+      "rice_score": 1.17,
+      "priority": "P3",
+      "evidence": [
+        "lib/core/responsive/responsive_layout.dart",
+        "no usage outside file"
+      ],
+      "epic": "UX and Accessibility",
+      "stories": [
+        {
+          "id": "ST-13",
+          "title": "Use AdaptiveJournalView in journal flows",
+          "tasks": [
+            "wire responsive view into journal screens",
+            "tablet landscape QA"
+          ]
+        }
+      ],
+      "dependencies": [
+        "BL-08"
+      ]
+    },
+    {
+      "id": "BL-12",
+      "title": "Automate dependency and secret security scans",
+      "category": "security",
+      "severity": "medium",
+      "reach": 7,
+      "impact": 1,
+      "confidence": 0.9,
+      "effort_person_weeks": 1,
+      "rice_score": 6.3,
+      "priority": "P2",
+      "evidence": [
+        "pubspec.yaml",
+        "no active CI workflow for scans"
+      ],
+      "epic": "Quality Automation",
+      "stories": [
+        {
+          "id": "ST-14",
+          "title": "Add security scan jobs",
+          "tasks": [
+            "dependency vulnerability scan",
+            "secret scanning in CI",
+            "fail build on high severity findings"
+          ]
+        }
+      ],
+      "dependencies": [
+        "BL-04"
+      ]
+    }
+  ]
+}

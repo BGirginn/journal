@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:journal_app/core/theme/journal_theme.dart';
+import 'package:journal_app/core/theme/nostalgic_themes.dart';
 
 /// Theme picker dialog for selecting journal theme
 class ThemePickerDialog extends StatelessWidget {
   final String? selectedThemeId;
-  final void Function(JournalTheme) onSelect;
+  final void Function(NotebookTheme) onSelect;
 
   const ThemePickerDialog({
     super.key,
@@ -14,7 +14,7 @@ class ThemePickerDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themes = BuiltInThemes.all;
+    final themes = NostalgicThemes.all;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -71,7 +71,7 @@ class ThemePickerDialog extends StatelessWidget {
 
 /// Theme card widget
 class _ThemeCard extends StatelessWidget {
-  final JournalTheme theme;
+  final NotebookTheme theme;
   final bool isSelected;
   final VoidCallback onTap;
 
@@ -83,17 +83,18 @@ class _ThemeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: isSelected
-              ? Border.all(color: Colors.deepPurple, width: 3)
+              ? Border.all(color: colorScheme.primary, width: 3)
               : null,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withAlpha(20),
+              color: colorScheme.shadow.withValues(alpha: 0.12),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -110,19 +111,30 @@ class _ThemeCard extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: theme.coverGradient,
+                    colors: theme.visuals.coverGradient,
                   ),
+                  image: theme.visuals.assetPath != null
+                      ? DecorationImage(
+                          image: AssetImage(theme.visuals.assetPath!),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(12),
                   ),
                 ),
-                child: Center(
-                  child: Icon(
-                    theme.coverIcon,
-                    size: 28,
-                    color: Colors.white.withAlpha(200),
-                  ),
-                ),
+                child: theme.visuals.assetPath == null
+                    ? Center(
+                        child: Text(
+                          theme.name.substring(0, 1).toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white.withAlpha(200),
+                          ),
+                        ),
+                      )
+                    : null,
               ),
             ),
             // Theme name
@@ -131,7 +143,9 @@ class _ThemeCard extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 decoration: BoxDecoration(
-                  color: theme.pageBackground,
+                  color: theme.visuals.pageColor == Colors.transparent
+                      ? colorScheme.surfaceContainer
+                      : theme.visuals.pageColor,
                   borderRadius: const BorderRadius.vertical(
                     bottom: Radius.circular(12),
                   ),
@@ -139,10 +153,10 @@ class _ThemeCard extends StatelessWidget {
                 child: Center(
                   child: Text(
                     theme.name,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w500,
-                      color: theme.id == 'dark' ? Colors.white : Colors.black87,
+                      color: Color(0xFF2F241C),
                     ),
                     textAlign: TextAlign.center,
                     maxLines: 1,
@@ -159,11 +173,11 @@ class _ThemeCard extends StatelessWidget {
 }
 
 /// Show theme picker dialog
-Future<JournalTheme?> showThemePicker(
+Future<NotebookTheme?> showThemePicker(
   BuildContext context, {
   String? selectedThemeId,
 }) async {
-  JournalTheme? result;
+  NotebookTheme? result;
 
   await showDialog(
     context: context,

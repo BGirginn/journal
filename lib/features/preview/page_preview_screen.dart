@@ -13,11 +13,15 @@ import 'package:journal_app/features/editor/blocks/block_widget.dart';
 class PagePreviewScreen extends ConsumerStatefulWidget {
   final Journal journal;
   final model.Page page;
+  final List<Block>? initialBlocks;
+  final List<InkStrokeData>? initialStrokes;
 
   const PagePreviewScreen({
     super.key,
     required this.journal,
     required this.page,
+    this.initialBlocks,
+    this.initialStrokes,
   });
 
   @override
@@ -34,7 +38,15 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
   void initState() {
     super.initState();
     _theme = NostalgicThemes.getById(widget.journal.coverStyle);
-    _loadContent();
+    if (widget.initialBlocks != null || widget.initialStrokes != null) {
+      _blocks = List<Block>.from(widget.initialBlocks ?? const <Block>[]);
+      _strokes = List<InkStrokeData>.from(
+        widget.initialStrokes ?? const <InkStrokeData>[],
+      );
+      _isLoading = false;
+    } else {
+      _loadContent();
+    }
   }
 
   Future<void> _loadContent() async {
@@ -83,6 +95,8 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
                   constraints.maxWidth,
                   constraints.maxHeight,
                 );
+                final sortedBlocks = List<Block>.from(_blocks)
+                  ..sort((a, b) => a.zIndex.compareTo(b.zIndex));
 
                 return Container(
                   margin: const EdgeInsets.all(12),
@@ -102,22 +116,34 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
                     child: Stack(
                       children: [
                         // Page background
-                        CustomPaint(
-                          painter: NostalgicPagePainter(theme: _theme),
-                          size: Size.infinite,
-                        ),
-
-                        // Ink strokes
-                        CustomPaint(
-                          painter: OptimizedInkPainter(
-                            strokes: _strokes,
-                            currentStroke: null,
+                        if (_theme.visuals.assetPath != null)
+                          Positioned.fill(
+                            child: Image.asset(
+                              _theme.visuals.assetPath!,
+                              fit: BoxFit.cover,
+                            ),
+                          )
+                        else
+                          CustomPaint(
+                            painter: NostalgicPagePainter(theme: _theme),
+                            size: Size.infinite,
                           ),
-                          size: Size.infinite,
-                        ),
 
                         // Blocks
-                        ..._blocks.map((block) => _buildBlock(block, pageSize)),
+                        ...sortedBlocks.map(
+                          (block) => _buildBlock(block, pageSize),
+                        ),
+
+                        // Ink on top so drawings are visible above image/background blocks
+                        IgnorePointer(
+                          child: CustomPaint(
+                            painter: OptimizedInkPainter(
+                              strokes: _strokes,
+                              currentStroke: null,
+                            ),
+                            size: Size.infinite,
+                          ),
+                        ),
                       ],
                     ),
                   ),

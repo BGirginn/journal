@@ -39,6 +39,7 @@ class HomeScreen extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final profileAsync = ref.watch(myProfileProvider);
     final journalsAsync = ref.watch(journalsProvider);
+    final totalPageCountAsync = ref.watch(totalPageCountProvider);
 
     return Container(
       decoration: BoxDecoration(
@@ -62,9 +63,14 @@ class HomeScreen extends ConsumerWidget {
 
             // Quick Stats
             journalsAsync.when(
-              data: (journals) => _buildStatsCard(context, journals.length),
+              data: (journals) => _buildStatsCard(
+                context,
+                journalCount: journals.length,
+                pageCount: totalPageCountAsync.value ?? 0,
+                friendCount: profileAsync.value?.friends.length ?? 0,
+              ),
               loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
+              error: (_, stackTrace) => const SizedBox.shrink(),
             ),
             const SizedBox(height: 24),
 
@@ -212,7 +218,12 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatsCard(BuildContext context, int journalCount) {
+  Widget _buildStatsCard(
+    BuildContext context, {
+    required int journalCount,
+    required int pageCount,
+    required int friendCount,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return GlassCard(
@@ -238,16 +249,16 @@ class HomeScreen extends ConsumerWidget {
               ),
               _buildStatItem(
                 context,
-                icon: Icons.calendar_today_rounded,
-                value: DateTime.now().day.toString(),
-                label: 'Gün',
+                icon: Icons.description_rounded,
+                value: pageCount.toString(),
+                label: 'Sayfa',
                 color: colorScheme.secondary,
               ),
               _buildStatItem(
                 context,
-                icon: Icons.emoji_events_rounded,
-                value: '${(journalCount * 3)}',
-                label: 'Sayfa',
+                icon: Icons.people_alt_rounded,
+                value: friendCount.toString(),
+                label: 'Arkadaş',
                 color: colorScheme.tertiary,
               ),
             ],
@@ -339,7 +350,7 @@ class HomeScreen extends ConsumerWidget {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: recentJournals.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (context, index) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               final journal = recentJournals[index];
               final theme = BuiltInThemes.getById(journal.coverStyle);

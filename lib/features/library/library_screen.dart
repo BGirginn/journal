@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:journal_app/core/theme/journal_theme.dart';
+import 'package:go_router/go_router.dart';
+import 'package:journal_app/core/theme/nostalgic_themes.dart';
 import 'package:journal_app/providers/journal_providers.dart';
 import 'package:journal_app/core/ui/custom_bottom_navigation.dart';
+import 'package:journal_app/core/ui/app_drawer.dart';
 import 'package:journal_app/features/profile/profile_settings_screen.dart';
+import 'package:journal_app/features/search/journal_search_delegate.dart';
 
 /// Library screen - displays list of journals
 import 'package:journal_app/features/home/home_screen.dart';
 import 'package:journal_app/features/friends/friends_screen.dart';
 import 'package:journal_app/features/library/journal_library_view.dart';
 import 'package:journal_app/features/library/theme_picker_dialog.dart';
+
+import 'package:journal_app/core/services/deep_link_service.dart';
 
 class LibraryScreen extends ConsumerStatefulWidget {
   const LibraryScreen({super.key});
@@ -33,10 +38,16 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   void initState() {
     super.initState();
     _pageController = PageController();
+
+    // Initialize deep link listener after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(deepLinkServiceProvider).init(context);
+    });
   }
 
   @override
   void dispose() {
+    ref.read(deepLinkServiceProvider).dispose();
     _pageController.dispose();
     super.dispose();
   }
@@ -60,13 +71,44 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final inviteCount = ref.watch(pendingInviteCountProvider);
+
     return Scaffold(
       extendBody: true,
+      drawer: const AppDrawer(),
       appBar: AppBar(
         title: Text(
           _titles[_selectedIndex],
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
+        actions: [
+          // Search icon
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () {
+              showSearch(
+                context: context,
+                delegate: JournalSearchDelegate(ref),
+              );
+            },
+          ),
+          // Notification bell with badge
+          IconButton(
+            icon: inviteCount.when(
+              data: (count) => count > 0
+                  ? Badge(
+                      label: Text('$count'),
+                      child: const Icon(Icons.notifications_outlined),
+                    )
+                  : const Icon(Icons.notifications_outlined),
+              loading: () => const Icon(Icons.notifications_outlined),
+              error: (e, s) => const Icon(Icons.notifications_outlined),
+            ),
+            onPressed: () {
+              context.push('/notifications');
+            },
+          ),
+        ],
       ),
       body: PageView(
         controller: _pageController,
@@ -76,7 +118,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           HomeScreen(), // 0
           JournalLibraryView(), // 1
           FriendsView(), // 2
-          ProfileSettingsScreen(), // 3
+          ProfileSettingsView(), // 3
         ],
       ),
       bottomNavigationBar: CustomBottomNavigation(
@@ -112,7 +154,13 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) {
-          final selectedTheme = BuiltInThemes.getById(selectedThemeId);
+          final selectedTheme = NostalgicThemes.getById(selectedThemeId);
+          final useDarkText =
+              selectedTheme.visuals.coverGradient.first.computeLuminance() >
+              0.56;
+          final coverTextColor = useDarkText
+              ? const Color(0xFF3A2411)
+              : Colors.white;
 
           return AlertDialog(
             title: const Text('Yeni Günlük'),
@@ -149,24 +197,40 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                     height: 60,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: selectedTheme.coverGradient,
+                        colors: selectedTheme.visuals.coverGradient,
                       ),
+                      image: selectedTheme.visuals.assetPath != null
+                          ? DecorationImage(
+                              image: AssetImage(
+                                selectedTheme.visuals.assetPath!,
+                              ),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(selectedTheme.coverIcon, color: Colors.white),
+                        if (selectedTheme.visuals.assetPath == null)
+                          Text(
+                            selectedTheme.name.substring(0, 1).toUpperCase(),
+                            style: TextStyle(
+                              color: coverTextColor,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         const SizedBox(width: 8),
                         Text(
                           selectedTheme.name,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: coverTextColor,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                         const SizedBox(width: 8),
-                        const Icon(Icons.arrow_drop_down, color: Colors.white),
+                        Icon(Icons.arrow_drop_down, color: coverTextColor),
                       ],
                     ),
                   ),

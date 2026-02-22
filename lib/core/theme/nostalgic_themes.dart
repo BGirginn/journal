@@ -30,6 +30,7 @@ class NotebookVisuals {
   final bool hasHoles;
   final BorderRadius cornerRadius;
   final List<BoxShadow> shadows;
+  final String? assetPath; // New property for image backgrounds
 
   const NotebookVisuals({
     required this.coverGradient,
@@ -43,6 +44,7 @@ class NotebookVisuals {
     this.hasHoles = false,
     this.cornerRadius = const BorderRadius.all(Radius.circular(4)),
     this.shadows = const [],
+    this.assetPath,
   });
 }
 
@@ -59,151 +61,285 @@ enum NotebookTexture {
 
 /// Premium nostalgic themes
 class NostalgicThemes {
-  // 90s School Notebook - Spiral bound, wide ruled
-  static const school90s = NotebookTheme(
-    id: 'school_90s',
-    name: '90\'lar Okul Defteri',
-    description: 'Spiral ciltli, geniş çizgili nostaljik defter',
+  static const defaultTheme = NotebookTheme(
+    id: 'default',
+    name: 'Gün Işığı',
+    description: 'Parlak ve okunaklı varsayılan tema',
     visuals: NotebookVisuals(
-      coverGradient: [Color(0xFF1565C0), Color(0xFF0D47A1)],
-      pageColor: Color(0xFFFFFBF0),
-      lineColor: Color(0xFFB3E5FC),
-      marginColor: Color(0xFFFFCDD2),
-      textColor: Color(0xFF1A237E),
-      lineSpacing: 32,
-      marginLeft: 50,
+      coverGradient: [Color(0xFFEEC87A), Color(0xFFCC7C39)],
+      pageColor: Color(0xFFFFF8ED),
+      textColor: Color(0xFF2D1E11),
+      lineColor: Color(0xFFDDBB93),
+      marginColor: Color(0xFFE28C73),
       hasMarginLine: true,
-      hasHoles: true,
-    ),
-    texture: NotebookTexture.smooth,
-  );
-
-  // Grandfather's Leather Journal
-  static const leatherJournal = NotebookTheme(
-    id: 'leather_journal',
-    name: 'Deri Günlük',
-    description: 'Eskitilmiş deri kaplı, krem renkli sayfalar',
-    visuals: NotebookVisuals(
-      coverGradient: [Color(0xFF5D4037), Color(0xFF3E2723)],
-      pageColor: Color(0xFFFFF8E1),
-      lineColor: Color(0xFFD7CCC8),
-      textColor: Color(0xFF4E342E),
-      lineSpacing: 30,
-      hasMarginLine: false,
-      cornerRadius: BorderRadius.all(Radius.circular(2)),
-      shadows: [
-        BoxShadow(
-          color: Color(0x40000000),
-          blurRadius: 20,
-          offset: Offset(0, 10),
-        ),
-      ],
+      lineSpacing: 28,
+      marginLeft: 42,
+      cornerRadius: BorderRadius.all(Radius.circular(6)),
     ),
     texture: NotebookTexture.aged,
   );
 
-  // Artist's Sketchbook
-  static const sketchbook = NotebookTheme(
-    id: 'sketchbook',
-    name: 'Eskiz Defteri',
-    description: 'Kalın dokulu kağıt, çizim için ideal',
+  // --- Image Based Themes ---
+  static const paperImage1 = NotebookTheme(
+    id: 'paper_img_1',
+    name: 'Özel Kağıt 1',
+    description: 'Resimli Arkaplan 1',
     visuals: NotebookVisuals(
-      coverGradient: [Color(0xFF37474F), Color(0xFF263238)],
-      pageColor: Color(0xFFFAFAFA),
+      coverGradient: [Color(0xFFE3AA4F), Color(0xFFB76C30)],
+      pageColor: Colors.transparent,
       textColor: Color(0xFF212121),
+      assetPath: 'assets/images/papers/paper_bg_1.png',
       cornerRadius: BorderRadius.all(Radius.circular(0)),
     ),
-    texture: NotebookTexture.watercolor,
+    texture: NotebookTexture.smooth, // Base structure, we'll draw image over it
   );
 
-  // Bullet Journal - Minimalist dotted
-  static const bulletJournal = NotebookTheme(
-    id: 'bullet',
-    name: 'Bullet Journal',
-    description: 'Minimal noktalı sayfa, organize düşünceler',
+  static const paperImage2 = NotebookTheme(
+    id: 'paper_img_2',
+    name: 'Özel Kağıt 2',
+    description: 'Resimli Arkaplan 2',
     visuals: NotebookVisuals(
-      coverGradient: [Color(0xFF455A64), Color(0xFF37474F)],
-      pageColor: Color(0xFFFFFDE7),
-      lineColor: Color(0xFFE0E0E0),
-      textColor: Color(0xFF424242),
-      lineSpacing: 20,
-    ),
-    texture: NotebookTexture.dotted,
-  );
-
-  // Romantic Diary - Pink, floral vibes
-  static const romanticDiary = NotebookTheme(
-    id: 'romantic',
-    name: 'Romantik Günlük',
-    description: 'Pembe ve çiçekli, duygusal anlar için',
-    visuals: NotebookVisuals(
-      coverGradient: [Color(0xFFEC407A), Color(0xFFAD1457)],
-      pageColor: Color(0xFFFCE4EC),
-      lineColor: Color(0xFFF8BBD9),
-      textColor: Color(0xFF880E4F),
-      lineSpacing: 26,
-      cornerRadius: BorderRadius.all(Radius.circular(12)),
+      coverGradient: [Color(0xFFE3AA4F), Color(0xFFB76C30)],
+      pageColor: Colors.transparent,
+      textColor: Color(0xFF212121),
+      assetPath: 'assets/images/papers/paper_bg_2.png',
+      cornerRadius: BorderRadius.all(Radius.circular(0)),
     ),
     texture: NotebookTexture.smooth,
   );
 
-  // Midnight Writer - Dark theme
-  static const midnightWriter = NotebookTheme(
-    id: 'midnight',
-    name: 'Gece Yazarı',
-    description: 'Koyu tema, gece ilhamları için',
+  static const paperImage3 = NotebookTheme(
+    id: 'paper_img_3',
+    name: 'Özel Kağıt 3',
+    description: 'Resimli Arkaplan 3',
     visuals: NotebookVisuals(
-      coverGradient: [Color(0xFF1A1A2E), Color(0xFF16213E)],
-      pageColor: Color(0xFF1E1E2E),
-      lineColor: Color(0xFF2D2D44),
-      textColor: Color(0xFFE0E0E0),
-      lineSpacing: 28,
+      coverGradient: [Color(0xFFE3AA4F), Color(0xFFB76C30)],
+      pageColor: Colors.transparent,
+      textColor: Color(0xFF212121),
+      assetPath: 'assets/images/papers/paper_bg_3.png',
+      cornerRadius: BorderRadius.all(Radius.circular(0)),
     ),
     texture: NotebookTexture.smooth,
   );
 
-  // Kraft Paper - Eco, natural
-  static const kraftPaper = NotebookTheme(
-    id: 'kraft',
-    name: 'Kraft Kağıt',
-    description: 'Doğal kahverengi, eko-dostane',
+  static const paperImage4 = NotebookTheme(
+    id: 'paper_img_4',
+    name: 'Özel Kağıt 4',
+    description: 'Resimli Arkaplan 4',
     visuals: NotebookVisuals(
-      coverGradient: [Color(0xFF8D6E63), Color(0xFF6D4C41)],
-      pageColor: Color(0xFFD7CCC8),
-      lineColor: Color(0xFFBCAAA4),
-      textColor: Color(0xFF4E342E),
-      lineSpacing: 30,
+      coverGradient: [Color(0xFFE3AA4F), Color(0xFFB76C30)],
+      pageColor: Colors.transparent,
+      textColor: Color(0xFF212121),
+      assetPath: 'assets/images/papers/paper_bg_4.png',
+      cornerRadius: BorderRadius.all(Radius.circular(0)),
     ),
-    texture: NotebookTexture.craft,
+    texture: NotebookTexture.smooth,
   );
 
-  // Graph Paper - Engineering
-  static const graphPaper = NotebookTheme(
-    id: 'graph',
-    name: 'Kareli Defter',
-    description: 'Mühendislik ve matematik için',
+  static const paperImage5 = NotebookTheme(
+    id: 'paper_img_5',
+    name: 'Özel Kağıt 5',
+    description: 'Resimli Arkaplan 5',
     visuals: NotebookVisuals(
-      coverGradient: [Color(0xFF00695C), Color(0xFF004D40)],
-      pageColor: Color(0xFFF5F5F5),
-      lineColor: Color(0xFFB2DFDB),
-      textColor: Color(0xFF00695C),
-      lineSpacing: 20,
+      coverGradient: [Color(0xFFE3AA4F), Color(0xFFB76C30)],
+      pageColor: Colors.transparent,
+      textColor: Color(0xFF212121),
+      assetPath: 'assets/images/papers/paper_bg_5.png',
+      cornerRadius: BorderRadius.all(Radius.circular(0)),
     ),
-    texture: NotebookTexture.grid,
+    texture: NotebookTexture.smooth,
+  );
+
+  static const paperImage6 = NotebookTheme(
+    id: 'paper_img_6',
+    name: 'Özel Kağıt 6',
+    description: 'Resimli Arkaplan 6',
+    visuals: NotebookVisuals(
+      coverGradient: [Color(0xFFE3AA4F), Color(0xFFB76C30)],
+      pageColor: Colors.transparent,
+      textColor: Color(0xFF212121),
+      assetPath: 'assets/images/papers/paper_bg_6.png',
+      cornerRadius: BorderRadius.all(Radius.circular(0)),
+    ),
+    texture: NotebookTexture.smooth,
+  );
+
+  static const paperImage7 = NotebookTheme(
+    id: 'paper_img_7',
+    name: 'Özel Kağıt 7',
+    description: 'Resimli Arkaplan 7',
+    visuals: NotebookVisuals(
+      coverGradient: [Color(0xFFE3AA4F), Color(0xFFB76C30)],
+      pageColor: Colors.transparent,
+      textColor: Color(0xFF212121),
+      assetPath: 'assets/images/papers/paper_bg_7.png',
+      cornerRadius: BorderRadius.all(Radius.circular(0)),
+    ),
+    texture: NotebookTexture.smooth,
+  );
+
+  static const paperImage8 = NotebookTheme(
+    id: 'paper_img_8',
+    name: 'Özel Kağıt 8',
+    description: 'Resimli Arkaplan 8',
+    visuals: NotebookVisuals(
+      coverGradient: [Color(0xFFE3AA4F), Color(0xFFB76C30)],
+      pageColor: Colors.transparent,
+      textColor: Color(0xFF212121),
+      assetPath: 'assets/images/papers/paper_bg_8.png',
+      cornerRadius: BorderRadius.all(Radius.circular(0)),
+    ),
+    texture: NotebookTexture.smooth,
+  );
+
+  static const paperImage9 = NotebookTheme(
+    id: 'paper_img_9',
+    name: 'Özel Kağıt 9',
+    description: 'Resimli Arkaplan 9',
+    visuals: NotebookVisuals(
+      coverGradient: [Color(0xFFE3AA4F), Color(0xFFB76C30)],
+      pageColor: Colors.transparent,
+      textColor: Color(0xFF212121),
+      assetPath: 'assets/images/papers/paper_bg_9.png',
+      cornerRadius: BorderRadius.all(Radius.circular(0)),
+    ),
+    texture: NotebookTexture.smooth,
+  );
+
+  static const paperImage10 = NotebookTheme(
+    id: 'paper_img_10',
+    name: 'Özel Kağıt 10',
+    description: 'Resimli Arkaplan 10',
+    visuals: NotebookVisuals(
+      coverGradient: [Color(0xFFE3AA4F), Color(0xFFB76C30)],
+      pageColor: Colors.transparent,
+      textColor: Color(0xFF212121),
+      assetPath: 'assets/images/papers/paper_bg_10.png',
+      cornerRadius: BorderRadius.all(Radius.circular(0)),
+    ),
+    texture: NotebookTexture.smooth,
+  );
+
+  static const paperImage11 = NotebookTheme(
+    id: 'paper_img_11',
+    name: 'Özel Kağıt 11',
+    description: 'Resimli Arkaplan 11',
+    visuals: NotebookVisuals(
+      coverGradient: [Color(0xFFE3AA4F), Color(0xFFB76C30)],
+      pageColor: Colors.transparent,
+      textColor: Color(0xFF212121),
+      assetPath: 'assets/images/papers/paper_bg_11.png',
+      cornerRadius: BorderRadius.all(Radius.circular(0)),
+    ),
+    texture: NotebookTexture.smooth,
+  );
+
+  static const paperImage12 = NotebookTheme(
+    id: 'paper_img_12',
+    name: 'Özel Kağıt 12',
+    description: 'Resimli Arkaplan 12',
+    visuals: NotebookVisuals(
+      coverGradient: [Color(0xFFE3AA4F), Color(0xFFB76C30)],
+      pageColor: Colors.transparent,
+      textColor: Color(0xFF212121),
+      assetPath: 'assets/images/papers/paper_bg_12.png',
+      cornerRadius: BorderRadius.all(Radius.circular(0)),
+    ),
+    texture: NotebookTexture.smooth,
+  );
+
+  static const paperImage13 = NotebookTheme(
+    id: 'paper_img_13',
+    name: 'Özel Kağıt 13',
+    description: 'Resimli Arkaplan 13',
+    visuals: NotebookVisuals(
+      coverGradient: [Color(0xFFE3AA4F), Color(0xFFB76C30)],
+      pageColor: Colors.transparent,
+      textColor: Color(0xFF212121),
+      assetPath: 'assets/images/papers/paper_bg_13.png',
+      cornerRadius: BorderRadius.all(Radius.circular(0)),
+    ),
+    texture: NotebookTexture.smooth,
+  );
+
+  static const paperImage14 = NotebookTheme(
+    id: 'paper_img_14',
+    name: 'Özel Kağıt 14',
+    description: 'Resimli Arkaplan 14',
+    visuals: NotebookVisuals(
+      coverGradient: [Color(0xFFE3AA4F), Color(0xFFB76C30)],
+      pageColor: Colors.transparent,
+      textColor: Color(0xFF212121),
+      assetPath: 'assets/images/papers/paper_bg_14.png',
+      cornerRadius: BorderRadius.all(Radius.circular(0)),
+    ),
+    texture: NotebookTexture.smooth,
+  );
+
+  static const paperImage15 = NotebookTheme(
+    id: 'paper_img_15',
+    name: 'Özel Kağıt 15',
+    description: 'Resimli Arkaplan 15',
+    visuals: NotebookVisuals(
+      coverGradient: [Color(0xFFE3AA4F), Color(0xFFB76C30)],
+      pageColor: Colors.transparent,
+      textColor: Color(0xFF212121),
+      assetPath: 'assets/images/papers/paper_bg_15.png',
+      cornerRadius: BorderRadius.all(Radius.circular(0)),
+    ),
+    texture: NotebookTexture.smooth,
+  );
+
+  static const paperImage16 = NotebookTheme(
+    id: 'paper_img_16',
+    name: 'Özel Kağıt 16',
+    description: 'Resimli Arkaplan 16',
+    visuals: NotebookVisuals(
+      coverGradient: [Color(0xFFE3AA4F), Color(0xFFB76C30)],
+      pageColor: Colors.transparent,
+      textColor: Color(0xFF212121),
+      assetPath: 'assets/images/papers/paper_bg_16.png',
+      cornerRadius: BorderRadius.all(Radius.circular(0)),
+    ),
+    texture: NotebookTexture.smooth,
+  );
+
+  static const paperImage17 = NotebookTheme(
+    id: 'paper_img_17',
+    name: 'Özel Kağıt 17',
+    description: 'Resimli Arkaplan 17',
+    visuals: NotebookVisuals(
+      coverGradient: [Color(0xFFE3AA4F), Color(0xFFB76C30)],
+      pageColor: Colors.transparent,
+      textColor: Color(0xFF212121),
+      assetPath: 'assets/images/papers/paper_bg_17.png',
+      cornerRadius: BorderRadius.all(Radius.circular(0)),
+    ),
+    texture: NotebookTexture.smooth,
   );
 
   static List<NotebookTheme> get all => [
-    school90s,
-    leatherJournal,
-    sketchbook,
-    bulletJournal,
-    romanticDiary,
-    midnightWriter,
-    kraftPaper,
-    graphPaper,
+    defaultTheme,
+    paperImage1,
+    paperImage2,
+    paperImage3,
+    paperImage4,
+    paperImage5,
+    paperImage6,
+    paperImage7,
+    paperImage8,
+    paperImage9,
+    paperImage10,
+    paperImage11,
+    paperImage12,
+    paperImage13,
+    paperImage14,
+    paperImage15,
+    paperImage16,
+    paperImage17,
   ];
 
   static NotebookTheme getById(String id) {
-    return all.firstWhere((t) => t.id == id, orElse: () => school90s);
+    return all.firstWhere((t) => t.id == id, orElse: () => defaultTheme);
   }
 }

@@ -9,22 +9,23 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   
   cupertino_icons: ^1.0.8
   
   # State Management
-  flutter_riverpod: ^2.4.9
-  riverpod_annotation: ^2.3.3
+  flutter_riverpod: ^2.6.1
   
   # Database
-  drift: ^2.14.1
-  sqlite3_flutter_libs: ^0.5.18
+  drift: ^2.31.0
+  sqlite3_flutter_libs: ^0.5.41
   path_provider: ^2.1.1
   path: ^1.8.3
   
   # Utils
   uuid: ^4.2.2
-  json_annotation: ^4.8.1
+  json_annotation: ^4.11.0
   collection: ^1.18.0
   vector_math: ^2.1.4
   
@@ -35,47 +36,80 @@ dependencies:
   crypto: ^3.0.3
 
   # Audio
-  record: ^6.1.2
+  record: ^6.2.0
   audioplayers: ^6.0.0
-  permission_handler: ^11.3.1
-  video_player: ^2.8.2
+  permission_handler: ^12.0.1
+  video_player: ^2.11.0
 
   # Storage
   shared_preferences: ^2.2.2
+  intl: ^0.20.2
 
   # PDF
   pdf: ^3.10.4
   printing: ^5.11.1
 
   # Firebase
-  firebase_core: ^3.15.0
-  firebase_auth: ^5.7.0
-  cloud_firestore: ^5.6.0
-  firebase_storage: ^12.4.0
+  firebase_core: ^4.4.0
+  firebase_auth: ^6.1.4
+  cloud_firestore: ^6.1.2
+  firebase_storage: ^13.0.6
+  firebase_messaging: ^16.1.1
+  firebase_analytics: ^12.1.2
+  firebase_crashlytics: ^5.0.7
   google_sign_in: ^6.3.0
+  sign_in_with_apple: ^7.0.1
+  app_links: ^7.0.0
 
   # UI Modernization
-  google_fonts: ^6.1.0
+  google_fonts: ^8.0.2
   flutter_animate: ^4.5.0
   glassmorphism_ui: ^0.3.0 # Optional helper, but custom is better. Let's stick to core packages mostly.
   cached_network_image: ^3.3.1
-  file_picker: ^10.3.8
+  file_picker: ^10.3.10
   package_info_plus: ^9.0.0
-  go_router: ^17.0.1
+  go_router: ^17.1.0
 
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  fake_async: ^1.3.1
+  fake_cloud_firestore: ^4.0.0
+  mocktail: ^1.0.4
+  flutter_launcher_icons: ^0.14.4
   
   # Code generation
-  drift_dev: ^2.14.1
-  build_runner: ^2.4.7
-  riverpod_generator: ^2.3.9
-  json_serializable: ^6.7.1
+  drift_dev: ^2.31.0
+  build_runner: ^2.11.1
+  json_serializable: ^6.13.0
 
 
 
 flutter:
+  generate: true
   uses-material-design: true
+
+  assets:
+    - assets/images/papers/
+    - assets/branding/
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/branding/icon_vintage_gold.png
+  adaptive_icon_background: "#FFF4E3"
+  adaptive_icon_foreground: assets/branding/icon_foreground.png
+  remove_alpha_ios: true
+
+flutter_native_splash:
+  color: "#FFF4E3"
+  color_dark: "#1F1915"
+  image: assets/branding/splash_logo.png
+  image_dark: assets/branding/splash_logo_dark.png
+  android_12:
+    color: "#FFF4E3"
+    color_dark: "#1F1915"
+    image: assets/branding/splash_android12.png
+    image_dark: assets/branding/splash_android12_dark.png

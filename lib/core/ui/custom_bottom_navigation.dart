@@ -26,18 +26,18 @@ class CustomBottomNavigation extends StatelessWidget {
             height: 64,
             decoration: BoxDecoration(
               color: isDark
-                  ? Colors.black.withValues(alpha: 0.6)
-                  : Colors.white.withValues(alpha: 0.8),
+                  ? colorScheme.surface.withValues(alpha: 0.82)
+                  : colorScheme.surface.withValues(alpha: 0.9),
               borderRadius: BorderRadius.circular(28),
               border: Border.all(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.1)
-                    : Colors.black.withValues(alpha: 0.05),
+                color: colorScheme.outlineVariant.withValues(alpha: 0.55),
                 width: 1,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.15),
+                  color: colorScheme.shadow.withValues(
+                    alpha: isDark ? 0.25 : 0.08,
+                  ),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
@@ -124,8 +124,8 @@ class CustomBottomNavigation extends StatelessWidget {
                 color: isSelected
                     ? Colors.white
                     : isDark
-                    ? Colors.grey[400]
-                    : Colors.grey[600],
+                    ? colorScheme.onSurfaceVariant
+                    : colorScheme.onSurfaceVariant,
                 size: 22,
               ),
             ),

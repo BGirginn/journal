@@ -30,5 +30,9 @@ void main() {
 
     // Verify the app renders (MaterialApp exists)
     expect(find.byType(MaterialApp), findsOneWidget);
+
+    // Dispose animation timers created by animated widgets on login shell.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle(const Duration(milliseconds: 300));
   });
 }

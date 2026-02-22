@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal_app/core/auth/auth_service.dart';
+import 'package:journal_app/core/database/firestore_paths.dart';
 
 final userServiceProvider = Provider<UserService>((ref) {
   final authService = ref.watch(authServiceProvider);
@@ -103,13 +105,59 @@ class UserProfile {
 class UserService {
   final AuthService _authService;
   final bool _isAvailable;
-  late final FirebaseFirestore? _firestore;
+  final FirebaseFirestore? _firestore;
+  final String? Function()? _currentUidProvider;
 
-  UserService(this._authService, {bool isAvailable = true})
-    : _isAvailable = isAvailable,
-      _firestore = isAvailable ? FirebaseFirestore.instance : null;
+  UserService(
+    this._authService, {
+    bool isAvailable = true,
+    FirebaseFirestore? firestore,
+    String? Function()? currentUidProvider,
+  }) : _isAvailable = isAvailable,
+       _firestore = isAvailable
+           ? (firestore ?? FirebaseFirestore.instance)
+           : null,
+       _currentUidProvider = currentUidProvider;
 
-  String? get _currentUid => _authService.currentUser?.uid;
+  String? get _currentUid =>
+      _currentUidProvider?.call() ?? _authService.currentUser?.uid;
+
+  /// Returns `true` only for first-time users that do not yet have a profile document.
+  /// Existing users are allowed to continue directly without onboarding gate.
+  Future<bool> ensureProfileExistsAndNeedsSetup() async {
+    final firestore = _firestore;
+    if (!_isAvailable || firestore == null) return false;
+
+    final uid = _currentUid;
+    if (uid == null) return false;
+    final userRef = firestore.collection(FirestorePaths.users).doc(uid);
+
+    debugPrint('Ensuring profile exists for $uid...');
+    try {
+      final doc = await userRef.get().timeout(const Duration(seconds: 10));
+
+      if (doc.exists) {
+        debugPrint('Profile exists for $uid.');
+        return false;
+      }
+
+      debugPrint('Profile does not exist for $uid. Creating new profile.');
+      final user = _authService.currentUser;
+      final profile = UserProfile(
+        uid: uid,
+        displayName: user?.displayName ?? 'Yeni Kullanıcı',
+        photoUrl: user?.photoURL,
+        friends: const [],
+        isProfileComplete: false,
+      );
+      await userRef.set(profile.toMap()).timeout(const Duration(seconds: 10));
+      debugPrint('New profile created for $uid.');
+      return true;
+    } catch (e) {
+      debugPrint('Error or timeout checking profile for $uid: $e');
+      throw Exception('Profil kontrolu basarisiz: $e');
+    }
+  }
 
   /// Ensures user has a Firestore profile.
   Future<UserProfile?> ensureProfileExists() async {
@@ -119,7 +167,7 @@ class UserService {
     final uid = _currentUid;
     if (uid == null) return null;
 
-    final doc = await firestore.collection('users').doc(uid).get();
+    final doc = await firestore.collection(FirestorePaths.users).doc(uid).get();
 
     if (doc.exists) {
       return UserProfile.fromMap(doc.data()!);
@@ -135,7 +183,10 @@ class UserService {
       friends: [],
     );
 
-    await firestore.collection('users').doc(uid).set(profile.toMap());
+    await firestore
+        .collection(FirestorePaths.users)
+        .doc(uid)
+        .set(profile.toMap());
 
     return profile;
   }
@@ -150,13 +201,16 @@ class UserService {
 
     // Look up username in usernames collection
     final doc = await firestore
-        .collection('usernames')
+        .collection(FirestorePaths.usernames)
         .doc(normalizedUsername)
         .get();
     if (!doc.exists) return null;
 
     final uid = doc.data()!['uid'];
-    final userDoc = await firestore.collection('users').doc(uid).get();
+    final userDoc = await firestore
+        .collection(FirestorePaths.users)
+        .doc(uid)
+        .get();
     if (!userDoc.exists) return null;
 
     return UserProfile.fromMap(userDoc.data()!);
@@ -167,7 +221,7 @@ class UserService {
     final firestore = _firestore;
     if (!_isAvailable || firestore == null) return null;
 
-    final doc = await firestore.collection('users').doc(uid).get();
+    final doc = await firestore.collection(FirestorePaths.users).doc(uid).get();
     if (!doc.exists) return null;
     return UserProfile.fromMap(doc.data()!);
   }
@@ -187,7 +241,7 @@ class UserService {
       final batch = uids.sublist(i, end);
 
       final querySnapshot = await firestore
-          .collection('users')
+          .collection(FirestorePaths.users)
           .where('uid', whereIn: batch)
           .get();
 
@@ -210,13 +264,13 @@ class UserService {
     final batch = firestore.batch();
 
     // Add to my sent requests
-    final myRef = firestore.collection('users').doc(uid);
+    final myRef = firestore.collection(FirestorePaths.users).doc(uid);
     batch.update(myRef, {
       'sentFriendRequests': FieldValue.arrayUnion([targetUid]),
     });
 
     // Add to their received requests
-    final targetRef = firestore.collection('users').doc(targetUid);
+    final targetRef = firestore.collection(FirestorePaths.users).doc(targetUid);
     batch.update(targetRef, {
       'receivedFriendRequests': FieldValue.arrayUnion([uid]),
     });
@@ -235,14 +289,14 @@ class UserService {
     final batch = firestore.batch();
 
     // Update me: remove request, add friend
-    final myRef = firestore.collection('users').doc(uid);
+    final myRef = firestore.collection(FirestorePaths.users).doc(uid);
     batch.update(myRef, {
       'receivedFriendRequests': FieldValue.arrayRemove([senderUid]),
       'friends': FieldValue.arrayUnion([senderUid]),
     });
 
     // Update them: remove sent request, add friend
-    final senderRef = firestore.collection('users').doc(senderUid);
+    final senderRef = firestore.collection(FirestorePaths.users).doc(senderUid);
     batch.update(senderRef, {
       'sentFriendRequests': FieldValue.arrayRemove([uid]),
       'friends': FieldValue.arrayUnion([uid]),
@@ -262,13 +316,13 @@ class UserService {
     final batch = firestore.batch();
 
     // Remove from my received requests
-    final myRef = firestore.collection('users').doc(uid);
+    final myRef = firestore.collection(FirestorePaths.users).doc(uid);
     batch.update(myRef, {
       'receivedFriendRequests': FieldValue.arrayRemove([senderUid]),
     });
 
     // Remove from their sent requests
-    final senderRef = firestore.collection('users').doc(senderUid);
+    final senderRef = firestore.collection(FirestorePaths.users).doc(senderUid);
     batch.update(senderRef, {
       'sentFriendRequests': FieldValue.arrayRemove([uid]),
     });
@@ -287,13 +341,13 @@ class UserService {
     final batch = firestore.batch();
 
     // Remove from my sent requests
-    final myRef = firestore.collection('users').doc(uid);
+    final myRef = firestore.collection(FirestorePaths.users).doc(uid);
     batch.update(myRef, {
       'sentFriendRequests': FieldValue.arrayRemove([targetUid]),
     });
 
     // Remove from their received requests
-    final targetRef = firestore.collection('users').doc(targetUid);
+    final targetRef = firestore.collection(FirestorePaths.users).doc(targetUid);
     batch.update(targetRef, {
       'receivedFriendRequests': FieldValue.arrayRemove([uid]),
     });
@@ -312,13 +366,13 @@ class UserService {
     final batch = firestore.batch();
 
     // Start with me
-    final myRef = firestore.collection('users').doc(uid);
+    final myRef = firestore.collection(FirestorePaths.users).doc(uid);
     batch.update(myRef, {
       'friends': FieldValue.arrayRemove([friendUid]),
     });
 
     // Then them
-    final friendRef = firestore.collection('users').doc(friendUid);
+    final friendRef = firestore.collection(FirestorePaths.users).doc(friendUid);
     batch.update(friendRef, {
       'friends': FieldValue.arrayRemove([uid]),
     });
@@ -332,9 +386,37 @@ class UserService {
 
     final uid = _currentUid;
     if (uid == null) return Stream.value(null);
-    return firestore.collection('users').doc(uid).snapshots().map((doc) {
+    return firestore.collection(FirestorePaths.users).doc(uid).snapshots().map((
+      doc,
+    ) {
       if (!doc.exists) return null;
       return UserProfile.fromMap(doc.data()!);
+    });
+  }
+
+  /// Update user's profile photo URL
+  Future<void> updateProfilePhoto(String photoUrl) async {
+    final firestore = _firestore;
+    if (!_isAvailable || firestore == null) return;
+
+    final uid = _currentUid;
+    if (uid == null) return;
+
+    await firestore.collection(FirestorePaths.users).doc(uid).update({
+      'photoUrl': photoUrl,
+    });
+  }
+
+  /// Update user's display name
+  Future<void> updateDisplayName(String displayName) async {
+    final firestore = _firestore;
+    if (!_isAvailable || firestore == null) return;
+
+    final uid = _currentUid;
+    if (uid == null) return;
+
+    await firestore.collection(FirestorePaths.users).doc(uid).update({
+      'displayName': displayName,
     });
   }
 
@@ -349,7 +431,7 @@ class UserService {
     if (normalizedUsername.length < 3) return false;
 
     final doc = await firestore
-        .collection('usernames')
+        .collection(FirestorePaths.usernames)
         .doc(normalizedUsername)
         .get();
     return !doc.exists;
@@ -371,8 +453,9 @@ class UserService {
 
     // Reserve username atomically with a transaction
     await firestore.runTransaction((transaction) async {
-      final usernameDoc =
-          firestore.collection('usernames').doc(normalizedUsername);
+      final usernameDoc = firestore
+          .collection(FirestorePaths.usernames)
+          .doc(normalizedUsername);
       final snapshot = await transaction.get(usernameDoc);
 
       if (snapshot.exists) {
@@ -384,7 +467,7 @@ class UserService {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      transaction.update(firestore.collection('users').doc(uid), {
+      transaction.update(firestore.collection(FirestorePaths.users).doc(uid), {
         'firstName': firstName.trim(),
         'lastName': lastName.trim(),
         'username': normalizedUsername,
@@ -394,7 +477,7 @@ class UserService {
     });
 
     // Fetch and return updated profile
-    final doc = await firestore.collection('users').doc(uid).get();
+    final doc = await firestore.collection(FirestorePaths.users).doc(uid).get();
     if (!doc.exists) return null;
     return UserProfile.fromMap(doc.data()!);
   }

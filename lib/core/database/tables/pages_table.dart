@@ -10,6 +10,8 @@ class Pages extends Table {
   TextColumn get thumbnailAssetId => text().nullable()();
   TextColumn get inkData =>
       text().withDefault(const Constant(''))(); // JSON encoded strokes
+  TextColumn get tags =>
+      text().withDefault(const Constant(''))(); // Comma-separated tags
   IntColumn get schemaVersion => integer().withDefault(const Constant(1))();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();

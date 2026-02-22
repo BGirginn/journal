@@ -11,6 +11,9 @@
 - Offline: create journal/page/blocks -> restart -> persist
 - Sync: device A offline edits -> online -> device B receives
 - Asset: upload/download + placeholder -> render
+- Smoke set (CI):
+  - `test/widget_test.dart` (login shell render smoke)
+  - `test/smoke_local_flow_test.dart` (journal create, save/reload, block delete)
 
 ## 3) Performance Tests
 - 1 page: 30 blocks (10 text, 10 image, 10 ink)

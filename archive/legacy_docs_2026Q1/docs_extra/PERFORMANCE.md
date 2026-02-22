@@ -23,3 +23,19 @@
 - Page thumbnail cache
 - Journal list: sadece metadata query
 - Lazy load blocks per page
+
+## 5) Telemetry Event Seti
+- `save_duration`:
+  - `duration_ms`
+  - `block_count`
+  - `stroke_count`
+- `sync_latency`:
+  - `duration_ms`
+  - `pending_before`
+  - `acked`
+  - `failed`
+  - `pending_after`
+- `pending_queue`:
+  - `count`
+- `reconcile_outcome`:
+  - `applied_count`

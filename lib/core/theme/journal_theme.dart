@@ -35,9 +35,9 @@ class JournalTheme {
       case PageBackgroundStyle.lined:
         return Colors.blue.withAlpha(20);
       case PageBackgroundStyle.grid:
-        return Colors.grey.withAlpha(30);
+        return const Color(0xFFCFAF8A).withValues(alpha: 0.3);
       case PageBackgroundStyle.dotted:
-        return Colors.grey.withAlpha(50);
+        return const Color(0xFFB6926A).withValues(alpha: 0.5);
       case PageBackgroundStyle.blank:
         return Colors.transparent;
     }
@@ -48,9 +48,9 @@ class JournalTheme {
 class BuiltInThemes {
   static const defaultTheme = JournalTheme(
     id: 'default',
-    name: 'Klasik Mor',
-    coverGradient: [Color(0xFF7C4DFF), Color(0xFF512DA8)],
-    pageBackground: Colors.white,
+    name: 'Canlı Sıcak',
+    coverGradient: [Color(0xFFE7B562), Color(0xFFC8742A)],
+    pageBackground: Color(0xFFFFF8EE),
     pageStyle: PageBackgroundStyle.lined,
     coverIcon: Icons.book,
     pageHints: ['Bugün nasıl hissediyorsun?', 'Aklındaki en önemli şey ne?'],
@@ -71,9 +71,9 @@ class BuiltInThemes {
 
   static const dark = JournalTheme(
     id: 'dark',
-    name: 'Gece Düşünceleri',
-    coverGradient: [Color(0xFF37474F), Color(0xFF263238)],
-    pageBackground: Color(0xFF2C2C2C),
+    name: 'Canlı Gece',
+    coverGradient: [Color(0xFF4D2F1E), Color(0xFF2B1C15)],
+    pageBackground: Color(0xFF2B221B),
     pageStyle: PageBackgroundStyle.dotted,
     coverIcon: Icons.nights_stay,
     pageHints: [

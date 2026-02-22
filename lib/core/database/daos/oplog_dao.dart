@@ -32,7 +32,11 @@ class OplogDao extends DatabaseAccessor<AppDatabase> with _$OplogDaoMixin {
   Future<List<OplogEntry>> getPendingOplogs() async {
     final rows =
         await (select(oplogs)
-              ..where((t) => t.status.equals(OplogStatus.pending.name))
+              ..where(
+                (t) =>
+                    t.status.equals(OplogStatus.pending.name) |
+                    t.status.equals(OplogStatus.failed.name),
+              )
               ..orderBy([(t) => OrderingTerm(expression: t.hlc)]))
             .get();
 
@@ -40,9 +44,46 @@ class OplogDao extends DatabaseAccessor<AppDatabase> with _$OplogDaoMixin {
   }
 
   Future<void> updateOplogStatus(String opId, OplogStatus status) {
-    return (update(oplogs)..where((t) => t.opId.equals(opId))).write(
-      OplogsCompanion(status: Value(status.name)),
-    );
+    return transaction(() async {
+      final current = await getById(opId);
+      if (current == null) {
+        throw StateError('Oplog not found for status update: $opId');
+      }
+      OplogStatusMachine.enforce(current.status, status);
+      await (update(oplogs)..where((t) => t.opId.equals(opId))).write(
+        OplogsCompanion(status: Value(status.name)),
+      );
+    });
+  }
+
+  Future<OplogEntry?> getById(String opId) async {
+    final row = await (select(
+      oplogs,
+    )..where((t) => t.opId.equals(opId))).getSingleOrNull();
+    if (row == null) return null;
+    return _mapToEntry(row);
+  }
+
+  Stream<int> watchPendingCount() {
+    final query = selectOnly(oplogs)
+      ..addColumns([oplogs.opId.count()])
+      ..where(
+        oplogs.status.equals(OplogStatus.pending.name) |
+            oplogs.status.equals(OplogStatus.failed.name),
+      );
+    return query.watchSingle().map((row) => row.read(oplogs.opId.count()) ?? 0);
+  }
+
+  Stream<List<OplogEntry>> watchPendingEntries({int limit = 50}) {
+    final query = select(oplogs)
+      ..where(
+        (t) =>
+            t.status.equals(OplogStatus.pending.name) |
+            t.status.equals(OplogStatus.failed.name),
+      )
+      ..orderBy([(t) => OrderingTerm.asc(t.hlc)])
+      ..limit(limit);
+    return query.watch().map((rows) => rows.map(_mapToEntry).toList());
   }
 
   OplogEntry _mapToEntry(Oplog row) {

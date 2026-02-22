@@ -1,19 +1,31 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart';
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal_app/core/auth/auth_service.dart';
+import 'package:journal_app/core/database/daos/block_dao.dart';
+import 'package:journal_app/core/database/daos/journal_dao.dart';
+import 'package:journal_app/core/database/daos/oplog_dao.dart';
+import 'package:journal_app/core/database/daos/page_dao.dart';
+import 'package:journal_app/core/database/firestore_paths.dart';
+import 'package:journal_app/core/database/storage_service.dart';
+import 'package:journal_app/core/errors/app_error.dart';
 import 'package:journal_app/core/models/journal.dart';
+import 'package:journal_app/core/models/oplog.dart';
 import 'package:journal_app/core/models/page.dart';
 import 'package:journal_app/core/models/block.dart';
-import 'package:journal_app/providers/database_providers.dart';
-import 'package:journal_app/core/database/storage_service.dart';
+import 'package:journal_app/core/sync/hlc.dart';
+import 'package:journal_app/core/sync/sync_engine.dart';
+import 'package:journal_app/core/observability/app_logger.dart';
+import 'package:journal_app/core/observability/telemetry_service.dart';
+import 'package:journal_app/core/theme/theme_provider.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:journal_app/core/database/daos/journal_dao.dart';
-import 'package:journal_app/core/database/daos/page_dao.dart';
-import 'package:journal_app/core/database/daos/block_dao.dart';
-import 'package:journal_app/core/database/daos/oplog_dao.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:journal_app/providers/database_providers.dart';
 
 final syncServiceProvider = Provider<SyncService>((ref) {
   final authService = ref.watch(authServiceProvider);
@@ -23,27 +35,66 @@ final syncServiceProvider = Provider<SyncService>((ref) {
   final pageDao = ref.watch(pageDaoProvider);
   final blockDao = ref.watch(blockDaoProvider);
   final oplogDao = ref.watch(oplogDaoProvider);
+  final logger = ref.watch(appLoggerProvider);
+  final telemetry = ref.watch(telemetryServiceProvider);
+  final prefs = ref.watch(sharedPreferencesProvider);
 
-  return SyncService(
+  final syncService = SyncService(
     authService,
     storageService,
     journalDao,
     pageDao,
     blockDao,
     oplogDao,
+    prefs,
+    logger,
+    telemetry,
   );
+  ref.onDispose(syncService.dispose);
+  return syncService;
 });
 
-class SyncService {
+final pendingOplogCountProvider = StreamProvider<int>((ref) {
+  final oplogDao = ref.watch(oplogDaoProvider);
+  return oplogDao.watchPendingCount();
+});
+
+final pendingOplogEntriesProvider = StreamProvider<List<OplogEntry>>((ref) {
+  final oplogDao = ref.watch(oplogDaoProvider);
+  return oplogDao.watchPendingEntries(limit: 100);
+});
+
+final syncEngineProvider = Provider<SyncEngine>((ref) {
+  return ref.watch(syncServiceProvider);
+});
+
+final syncUploaderProvider = Provider<SyncUploader>((ref) {
+  return ref.watch(syncServiceProvider);
+});
+
+final syncReconcilerProvider = Provider<SyncReconciler>((ref) {
+  return ref.watch(syncServiceProvider);
+});
+
+final syncBootstrapperProvider = Provider<SyncBootstrapper>((ref) {
+  return ref.watch(syncServiceProvider);
+});
+
+class SyncService implements SyncEngine {
   final AuthService _authService;
-  final StorageService _storageService;
+  final StorageGateway _storageService;
   final JournalDao _journalDao;
   final PageDao _pageDao;
   final BlockDao _blockDao;
   // Reserved for Phase 4 HLC sync
   // ignore: unused_field
   final OplogDao _oplogDao;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final SharedPreferences _prefs;
+  final AppLogger _logger;
+  final TelemetryService _telemetry;
+  final FirebaseFirestore _firestore;
+  final String? Function()? _currentUidProvider;
+  Timer? _uploaderTimer;
 
   SyncService(
     this._authService,
@@ -52,22 +103,400 @@ class SyncService {
     this._pageDao,
     this._blockDao,
     this._oplogDao,
-  );
+    this._prefs,
+    this._logger,
+    this._telemetry, {
+    FirebaseFirestore? firestore,
+    String? Function()? currentUidProvider,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _currentUidProvider = currentUidProvider;
 
-  String? get _userId => _authService.currentUser?.uid;
+  static const _bootstrapDoneKeyPrefix = 'sync_bootstrap_done_';
+  static const _reconcileWatermarkKeyPrefix = 'sync_reconcile_hlc_';
 
-  Future<void> syncDown() async {
-    // Legacy Naive Sync (to be replaced/augmented by Oplog sync)
+  String _bootstrapDoneKey(String uid) => '$_bootstrapDoneKeyPrefix$uid';
+  String _reconcileWatermarkKey(String uid) =>
+      '$_reconcileWatermarkKeyPrefix$uid';
+
+  String? get _userId =>
+      _currentUidProvider?.call() ?? _authService.currentUser?.uid;
+
+  void _reportSyncIssue({
+    required String operation,
+    required Object error,
+    StackTrace? stackTrace,
+    Map<String, Object?> extra = const {},
+  }) {
+    final typed = SyncError(
+      code: 'sync_$operation',
+      message: 'Sync operation failed: $operation',
+      cause: error,
+      stackTrace: stackTrace,
+    );
+    _logger.warn(
+      'sync_issue',
+      data: {'operation': operation, ...extra},
+      error: typed,
+      stackTrace: stackTrace,
+    );
+    _telemetry.track(
+      'sync_issue',
+      params: {'operation': operation, 'error_code': typed.code, ...extra},
+    );
+  }
+
+  Future<void> syncDown() => bootstrapDown();
+
+  @override
+  Future<void> bootstrapDown() async {
+    final uid = _userId;
+    if (uid == null) return;
+
+    final alreadyBootstrapped = _prefs.getBool(_bootstrapDoneKey(uid)) ?? false;
+    if (alreadyBootstrapped) return;
+
     await _legacySyncDown();
+    await _prefs.setBool(_bootstrapDoneKey(uid), true);
   }
 
-  // Phase 4: Implement robust HLC-based sync
+  @override
+  Future<void> startSyncLoop() async {
+    _uploaderTimer?.cancel();
+    _uploaderTimer = Timer.periodic(const Duration(seconds: 15), (_) async {
+      await syncUp();
+    });
+    await syncUp();
+  }
+
+  @override
+  void stopSyncLoop() {
+    _uploaderTimer?.cancel();
+    _uploaderTimer = null;
+  }
+
+  void dispose() {
+    stopSyncLoop();
+  }
+
+  @override
   Future<void> syncUp() async {
-    debugPrint('Sync: syncUp not implemented yet.');
+    final uid = _userId;
+    if (uid == null) return;
+    final startedAt = DateTime.now();
+
+    final pending = await _oplogDao.getPendingOplogs();
+    var acked = 0;
+    var failed = 0;
+    for (final entry in pending) {
+      await _oplogDao.updateOplogStatus(entry.opId, OplogStatus.sent);
+      try {
+        await _retryWithBackoff(() async {
+          await _firestore
+              .collection(FirestorePaths.oplogs)
+              .doc(entry.opId)
+              .set({
+                ...entry.toMap(),
+                'status': OplogStatus.sent.name,
+                'ackedAt': FieldValue.serverTimestamp(),
+              }, SetOptions(merge: true));
+        });
+        await _oplogDao.updateOplogStatus(entry.opId, OplogStatus.acked);
+        acked += 1;
+      } catch (e, st) {
+        _reportSyncIssue(
+          operation: 'upload_oplog',
+          error: e,
+          stackTrace: st,
+          extra: {'op_id': entry.opId},
+        );
+        await _oplogDao.updateOplogStatus(entry.opId, OplogStatus.failed);
+        failed += 1;
+      }
+    }
+
+    final pendingAfter = await _oplogDao.getPendingOplogs();
+    _telemetry.track(
+      'sync_latency',
+      params: {
+        'duration_ms': DateTime.now().difference(startedAt).inMilliseconds,
+        'pending_before': pending.length,
+        'acked': acked,
+        'failed': failed,
+        'pending_after': pendingAfter.length,
+      },
+    );
+    _telemetry.track('pending_queue', params: {'count': pendingAfter.length});
+
+    await reconcile();
   }
 
+  @override
   Future<void> reconcile() async {
-    debugPrint('Sync: reconcile not implemented yet.');
+    final uid = _userId;
+    if (uid == null) return;
+    final watermarkRaw = _prefs.getString(_reconcileWatermarkKey(uid));
+    final watermark = Hlc.tryParse(watermarkRaw);
+
+    QuerySnapshot<Map<String, dynamic>> snapshot;
+    try {
+      snapshot = await _firestore
+          .collection(FirestorePaths.oplogs)
+          .where('userId', isEqualTo: uid)
+          .orderBy('hlc')
+          .limit(300)
+          .get();
+    } catch (e, st) {
+      _reportSyncIssue(
+        operation: 'reconcile_ordered_query',
+        error: e,
+        stackTrace: st,
+      );
+      snapshot = await _firestore
+          .collection(FirestorePaths.oplogs)
+          .where('userId', isEqualTo: uid)
+          .limit(300)
+          .get();
+    }
+
+    var appliedCount = 0;
+    Hlc? latestAppliedHlc = watermark;
+    for (final doc in snapshot.docs) {
+      final remoteEntry = _entryFromRemote(doc.data());
+      if (remoteEntry == null) continue;
+      if (watermark != null && remoteEntry.hlc <= watermark) continue;
+
+      final existing = await _oplogDao.getById(remoteEntry.opId);
+      if (existing?.status == OplogStatus.applied) {
+        continue;
+      }
+
+      final applied = await _applyRemoteEntry(remoteEntry);
+      if (!applied) {
+        continue;
+      }
+
+      await _oplogDao.insertOplog(
+        remoteEntry.copyWith(status: OplogStatus.applied),
+      );
+      appliedCount += 1;
+      if (latestAppliedHlc == null || remoteEntry.hlc > latestAppliedHlc) {
+        latestAppliedHlc = remoteEntry.hlc;
+      }
+    }
+
+    if (latestAppliedHlc != null) {
+      await _prefs.setString(
+        _reconcileWatermarkKey(uid),
+        latestAppliedHlc.toString(),
+      );
+    }
+
+    _telemetry.track(
+      'reconcile_outcome',
+      params: {'applied_count': appliedCount},
+    );
+  }
+
+  Future<void> _retryWithBackoff(
+    Future<void> Function() action, {
+    int maxAttempts = 4,
+    Duration initialDelay = const Duration(milliseconds: 300),
+    Duration maxDelay = const Duration(seconds: 3),
+  }) async {
+    var attempt = 0;
+    var delay = initialDelay;
+    while (attempt < maxAttempts) {
+      try {
+        await action();
+        return;
+      } catch (e, st) {
+        attempt += 1;
+        _reportSyncIssue(
+          operation: 'retry_attempt',
+          error: e,
+          stackTrace: st,
+          extra: {'attempt': attempt},
+        );
+        if (attempt >= maxAttempts) rethrow;
+        await Future<void>.delayed(delay);
+        final doubled = Duration(milliseconds: delay.inMilliseconds * 2);
+        delay = doubled > maxDelay ? maxDelay : doubled;
+      }
+    }
+  }
+
+  OplogEntry? _entryFromRemote(Map<String, dynamic> data) {
+    try {
+      final opTypeRaw = (data['opType'] ?? OplogType.update.name).toString();
+      final statusRaw = (data['status'] ?? OplogStatus.pending.name).toString();
+      final createdAt = _parseDate(data['createdAt']) ?? DateTime.now();
+      return OplogEntry(
+        opId: data['opId'] as String,
+        journalId: data['journalId'] as String,
+        pageId: data['pageId'] as String?,
+        blockId: data['blockId'] as String?,
+        opType: OplogType.values.byName(opTypeRaw),
+        hlc: Hlc.parse(data['hlc'] as String),
+        deviceId: data['deviceId'] as String,
+        userId: data['userId'] as String,
+        payloadJson: data['payloadJson'] as String,
+        status: OplogStatus.values.byName(statusRaw),
+        createdAt: createdAt,
+      );
+    } catch (e, st) {
+      _reportSyncIssue(
+        operation: 'parse_remote_oplog',
+        error: e,
+        stackTrace: st,
+      );
+      return null;
+    }
+  }
+
+  Future<bool> _applyRemoteEntry(OplogEntry entry) async {
+    try {
+      final envelope = jsonDecode(entry.payloadJson) as Map<String, dynamic>;
+      final entity = envelope['entity']?.toString();
+      final operation = envelope['operation']?.toString() ?? entry.opType.name;
+      final data = Map<String, dynamic>.from(
+        (envelope['data'] as Map?) ?? const {},
+      );
+
+      switch (entity) {
+        case 'journal':
+          return _applyJournal(operation, data);
+        case 'page':
+          return _applyPage(operation, data);
+        case 'block':
+          return _applyBlock(operation, data);
+        default:
+          return false;
+      }
+    } catch (e, st) {
+      _reportSyncIssue(
+        operation: 'apply_remote_entry',
+        error: e,
+        stackTrace: st,
+        extra: {'op_id': entry.opId},
+      );
+      return false;
+    }
+  }
+
+  Future<bool> _applyJournal(
+    String operation,
+    Map<String, dynamic> data,
+  ) async {
+    final id = data['id']?.toString();
+    if (id == null || id.isEmpty) return false;
+
+    if (operation == OplogType.delete.name) {
+      await _journalDao.softDelete(id);
+      return true;
+    }
+
+    final incoming = Journal(
+      id: id,
+      title: data['title']?.toString() ?? '',
+      coverStyle: data['coverStyle']?.toString() ?? 'default',
+      teamId: data['teamId']?.toString(),
+      ownerId: data['ownerId']?.toString(),
+      schemaVersion: (data['schemaVersion'] as num?)?.toInt() ?? 1,
+      createdAt: _parseDate(data['createdAt']) ?? DateTime.now(),
+      updatedAt: _parseDate(data['updatedAt']) ?? DateTime.now(),
+      deletedAt: _parseDate(data['deletedAt']),
+    );
+
+    final existing = await _journalDao.getById(id);
+    if (existing != null && existing.updatedAt.isAfter(incoming.updatedAt)) {
+      return true;
+    }
+
+    await _journalDao.insertJournal(incoming);
+    return true;
+  }
+
+  Future<bool> _applyPage(String operation, Map<String, dynamic> data) async {
+    final id = data['id']?.toString();
+    final journalId = data['journalId']?.toString();
+    if (id == null || id.isEmpty || journalId == null || journalId.isEmpty) {
+      return false;
+    }
+
+    if (operation == OplogType.delete.name) {
+      await _pageDao.softDelete(id);
+      return true;
+    }
+
+    final incoming = Page(
+      id: id,
+      journalId: journalId,
+      pageIndex: (data['pageIndex'] as num?)?.toInt() ?? 0,
+      backgroundStyle: data['backgroundStyle']?.toString() ?? 'plain_white',
+      thumbnailAssetId: data['thumbnailAssetId']?.toString(),
+      inkData: data['inkData']?.toString() ?? '',
+      schemaVersion: (data['schemaVersion'] as num?)?.toInt() ?? 1,
+      createdAt: _parseDate(data['createdAt']) ?? DateTime.now(),
+      updatedAt: _parseDate(data['updatedAt']) ?? DateTime.now(),
+      deletedAt: _parseDate(data['deletedAt']),
+    );
+
+    final existing = await _pageDao.getPageById(id);
+    if (existing != null && existing.updatedAt.isAfter(incoming.updatedAt)) {
+      return true;
+    }
+
+    await _pageDao.insertPage(incoming);
+    return true;
+  }
+
+  Future<bool> _applyBlock(String operation, Map<String, dynamic> data) async {
+    final id = data['id']?.toString();
+    final pageId = data['pageId']?.toString();
+    if (id == null || id.isEmpty || pageId == null || pageId.isEmpty) {
+      return false;
+    }
+
+    if (operation == OplogType.delete.name) {
+      await _blockDao.softDelete(id);
+      return true;
+    }
+
+    final incoming = Block(
+      id: id,
+      pageId: pageId,
+      type: BlockType.values.byName(data['type']?.toString() ?? 'text'),
+      x: (data['x'] as num?)?.toDouble() ?? 0,
+      y: (data['y'] as num?)?.toDouble() ?? 0,
+      width: (data['width'] as num?)?.toDouble() ?? 0.2,
+      height: (data['height'] as num?)?.toDouble() ?? 0.2,
+      rotation: (data['rotation'] as num?)?.toDouble() ?? 0,
+      zIndex: (data['zIndex'] as num?)?.toInt() ?? 0,
+      state: BlockState.values.byName(data['state']?.toString() ?? 'normal'),
+      payloadJson: data['payloadJson']?.toString() ?? '{}',
+      schemaVersion: (data['schemaVersion'] as num?)?.toInt() ?? 1,
+      createdAt: _parseDate(data['createdAt']) ?? DateTime.now(),
+      updatedAt: _parseDate(data['updatedAt']) ?? DateTime.now(),
+      deletedAt: _parseDate(data['deletedAt']),
+    );
+
+    final existing = await _blockDao.getById(id);
+    if (existing != null && existing.updatedAt.isAfter(incoming.updatedAt)) {
+      return true;
+    }
+
+    await _blockDao.insertBlock(incoming);
+    return true;
+  }
+
+  DateTime? _parseDate(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String && value.isNotEmpty) {
+      return DateTime.tryParse(value);
+    }
+    return null;
   }
 
   Future<void> _legacySyncDown() async {
@@ -78,13 +507,13 @@ class SyncService {
     }
 
     try {
-      debugPrint('Sync: Starting...');
+      _logger.info('sync_down_started');
 
       // 1. Sync Journals
       final journalSnapshots = await _firestore
-          .collection('users')
+          .collection(FirestorePaths.users)
           .doc(uid)
-          .collection('journals')
+          .collection(FirestorePaths.journals)
           .get();
 
       for (final doc in journalSnapshots.docs) {
@@ -109,19 +538,26 @@ class SyncService {
         await _syncPages(uid, journal.id);
       }
 
-      debugPrint('Sync: Completed.');
-    } catch (e) {
-      debugPrint('Sync Error: $e');
+      _logger.info('sync_down_completed');
+    } catch (e, st) {
+      _logger.error('sync_down_failed', error: e, stackTrace: st);
+      _telemetry.track(
+        'sync_issue',
+        params: {
+          'operation': 'legacy_sync_down',
+          'error_code': 'sync_down_failed',
+        },
+      );
     }
   }
 
   Future<void> _syncPages(String uid, String journalId) async {
     final pageSnapshots = await _firestore
-        .collection('users')
+        .collection(FirestorePaths.users)
         .doc(uid)
-        .collection('journals')
+        .collection(FirestorePaths.journals)
         .doc(journalId)
-        .collection('pages')
+        .collection(FirestorePaths.pages)
         .get();
 
     for (final doc in pageSnapshots.docs) {
@@ -155,9 +591,9 @@ class SyncService {
 
   Future<void> _syncBlocksForPage(String uid, String pageId) async {
     final blockSnapshots = await _firestore
-        .collection('users')
+        .collection(FirestorePaths.users)
         .doc(uid)
-        .collection('blocks')
+        .collection(FirestorePaths.blocks)
         .where('pageId', isEqualTo: pageId)
         .get();
 
@@ -237,8 +673,12 @@ class SyncService {
           }
         }
       }
-    } catch (e) {
-      debugPrint('Media Sync Error: $e');
+    } catch (e, st) {
+      _reportSyncIssue(
+        operation: 'media_download_prepare',
+        error: e,
+        stackTrace: st,
+      );
     }
     return payloadJson;
   }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal_app/core/models/journal.dart';
 import 'package:journal_app/core/models/block.dart';
-import 'package:journal_app/core/theme/journal_theme.dart';
 import 'package:journal_app/core/theme/nostalgic_page_painter.dart';
 import 'package:journal_app/features/editor/drawing/ink_storage.dart';
 import 'package:journal_app/core/theme/nostalgic_themes.dart';
@@ -12,7 +11,7 @@ import 'package:journal_app/providers/journal_providers.dart';
 /// A card that displays a live preview of the journal's first page
 class JournalPreviewCard extends ConsumerWidget {
   final Journal journal;
-  final JournalTheme theme; // Keeping this for cover fallback or borders
+  final NotebookTheme theme; // Keeping this for cover fallback or borders
   final VoidCallback onTap;
   final VoidCallback onLongPress;
 
@@ -26,16 +25,17 @@ class JournalPreviewCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
       child: Container(
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainer,
+          color: colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
+              color: colorScheme.shadow.withValues(alpha: 0.14),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -51,7 +51,7 @@ class JournalPreviewCard extends ConsumerWidget {
 
               // Title Area
               Container(
-                color: Theme.of(context).colorScheme.surfaceContainer,
+                color: colorScheme.surfaceContainer,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 8,
@@ -96,7 +96,7 @@ class JournalPreviewCard extends ConsumerWidget {
     return pagesAsync.when(
       data: (pages) {
         if (pages.isEmpty) {
-          return _buildCoverFallback();
+          return _buildCoverFallback(context);
         }
 
         final firstPage = pages.first;
@@ -104,12 +104,12 @@ class JournalPreviewCard extends ConsumerWidget {
 
         return blocksAsync.when(
           data: (blocks) => _buildLivePreview(context, ref, firstPage, blocks),
-          loading: () => _buildCoverFallback(isLoading: true),
-          error: (_, _) => _buildCoverFallback(),
+          loading: () => _buildCoverFallback(context, isLoading: true),
+          error: (_, _) => _buildCoverFallback(context),
         );
       },
-      loading: () => _buildCoverFallback(isLoading: true),
-      error: (_, _) => _buildCoverFallback(),
+      loading: () => _buildCoverFallback(context, isLoading: true),
+      error: (_, _) => _buildCoverFallback(context),
     );
   }
 
@@ -125,6 +125,8 @@ class JournalPreviewCard extends ConsumerWidget {
 
     // Use cached decoded ink strokes for better performance
     final strokes = ref.watch(decodedInkProvider(page.inkData as String));
+    final sortedBlocks = List<Block>.from(blocks)
+      ..sort((a, b) => a.zIndex.compareTo(b.zIndex));
 
     // Reference size for scaling (average mobile screen)
     const referenceSize = Size(360, 640);
@@ -143,29 +145,22 @@ class JournalPreviewCard extends ConsumerWidget {
             children: [
               // Page Background
               RepaintBoundary(
-                child: CustomPaint(
-                  painter: NostalgicPagePainter(theme: notebookTheme),
-                  size: Size.infinite,
-                ),
+                child: notebookTheme.visuals.assetPath != null
+                    ? Image.asset(
+                        notebookTheme.visuals.assetPath!,
+                        fit: BoxFit.cover,
+                      )
+                    : CustomPaint(
+                        painter: NostalgicPagePainter(theme: notebookTheme),
+                        size: Size.infinite,
+                      ),
               ),
-
-              // Ink Strokes
-              if (strokes.isNotEmpty)
-                RepaintBoundary(
-                  child: CustomPaint(
-                    painter: OptimizedInkPainter(
-                      strokes: strokes,
-                      currentStroke: null,
-                    ),
-                    size: Size.infinite,
-                  ),
-                ),
 
               // Blocks
               RepaintBoundary(
                 child: Stack(
                   clipBehavior: Clip.none,
-                  children: blocks.map((block) {
+                  children: sortedBlocks.map((block) {
                     return BlockWidget(
                       block: block,
                       pageSize: referenceSize,
@@ -177,8 +172,25 @@ class JournalPreviewCard extends ConsumerWidget {
                 ),
               ),
 
+              // Ink Strokes should stay above blocks so annotations remain visible.
+              if (strokes.isNotEmpty)
+                RepaintBoundary(
+                  child: CustomPaint(
+                    painter: OptimizedInkPainter(
+                      strokes: strokes,
+                      currentStroke: null,
+                    ),
+                    size: Size.infinite,
+                  ),
+                ),
+
               // Transparent overlay
-              if (isDark) Container(color: Colors.black.withValues(alpha: 0.1)),
+              if (isDark)
+                Container(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.surface.withValues(alpha: 0.12),
+                ),
 
               // Touch interceptor
               Container(color: Colors.transparent),
@@ -189,14 +201,20 @@ class JournalPreviewCard extends ConsumerWidget {
     );
   }
 
-  Widget _buildCoverFallback({bool isLoading = false}) {
+  Widget _buildCoverFallback(BuildContext context, {bool isLoading = false}) {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: theme.coverGradient,
+          colors: theme.visuals.coverGradient,
         ),
+        image: theme.visuals.assetPath != null
+            ? DecorationImage(
+                image: AssetImage(theme.visuals.assetPath!),
+                fit: BoxFit.cover,
+              )
+            : null,
       ),
       child: Center(
         child: isLoading
@@ -208,11 +226,18 @@ class JournalPreviewCard extends ConsumerWidget {
                   strokeWidth: 2,
                 ),
               )
-            : Icon(
-                theme.coverIcon,
-                size: 48,
-                color: Colors.white.withValues(alpha: 0.8), // Flutter 3 updated
-              ),
+            : theme.visuals.assetPath == null
+            ? Text(
+                journal.title.isNotEmpty
+                    ? journal.title.substring(0, 1).toUpperCase()
+                    : '',
+                style: TextStyle(
+                  fontSize: 40,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white.withAlpha(200),
+                ),
+              )
+            : null,
       ),
     );
   }

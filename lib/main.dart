@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart';
@@ -6,10 +8,13 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart' as import_firebase_auth;
 import 'package:journal_app/core/theme/app_theme.dart';
 import 'package:journal_app/core/auth/auth_service.dart';
+import 'package:journal_app/core/localization/locale_provider.dart';
+import 'package:journal_app/l10n/app_localizations.dart';
 import 'firebase_options.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:journal_app/core/theme/theme_provider.dart';
 import 'package:journal_app/core/navigation/app_router.dart';
+import 'package:journal_app/core/services/notification_service.dart';
 
 void main() async {
   debugPaintSizeEnabled = false;
@@ -62,6 +67,21 @@ void main() async {
       child: const JournalApp(),
     ),
   );
+
+  // Do not block first frame on notification/analytics initialization.
+  if (isFirebaseAvailable) {
+    unawaited(
+      Future<void>(() async {
+        try {
+          final notificationService = NotificationService();
+          await notificationService.init();
+          debugPrint('Notification/Analytics/Crashlytics initialized.');
+        } catch (e) {
+          debugPrint('Notification/Analytics init failed: $e');
+        }
+      }),
+    );
+  }
 }
 
 class JournalApp extends ConsumerWidget {
@@ -70,15 +90,19 @@ class JournalApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeSettings = ref.watch(themeProvider);
+    final locale = ref.watch(localeProvider);
 
     final router = ref.watch(appRouterProvider);
 
     return MaterialApp.router(
-      title: 'Journal V2',
+      onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.getTheme(themeSettings.colorTheme, Brightness.light),
-      darkTheme: AppTheme.getTheme(themeSettings.colorTheme, Brightness.dark),
+      theme: AppTheme.getTheme(Brightness.light),
+      darkTheme: AppTheme.getTheme(Brightness.dark),
       themeMode: themeSettings.mode,
+      locale: locale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       routerConfig: router,
     );
   }

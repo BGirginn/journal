@@ -11,6 +11,11 @@ class Page implements BaseEntity {
   final String backgroundStyle;
   final String? thumbnailAssetId;
   final String inkData; // JSON encoded ink strokes
+  final String tags; // Comma-separated tags
+
+  /// Get tags as list
+  List<String> get tagList =>
+      tags.isEmpty ? [] : tags.split(',').map((t) => t.trim()).toList();
 
   @override
   final int schemaVersion;
@@ -31,6 +36,7 @@ class Page implements BaseEntity {
     this.backgroundStyle = 'plain_white',
     this.thumbnailAssetId,
     this.inkData = '',
+    this.tags = '',
     this.schemaVersion = 1,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -49,6 +55,7 @@ class Page implements BaseEntity {
     String? backgroundStyle,
     String? thumbnailAssetId,
     String? inkData,
+    String? tags,
     int? schemaVersion,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -61,6 +68,7 @@ class Page implements BaseEntity {
       backgroundStyle: backgroundStyle ?? this.backgroundStyle,
       thumbnailAssetId: thumbnailAssetId ?? this.thumbnailAssetId,
       inkData: inkData ?? this.inkData,
+      tags: tags ?? this.tags,
       schemaVersion: schemaVersion ?? this.schemaVersion,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

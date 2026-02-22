@@ -1,26 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'app_theme.dart';
 
 // Keys for SharedPreferences
 const _kThemeModeKey = 'theme_mode';
-const _kColorThemeKey = 'color_theme';
 
 class ThemeSettings {
   final ThemeMode mode;
-  final AppColorTheme colorTheme;
 
-  const ThemeSettings({
-    this.mode = ThemeMode.system,
-    this.colorTheme = AppColorTheme.purple,
-  });
+  const ThemeSettings({this.mode = ThemeMode.light});
 
-  ThemeSettings copyWith({ThemeMode? mode, AppColorTheme? colorTheme}) {
-    return ThemeSettings(
-      mode: mode ?? this.mode,
-      colorTheme: colorTheme ?? this.colorTheme,
-    );
+  ThemeSettings copyWith({ThemeMode? mode}) {
+    return ThemeSettings(mode: mode ?? this.mode);
   }
 }
 
@@ -33,26 +24,15 @@ class ThemeNotifier extends StateNotifier<ThemeSettings> {
 
   void _loadSettings() {
     final modeIndex = _prefs.getInt(_kThemeModeKey);
-    final colorIndex = _prefs.getInt(_kColorThemeKey);
-
-    final mode = modeIndex != null
-        ? ThemeMode.values[modeIndex]
-        : ThemeMode.system;
-    final colorTheme = colorIndex != null
-        ? AppColorTheme.values[colorIndex]
-        : AppColorTheme.purple;
-
-    state = ThemeSettings(mode: mode, colorTheme: colorTheme);
+    final mode = modeIndex == ThemeMode.dark.index
+        ? ThemeMode.dark
+        : ThemeMode.light;
+    state = ThemeSettings(mode: mode);
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
     state = state.copyWith(mode: mode);
     await _prefs.setInt(_kThemeModeKey, mode.index);
-  }
-
-  Future<void> setColorTheme(AppColorTheme colorTheme) async {
-    state = state.copyWith(colorTheme: colorTheme);
-    await _prefs.setInt(_kColorThemeKey, colorTheme.index);
   }
 }
 

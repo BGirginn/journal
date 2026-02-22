@@ -8,8 +8,9 @@ class Journal implements BaseEntity {
 
   final String title;
   final String coverStyle;
+  final String? coverImageUrl;
   final String? teamId;
-  final String? ownerId; // Added ownerId
+  final String? ownerId;
 
   @override
   final int schemaVersion;
@@ -27,6 +28,7 @@ class Journal implements BaseEntity {
     String? id,
     required this.title,
     this.coverStyle = 'default',
+    this.coverImageUrl,
     this.teamId,
     this.ownerId,
     this.schemaVersion = 1,
@@ -44,6 +46,7 @@ class Journal implements BaseEntity {
     String? id,
     String? title,
     String? coverStyle,
+    String? coverImageUrl,
     String? teamId,
     String? ownerId,
     int? schemaVersion,
@@ -55,6 +58,7 @@ class Journal implements BaseEntity {
       id: id ?? this.id,
       title: title ?? this.title,
       coverStyle: coverStyle ?? this.coverStyle,
+      coverImageUrl: coverImageUrl ?? this.coverImageUrl,
       teamId: teamId ?? this.teamId,
       ownerId: ownerId ?? this.ownerId,
       schemaVersion: schemaVersion ?? this.schemaVersion,

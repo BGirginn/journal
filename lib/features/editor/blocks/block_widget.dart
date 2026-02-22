@@ -5,7 +5,6 @@ import 'package:journal_app/features/editor/widgets/audio_block_widget.dart';
 
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:journal_app/core/database/storage_service.dart';
 import 'package:journal_app/features/editor/widgets/image_frame_widget.dart';
 import 'package:journal_app/features/editor/widgets/video_block_widget.dart';
@@ -49,7 +48,10 @@ class BlockWidget extends ConsumerWidget {
             height: height,
             decoration: BoxDecoration(
               border: isSelected
-                  ? Border.all(color: Colors.deepPurple, width: 2)
+                  ? Border.all(
+                      color: Theme.of(context).colorScheme.primary,
+                      width: 2,
+                    )
                   : null,
               borderRadius: BorderRadius.circular(4),
             ),
@@ -76,6 +78,7 @@ class BlockWidget extends ConsumerWidget {
       case BlockType.image:
         return _ImageBlockContent(
           block: block,
+          pageSize: pageSize,
           cacheWidth: cacheWidth,
           cacheHeight: cacheHeight,
         );
@@ -145,17 +148,18 @@ class _Handle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.deepPurple, width: 2),
+        color: colorScheme.surface,
+        border: Border.all(color: colorScheme.primary, width: 2),
         shape: isRotate ? BoxShape.circle : BoxShape.rectangle,
         borderRadius: isRotate ? null : BorderRadius.circular(2),
       ),
       child: icon != null
-          ? Icon(icon, size: size - 4, color: Colors.deepPurple)
+          ? Icon(icon, size: size - 4, color: colorScheme.primary)
           : null,
     );
   }
@@ -169,17 +173,21 @@ class _TextBlockContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final payload = TextBlockPayload.fromJson(block.payload);
 
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.yellow.withValues(alpha: 0.3),
+        color: colorScheme.primaryContainer.withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         payload.content,
-        style: TextStyle(fontSize: payload.fontSize, color: Colors.black87),
+        style: TextStyle(
+          fontSize: payload.fontSize,
+          color: colorScheme.onSurface,
+        ),
         overflow: TextOverflow.ellipsis,
         maxLines: 10,
       ),
@@ -190,11 +198,13 @@ class _TextBlockContent extends StatelessWidget {
 /// Image block content
 class _ImageBlockContent extends ConsumerWidget {
   final Block block;
+  final Size pageSize;
   final int? cacheWidth;
   final int? cacheHeight;
 
   const _ImageBlockContent({
     required this.block,
+    required this.pageSize,
     this.cacheWidth,
     this.cacheHeight,
   });
@@ -202,17 +212,34 @@ class _ImageBlockContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final payload = ImageBlockPayload.fromJson(block.payload);
+    final width = block.width * pageSize.width;
+    final height = block.height * pageSize.height;
 
     // 1. Try Local Path
-    if (payload.path != null && File(payload.path!).existsSync()) {
-      return ImageFrameWidget(
-        imageProvider: FileImage(File(payload.path!)),
-        frameStyle: payload.frameStyle,
-        width: block.width * MediaQuery.of(context).size.width,
-        height: block.height * MediaQuery.of(context).size.height,
-        cacheWidth: cacheWidth,
-        cacheHeight: cacheHeight,
-      );
+    if (payload.path != null) {
+      final path = payload.path!;
+      if (path.startsWith('assets/')) {
+        return ImageFrameWidget(
+          imageProvider: AssetImage(path),
+          frameStyle: payload.frameStyle,
+          width: width,
+          height: height,
+          cacheWidth: cacheWidth,
+          cacheHeight: cacheHeight,
+        );
+      }
+
+      final file = File(path);
+      if (file.existsSync()) {
+        return ImageFrameWidget(
+          imageProvider: FileImage(file),
+          frameStyle: payload.frameStyle,
+          width: width,
+          height: height,
+          cacheWidth: cacheWidth,
+          cacheHeight: cacheHeight,
+        );
+      }
     }
 
     // 2. Try Cloud Storage
@@ -228,26 +255,17 @@ class _ImageBlockContent extends ConsumerWidget {
             // or standard ImageFrameWidget if we download it.
             // Ideally ImageFrameWidget should accept an ImageProvider.
             // Let's us CachedNetworkImage for now.
-            return CachedNetworkImage(
-              imageUrl: snapshot.data!,
-              memCacheWidth: cacheWidth,
-              memCacheHeight: cacheHeight,
-              imageBuilder: (context, imageProvider) => Container(
-                decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: imageProvider,
-                    fit: BoxFit.cover,
-                  ),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-              placeholder: (context, url) =>
-                  const Center(child: CircularProgressIndicator()),
-              errorWidget: (context, url, error) => const Icon(Icons.error),
+            return ImageFrameWidget(
+              imageProvider: NetworkImage(snapshot.data!),
+              frameStyle: payload.frameStyle,
+              width: width,
+              height: height,
+              cacheWidth: cacheWidth,
+              cacheHeight: cacheHeight,
             );
           }
           return Container(
-            color: Colors.grey[200],
+            color: Theme.of(context).colorScheme.surfaceContainer,
             child: const Center(child: CircularProgressIndicator()),
           );
         },
@@ -257,19 +275,26 @@ class _ImageBlockContent extends ConsumerWidget {
     // 3. Fallback
     return Container(
       decoration: BoxDecoration(
-        color: Colors.grey[200],
+        color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.grey[300]!),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.image, size: 32, color: Colors.grey[400]),
+            Icon(
+              Icons.image,
+              size: 32,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
             const SizedBox(height: 4),
             Text(
               'Görsel Bulunamadı',
-              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),

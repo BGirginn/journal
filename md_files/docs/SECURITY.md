@@ -16,11 +16,14 @@
 - DB: SQLCipher
 - Asset: AES-GCM (opsiyon)
 - Key: Keychain/Keystore
+- Faz-1 notu: iOS permission compliance + CI security scanning aktif.
 
 ### 2.3 Firebase Security Rules
 - userId scope:
   - /users/{uid}/... sadece uid erişir
 - Group future: roles-based
+- team uyumu:
+  - `team_members` collection standardi
 
 ### 2.4 Sync Safety
 - tombstone rule
@@ -30,3 +33,14 @@
 ## 3) Incident Response
 - kullanıcı “hesabım çalındı”: token revoke (Firebase)
 - cihaz kaybı: remote sign-out önerisi
+
+## 4) CI Security Gates
+- Workflow: `.github/workflows/security_scan.yml`
+- Secret scan: Gitleaks
+- Dependency scan: Trivy (HIGH/CRITICAL bulguda fail)
+
+## 5) iOS Permission Compliance
+- `NSCameraUsageDescription`
+- `NSPhotoLibraryUsageDescription`
+- `NSPhotoLibraryAddUsageDescription`
+- `NSMicrophoneUsageDescription`

@@ -98,8 +98,23 @@ class OptimizedInkPainter extends CustomPainter {
     canvas.drawPath(path, paint);
   }
 
+  int _strokeToken(List<InkStrokeData> list) {
+    var token = 0;
+    for (final stroke in list) {
+      token = token ^ stroke.points.length;
+      token = token ^ stroke.colorValue;
+      token = token ^ stroke.width.round();
+      if (stroke.points.isNotEmpty) {
+        final last = stroke.points.last;
+        token = token ^ last.dx.round();
+        token = token ^ (last.dy.round() << 1);
+      }
+    }
+    return token;
+  }
+
   @override
   bool shouldRepaint(covariant OptimizedInkPainter old) =>
-      old.strokes.length != strokes.length ||
+      _strokeToken(old.strokes) != _strokeToken(strokes) ||
       old.currentStroke != currentStroke;
 }

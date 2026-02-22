@@ -21,6 +21,25 @@ final journalsProvider = StreamProvider<List<Journal>>((ref) {
   return dao.watchAllJournals(userId: userId);
 });
 
+/// Total non-deleted page count across all journals of the current user
+final totalPageCountProvider = FutureProvider<int>((ref) async {
+  final pageDao = ref.watch(pageDaoProvider);
+  final journals = await ref.watch(journalsProvider.future);
+
+  var total = 0;
+  for (final journal in journals) {
+    total += await pageDao.getPageCount(journal.id);
+  }
+
+  return total;
+});
+
+/// Stream of a single journal by ID
+final journalProvider = StreamProvider.family<Journal?, String>((ref, id) {
+  final dao = ref.watch(journalDaoProvider);
+  return dao.watchById(id);
+});
+
 /// Create a new journal
 final createJournalProvider = Provider((ref) {
   final dao = ref.read(journalDaoProvider);
@@ -73,6 +92,21 @@ final deleteJournalProvider = Provider((ref) {
   };
 });
 
+/// Update an existing journal
+final updateJournalProvider = Provider((ref) {
+  final dao = ref.read(journalDaoProvider);
+  final firestoreService = ref.read(firestoreServiceProvider);
+
+  return (Journal journal) async {
+    await dao.updateJournal(journal);
+    try {
+      await firestoreService.updateJournal(journal);
+    } catch (e) {
+      // Offline-first: local update stays as source of truth
+    }
+  };
+});
+
 /// Stream of pages for a specific journal
 final pagesProvider = StreamProvider.family<List<model.Page>, String>((
   ref,
@@ -103,11 +137,17 @@ final decodedInkProvider = Provider.family<List<InkStrokeData>, String>((
 /// Create a new page in a journal
 final createPageProvider = Provider((ref) {
   final pageDao = ref.read(pageDaoProvider);
+  final firestoreService = ref.read(firestoreServiceProvider);
 
   return (String journalId) async {
     final maxIndex = await pageDao.getMaxPageIndex(journalId);
     final newPage = model.Page(journalId: journalId, pageIndex: maxIndex + 1);
     await pageDao.insertPage(newPage);
+    try {
+      await firestoreService.createPage(newPage);
+    } catch (_) {
+      // Offline-first: local page creation stays available.
+    }
     return newPage;
   };
 });

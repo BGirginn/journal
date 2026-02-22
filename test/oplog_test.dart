@@ -38,6 +38,7 @@ void main() {
 
       final map = entry.toMap();
       expect(map['opId'], 'op1');
+      expect(map['actorId'], 'u1');
       expect(map['hlc'], '1000:0001:d1');
       expect(map['status'], 'sent');
     });

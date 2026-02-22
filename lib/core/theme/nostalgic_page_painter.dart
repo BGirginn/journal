@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'nostalgic_themes.dart';
@@ -5,18 +6,27 @@ import 'nostalgic_themes.dart';
 /// Premium notebook page painter with nostalgic details
 class NostalgicPagePainter extends CustomPainter {
   final NotebookTheme theme;
+  final ui.Image? preloadedImage;
 
-  NostalgicPagePainter({required this.theme});
+  NostalgicPagePainter({required this.theme, this.preloadedImage});
 
   @override
   void paint(Canvas canvas, Size size) {
     final visuals = theme.visuals;
 
-    // Background
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      Paint()..color = visuals.pageColor,
-    );
+    // Background Color
+    if (visuals.pageColor != Colors.transparent) {
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, size.width, size.height),
+        Paint()..color = visuals.pageColor,
+      );
+    }
+
+    // If an image asset is provided and preloaded, draw it and skip procedural textures
+    if (visuals.assetPath != null && preloadedImage != null) {
+      _drawImageBackground(canvas, size, preloadedImage!);
+      return; // Skip drawing procedural lines/textures over the image
+    }
 
     // Add texture overlay based on type
     _drawTexture(canvas, size);
@@ -73,6 +83,16 @@ class NostalgicPagePainter extends CustomPainter {
       final y = random.nextDouble() * size.height;
       canvas.drawCircle(Offset(x, y), 0.4, paint);
     }
+  }
+
+  void _drawImageBackground(Canvas canvas, Size size, ui.Image image) {
+    paintImage(
+      canvas: canvas,
+      rect: Rect.fromLTWH(0, 0, size.width, size.height),
+      image: image,
+      fit: BoxFit.cover,
+      filterQuality: FilterQuality.high,
+    );
   }
 
   void _drawLines(Canvas canvas, Size size) {

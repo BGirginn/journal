@@ -14,17 +14,18 @@ class NostalgicThemePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.palette, color: Colors.deepPurple),
-              SizedBox(width: 12),
-              Text(
+              Icon(Icons.palette, color: colorScheme.primary),
+              const SizedBox(width: 12),
+              const Text(
                 'Defter Teması Seç',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
@@ -33,7 +34,7 @@ class NostalgicThemePicker extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'Her tema benzersiz bir deneyim sunar',
-            style: TextStyle(color: Colors.grey[600]),
+            style: TextStyle(color: colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 20),
           SizedBox(
@@ -79,6 +80,7 @@ class _ThemeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -86,16 +88,21 @@ class _ThemeCard extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           border: isSelected
-              ? Border.all(color: Colors.deepPurple, width: 3)
-              : Border.all(color: Colors.grey.shade200),
+              ? Border.all(color: colorScheme.primary, width: 3)
+              : Border.all(color: colorScheme.outlineVariant),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: Colors.deepPurple.withAlpha(50),
+                    color: colorScheme.primary.withValues(alpha: 0.2),
                     blurRadius: 12,
                   ),
                 ]
-              : [BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 8)],
+              : [
+                  BoxShadow(
+                    color: colorScheme.shadow.withValues(alpha: 0.08),
+                    blurRadius: 8,
+                  ),
+                ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -158,7 +165,7 @@ class _ThemeCard extends StatelessWidget {
                           ),
                           child: const Icon(
                             Icons.check,
-                            color: Colors.deepPurple,
+                            color: Color(0xFFC97A1E),
                             size: 16,
                           ),
                         ),
@@ -213,26 +220,7 @@ class _ThemeCard extends StatelessWidget {
   }
 
   IconData _getThemeIcon() {
-    switch (theme.id) {
-      case 'school_90s':
-        return Icons.school;
-      case 'leather_journal':
-        return Icons.menu_book;
-      case 'sketchbook':
-        return Icons.brush;
-      case 'bullet':
-        return Icons.checklist;
-      case 'romantic':
-        return Icons.favorite;
-      case 'midnight':
-        return Icons.nightlight_round;
-      case 'kraft':
-        return Icons.eco;
-      case 'graph':
-        return Icons.grid_on;
-      default:
-        return Icons.book;
-    }
+    return Icons.image;
   }
 }
 

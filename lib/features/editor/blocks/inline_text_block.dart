@@ -71,8 +71,11 @@ class _InlineTextBlockState extends State<InlineTextBlock> {
     final height = widget.block.height * widget.pageSize.height;
 
     final payload = TextBlockPayload.fromJson(widget.block.payload);
-    final isDark = widget.theme.id == 'dark';
-    final textColor = isDark ? Colors.white : Colors.black87;
+    final textColor = widget.theme.id == 'dark'
+        ? Colors.white
+        : (widget.theme.pageBackground.computeLuminance() < 0.35
+              ? Colors.white
+              : Colors.black87);
 
     return Positioned(
       left: left,
@@ -99,7 +102,9 @@ class _InlineTextBlockState extends State<InlineTextBlock> {
                     child: Container(
                       decoration: BoxDecoration(
                         border: Border.all(
-                          color: Colors.deepPurple.withAlpha(100),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.45),
                           width: 1,
                         ),
                         borderRadius: BorderRadius.circular(4),

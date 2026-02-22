@@ -8,7 +8,13 @@ final storageServiceProvider = Provider<StorageService>((ref) {
   return StorageService(authService);
 });
 
-class StorageService {
+abstract interface class StorageGateway {
+  Future<String?> uploadFile(File file, {String? customPath});
+  Future<String?> getDownloadUrl(String storagePath);
+  Future<void> deleteFile(String storagePath);
+}
+
+class StorageService implements StorageGateway {
   final AuthService _authService;
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
@@ -18,6 +24,7 @@ class StorageService {
 
   /// Uploads a file to Firebase Storage and returns the full storage path
   /// (e.g., "users/123/uploads/image.jpg")
+  @override
   Future<String?> uploadFile(File file, {String? customPath}) async {
     final uid = _userId;
     if (uid == null) return null;
@@ -40,6 +47,7 @@ class StorageService {
   }
 
   /// Gets the download URL for a given storage path
+  @override
   Future<String?> getDownloadUrl(String storagePath) async {
     try {
       return await _storage.ref().child(storagePath).getDownloadURL();
@@ -49,6 +57,7 @@ class StorageService {
   }
 
   /// Delete a file
+  @override
   Future<void> deleteFile(String storagePath) async {
     try {
       await _storage.ref().child(storagePath).delete();

@@ -30,6 +30,7 @@
 .pub-cache/
 .pub/
 /build/
+.fvm/
 
 # Web related
 lib/generated_plugin_registrant.dart
@@ -57,3 +58,6 @@ test/coverage/
 
 # Local configuration file (contains secrets)
 /android/local.properties
+/key.properties
+/android/key.properties
+/android/app/release-keystore.jks

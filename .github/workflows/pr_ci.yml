@@ -1,0 +1,178 @@
+name: PR CI
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+
+concurrency:
+  group: pr-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format_check:
+    name: Format Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.1
+          cache: true
+
+      - name: Setup FVM
+        run: |
+          dart pub global activate fvm
+          echo "$HOME/.pub-cache/bin" >> "$GITHUB_PATH"
+          fvm install --skip-pub-get
+
+      - name: Pub Get
+        run: fvm flutter pub get
+
+      - name: Generate Localizations
+        run: fvm flutter gen-l10n
+
+      - name: Dart Format Check
+        run: dart format --output=none --set-exit-if-changed lib/core lib/features lib/providers test
+
+      - name: Job Summary
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "Format check: PASS" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Format check: FAIL" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.1
+          cache: true
+
+      - name: Setup FVM
+        run: |
+          dart pub global activate fvm
+          echo "$HOME/.pub-cache/bin" >> "$GITHUB_PATH"
+          fvm install --skip-pub-get
+
+      - name: Pub Get
+        run: fvm flutter pub get
+
+      - name: Generate Localizations
+        run: fvm flutter gen-l10n
+
+      - name: Dart Analyze
+        run: dart analyze
+
+      - name: Job Summary
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "Analyze: PASS" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Analyze: FAIL (lint/static analysis)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.1
+          cache: true
+
+      - name: Setup FVM
+        run: |
+          dart pub global activate fvm
+          echo "$HOME/.pub-cache/bin" >> "$GITHUB_PATH"
+          fvm install --skip-pub-get
+
+      - name: Pub Get
+        run: fvm flutter pub get
+
+      - name: Generate Localizations
+        run: fvm flutter gen-l10n
+
+      - name: Flutter Test
+        run: fvm flutter test --reporter expanded
+
+      - name: Job Summary
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "Tests: PASS" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Tests: FAIL (unit/widget tests)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  build_android_debug:
+    name: Build Android Debug
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.1
+          cache: true
+
+      - name: Setup FVM
+        run: |
+          dart pub global activate fvm
+          echo "$HOME/.pub-cache/bin" >> "$GITHUB_PATH"
+          fvm install --skip-pub-get
+
+      - name: Build APK (Debug)
+        run: fvm flutter build apk --debug
+
+  build_ios_simulator:
+    name: Build iOS Simulator
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.1
+          cache: true
+
+      - name: Setup FVM
+        run: |
+          dart pub global activate fvm
+          echo "$HOME/.pub-cache/bin" >> "$GITHUB_PATH"
+          fvm install --skip-pub-get
+
+      - name: Build iOS Simulator
+        run: fvm flutter build ios --simulator --no-codesign

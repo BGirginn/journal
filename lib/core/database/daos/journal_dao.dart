@@ -35,6 +35,15 @@ class JournalDao extends DatabaseAccessor<AppDatabase> with _$JournalDaoMixin {
     return row != null ? _rowToModel(row) : null;
   }
 
+  /// Watch a single journal by ID
+  Stream<model.Journal?> watchById(String id) {
+    final query = select(journals)
+      ..where((t) => t.id.equals(id) & t.deletedAt.isNull());
+    return query.watchSingleOrNull().map(
+      (row) => row != null ? _rowToModel(row) : null,
+    );
+  }
+
   /// Insert a new journal
   Future<void> insertJournal(model.Journal journal) async {
     await into(

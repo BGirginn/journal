@@ -1,16 +1,27 @@
-# journal_app
+# Journal V2
 
-A new Flutter project.
+Offline-first journal uygulamasi (Flutter + Drift + Firebase).
 
-## Getting Started
+## Toolchain
+- Flutter version is pinned with FVM in `.fvmrc`.
+- Preferred commands:
+  - `fvm flutter pub get`
+  - `dart analyze`
+  - `fvm flutter test --reporter expanded`
+  - `fvm flutter build apk --debug`
+  - `fvm flutter build ios --simulator --no-codesign`
 
-This project is a starting point for a Flutter application.
+## iOS / Xcode Run
+- Always open `ios/Runner.xcworkspace` (not `ios/Runner.xcodeproj`).
+- After pulling iOS dependency changes, run `cd ios && pod install`.
+- Select an installed simulator in Xcode (for this machine: `iPhone 17`, `iPhone 17 Pro`, `iPhone Air`, etc.).
 
-A few resources to get you started if this is your first Flutter project:
+## CI Workflows
+- PR kalite kapilari: `.github/workflows/pr_ci.yml`
+- Release candidate pipeline: `.github/workflows/release_candidate.yml`
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Release Hazirlik Dokumanlari
+- `md_files/docs/RELEASE_CHECKLIST.md`
+- `md_files/docs/ANDROID_SIGNING.md`
+- `md_files/docs/RELEASE_GO_NO_GO.md`
+- `md_files/docs/CI_RUNBOOK.md`

@@ -1,13 +1,16 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 /// Image picker service for adding photos
 class ImagePickerService {
   final ImagePicker _picker = ImagePicker();
+  String? lastErrorMessage;
 
   /// Pick image from gallery
   Future<File?> pickFromGallery() async {
+    lastErrorMessage = null;
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
@@ -19,6 +22,7 @@ class ImagePickerService {
         return File(image.path);
       }
     } catch (e) {
+      lastErrorMessage = _toUserMessage(e, source: 'Galeri');
       debugPrint('Error picking image from gallery: $e');
     }
     return null;
@@ -26,6 +30,7 @@ class ImagePickerService {
 
   /// Pick image from camera
   Future<File?> pickFromCamera() async {
+    lastErrorMessage = null;
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.camera,
@@ -37,6 +42,7 @@ class ImagePickerService {
         return File(image.path);
       }
     } catch (e) {
+      lastErrorMessage = _toUserMessage(e, source: 'Kamera');
       debugPrint('Error picking image from camera: $e');
     }
     return null;
@@ -44,6 +50,7 @@ class ImagePickerService {
 
   /// Pick video from gallery
   Future<File?> pickVideoFromGallery() async {
+    lastErrorMessage = null;
     try {
       final XFile? video = await _picker.pickVideo(
         source: ImageSource.gallery,
@@ -53,6 +60,7 @@ class ImagePickerService {
         return File(video.path);
       }
     } catch (e) {
+      lastErrorMessage = _toUserMessage(e, source: 'Galeri');
       debugPrint('Error picking video from gallery: $e');
     }
     return null;
@@ -60,6 +68,7 @@ class ImagePickerService {
 
   /// Pick video from camera
   Future<File?> pickVideoFromCamera() async {
+    lastErrorMessage = null;
     try {
       final XFile? video = await _picker.pickVideo(
         source: ImageSource.camera,
@@ -69,9 +78,24 @@ class ImagePickerService {
         return File(video.path);
       }
     } catch (e) {
+      lastErrorMessage = _toUserMessage(e, source: 'Kamera');
       debugPrint('Error picking video from camera: $e');
     }
     return null;
+  }
+
+  String _toUserMessage(Object error, {required String source}) {
+    if (error is PlatformException) {
+      final code = error.code.toLowerCase();
+      if (code.contains('permission') || code.contains('denied')) {
+        return '$source izni reddedildi. Ayarlardan izin verip tekrar deneyin.';
+      }
+    }
+    final raw = error.toString().toLowerCase();
+    if (raw.contains('permission') || raw.contains('denied')) {
+      return '$source izni reddedildi. Ayarlardan izin verip tekrar deneyin.';
+    }
+    return '$source secimi basarisiz oldu. Lutfen tekrar deneyin.';
   }
 }
 
@@ -116,6 +140,13 @@ Future<File?> showImageSourcePicker(BuildContext context) async {
             subtitle: const Text('Mevcut fotoğraflardan birini seç'),
             onTap: () async {
               final file = await service.pickFromGallery();
+              if (context.mounted &&
+                  file == null &&
+                  service.lastErrorMessage != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(service.lastErrorMessage!)),
+                );
+              }
               if (context.mounted) Navigator.pop(context, file);
             },
           ),
@@ -132,6 +163,13 @@ Future<File?> showImageSourcePicker(BuildContext context) async {
             subtitle: const Text('Kamera ile yeni fotoğraf çek'),
             onTap: () async {
               final file = await service.pickFromCamera();
+              if (context.mounted &&
+                  file == null &&
+                  service.lastErrorMessage != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(service.lastErrorMessage!)),
+                );
+              }
               if (context.mounted) Navigator.pop(context, file);
             },
           ),

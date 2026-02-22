@@ -1,0 +1,78 @@
+name: Release Candidate
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - rc-*
+
+jobs:
+  release_candidate_android:
+    name: Release Candidate Android
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_STORE_FILE: ${{ github.workspace }}/android/app/release-keystore.jks
+      RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+      RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+      RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.1
+          cache: true
+
+      - name: Setup FVM
+        run: |
+          dart pub global activate fvm
+          echo "$HOME/.pub-cache/bin" >> "$GITHUB_PATH"
+          fvm install --skip-pub-get
+
+      - name: Decode Android Keystore
+        if: ${{ secrets.RELEASE_KEYSTORE_BASE64 != '' }}
+        run: |
+          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > "$RELEASE_STORE_FILE"
+
+      - name: Pub Get
+        run: fvm flutter pub get
+
+      - name: Generate Localizations
+        run: fvm flutter gen-l10n
+
+      - name: Verify Release Prerequisites
+        run: ./scripts/verify_release_prereqs.sh
+
+      - name: Build Android App Bundle
+        run: fvm flutter build appbundle --release
+
+      - name: Create Artifact Metadata
+        run: |
+          mkdir -p build/metadata
+          {
+            echo "commit_sha=${GITHUB_SHA}"
+            echo "ref=${GITHUB_REF}"
+            echo "workflow_run=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "built_at_utc=$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+          } > build/metadata/release_candidate.txt
+
+      - name: Upload App Bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-candidate-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+
+      - name: Upload Metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-candidate-metadata
+          path: build/metadata/release_candidate.txt

@@ -86,9 +86,7 @@ class _VideoBlockWidgetState extends State<VideoBlockWidget> {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    controller.value.isPlaying
-                        ? Icons.pause
-                        : Icons.play_arrow,
+                    controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
                     color: Colors.white,
                     size: 32,
                   ),

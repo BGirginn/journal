@@ -5,6 +5,7 @@ import 'package:journal_app/core/auth/auth_service.dart';
 import 'package:journal_app/features/auth/login_screen.dart';
 import 'package:journal_app/features/auth/profile_setup_screen.dart';
 import 'package:journal_app/features/library/library_screen.dart';
+import 'package:journal_app/features/onboarding/onboarding_screen.dart';
 import 'package:journal_app/features/profile/profile_settings_screen.dart';
 import 'package:journal_app/features/sync/sync_debug_screen.dart';
 import 'package:journal_app/features/team/screens/team_list_screen.dart';
@@ -15,11 +16,16 @@ import 'package:journal_app/features/notifications/notifications_screen.dart';
 
 import 'package:journal_app/core/sync/sync_service.dart';
 import 'package:journal_app/core/auth/user_service.dart';
+import 'package:journal_app/core/theme/theme_provider.dart';
 import 'package:journal_app/features/journal/journal_view_screen.dart';
 import 'package:journal_app/providers/journal_providers.dart';
 
 /// Provider to track if user needs profile setup
 final needsProfileSetupProvider = StateProvider<bool?>((ref) => null);
+final onboardingCompletedProvider = StateProvider<bool>((ref) {
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return prefs.getBool('onboarding_complete') ?? false;
+});
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authNotifier = ValueNotifier<bool>(false);
@@ -74,7 +80,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   });
 
   // Also listen to the state provider directly, in case it's updated manually
-  ref.listen(needsProfileSetupProvider, (_, next) {
+  ref.listen<bool?>(needsProfileSetupProvider, (_, next) {
     // Keep notifier aligned with provider so router refreshes on pending/ready transitions.
     profileNotifier.value = next;
   });
@@ -86,12 +92,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final authState = ref.read(authStateProvider);
       final isLoggedIn = authState.value != null;
       final needsProfileSetup = ref.read(needsProfileSetupProvider);
+      final onboardingCompleted = ref.read(onboardingCompletedProvider);
 
       final isLoginRoute = state.uri.path == '/login';
       final isProfileSetupRoute = state.uri.path == '/profile-setup';
+      final isOnboardingRoute = state.uri.path == '/onboarding';
 
-      // Not logged in -> login
-      if (!isLoggedIn && !isLoginRoute) return '/login';
+      if (!isLoggedIn) {
+        if (!onboardingCompleted && !isOnboardingRoute) return '/onboarding';
+        if (onboardingCompleted && isOnboardingRoute) return '/login';
+        if (onboardingCompleted && !isLoginRoute && !isOnboardingRoute) {
+          return '/login';
+        }
+      }
 
       // Logged in but on login page -> redirect
       if (isLoggedIn && isLoginRoute) {
@@ -121,6 +134,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/', builder: (context, state) => const LibraryScreen()),
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => OnboardingScreen(
+          onComplete: () async {
+            final prefs = ref.read(sharedPreferencesProvider);
+            await prefs.setBool('onboarding_complete', true);
+            ref.read(onboardingCompletedProvider.notifier).state = true;
+            if (context.mounted) context.go('/login');
+          },
+        ),
+      ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/profile-setup',

@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal_app/core/auth/auth_service.dart';
+import 'package:journal_app/core/database/firestore_paths.dart';
+import 'package:journal_app/core/errors/app_error.dart';
+import 'package:journal_app/core/observability/app_logger.dart';
+import 'package:journal_app/core/observability/telemetry_service.dart';
 import 'package:journal_app/providers/database_providers.dart';
 import 'package:journal_app/core/database/daos/invite_dao.dart';
 import 'package:journal_app/features/team/team_service.dart';
@@ -12,28 +15,80 @@ final inviteServiceProvider = Provider<InviteService>((ref) {
   final inviteDao = ref.watch(databaseProvider).inviteDao;
   final authService = ref.read(authServiceProvider);
   final teamService = ref.read(teamServiceProvider);
-  return InviteService(inviteDao, authService, teamService);
+  final logger = ref.watch(appLoggerProvider);
+  final telemetry = ref.watch(telemetryServiceProvider);
+  final service = InviteService(
+    inviteDao,
+    authService,
+    teamService,
+    logger,
+    telemetry,
+  );
+  ref.listen(authStateProvider, (_, next) {
+    service.onAuthStateChanged(next.value?.uid);
+  }, fireImmediately: true);
+  ref.onDispose(service.dispose);
+  return service;
 });
 
 class InviteService {
   final InviteDao _inviteDao;
   final AuthService _authService;
   final TeamService _teamService;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final AppLogger _logger;
+  final TelemetryService _telemetry;
+  final FirebaseFirestore _firestore;
+  final String? Function()? _currentUidProvider;
 
   StreamSubscription? _invitesSubscription;
+  String? _activeUid;
 
-  InviteService(this._inviteDao, this._authService, this._teamService) {
-    _initSync();
+  InviteService(
+    this._inviteDao,
+    this._authService,
+    this._teamService,
+    this._logger,
+    this._telemetry, {
+    FirebaseFirestore? firestore,
+    String? Function()? currentUidProvider,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _currentUidProvider = currentUidProvider;
+
+  String? get _currentUid =>
+      _currentUidProvider?.call() ?? _authService.currentUser?.uid;
+
+  void _reportInviteIssue({
+    required String operation,
+    required Object error,
+    StackTrace? stackTrace,
+    Map<String, Object?> extra = const {},
+  }) {
+    final typed = SyncError(
+      code: 'invite_$operation',
+      message: 'Invite service operation failed: $operation',
+      cause: error,
+      stackTrace: stackTrace,
+    );
+    _logger.warn(
+      'invite_service_issue',
+      data: {'operation': operation, ...extra},
+      error: typed,
+      stackTrace: stackTrace,
+    );
+    _telemetry.track(
+      'invite_service_issue',
+      params: {'operation': operation, 'error_code': typed.code, ...extra},
+    );
   }
 
-  void _initSync() {
-    final uid = _authService.currentUser?.uid;
+  void onAuthStateChanged(String? uid) {
+    if (_activeUid == uid) return;
+    _activeUid = uid;
+    _stopSync();
     if (uid == null) return;
-
     _invitesSubscription?.cancel();
     _invitesSubscription = _firestore
-        .collection('invites')
+        .collection(FirestorePaths.invites)
         .where('inviteeId', isEqualTo: uid)
         .where('status', isEqualTo: 'pending')
         .snapshots()
@@ -51,13 +106,23 @@ class InviteService {
             }
           },
           onError: (Object error, StackTrace stackTrace) {
-            debugPrint('Invite sync listener error: $error');
+            _reportInviteIssue(
+              operation: 'listen_pending_invites',
+              error: error,
+              stackTrace: stackTrace,
+              extra: {'uid': uid},
+            );
           },
         );
   }
 
+  void _stopSync() {
+    _invitesSubscription?.cancel();
+    _invitesSubscription = null;
+  }
+
   Stream<List<Invite>> watchMyInvites() {
-    final uid = _authService.currentUser?.uid;
+    final uid = _currentUid;
     if (uid == null) return Stream.value([]);
     return _inviteDao.watchMyInvites(uid);
   }
@@ -68,7 +133,7 @@ class InviteService {
     String? inviteeId, // Null for public link
     required JournalRole role,
   }) async {
-    final uid = _authService.currentUser?.uid;
+    final uid = _currentUid;
     if (uid == null) throw Exception('Not logged in');
 
     final invite = Invite(
@@ -84,13 +149,16 @@ class InviteService {
     // Actually, saving inviter's sent invites locally is good too.
     // But DAO watchMyInvites filters by inviteeId.
 
-    await _firestore.collection('invites').doc(invite.id).set(invite.toJson());
+    await _firestore
+        .collection(FirestorePaths.invites)
+        .doc(invite.id)
+        .set(invite.toJson());
 
     return invite;
   }
 
   Future<void> acceptInvite(Invite invite) async {
-    final uid = _authService.currentUser?.uid;
+    final uid = _currentUid;
     if (uid == null) throw Exception('Not logged in');
 
     // Verify invite
@@ -118,7 +186,7 @@ class InviteService {
 
     // Update Invite Status
     // Use Firestore update
-    await _firestore.collection('invites').doc(invite.id).update({
+    await _firestore.collection(FirestorePaths.invites).doc(invite.id).update({
       'status': InviteStatus.accepted.name,
       'inviteeId': uid, // Set invitee if it was public
       'updatedAt': DateTime.now().toIso8601String(),
@@ -131,9 +199,13 @@ class InviteService {
   }
 
   Future<void> rejectInvite(Invite invite) async {
-    await _firestore.collection('invites').doc(invite.id).update({
+    await _firestore.collection(FirestorePaths.invites).doc(invite.id).update({
       'status': InviteStatus.rejected.name,
       'updatedAt': DateTime.now().toIso8601String(),
     });
+  }
+
+  void dispose() {
+    _stopSync();
   }
 }

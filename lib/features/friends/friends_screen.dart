@@ -83,9 +83,9 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('İstek kabul edilemedi: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('İstek kabul edilemedi: $e')));
       }
     }
   }
@@ -95,9 +95,9 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
       await ref.read(userServiceProvider).rejectFriendRequest(uid);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('İstek reddedilemedi: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('İstek reddedilemedi: $e')));
       }
     }
   }
@@ -113,9 +113,9 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('İstek iptal edilemedi: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('İstek iptal edilemedi: $e')));
       }
     }
   }
@@ -151,9 +151,9 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Arkadaş çıkarılamadı: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Arkadaş çıkarılamadı: $e')));
       }
     }
   }
