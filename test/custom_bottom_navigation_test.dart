@@ -19,11 +19,13 @@ void main() {
 
     expect(find.text('Günlükler'), findsOneWidget);
     expect(find.text('Anasayfa'), findsNothing);
+    expect(find.byIcon(Icons.inbox_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.sticky_note_2_rounded), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.person_rounded));
+    await tester.tap(find.byIcon(Icons.sticky_note_2_rounded));
     await tester.pumpAndSettle();
 
-    expect(tappedIndex, 3);
+    expect(tappedIndex, 4);
   });
 
   testWidgets('renders in dark theme too', (tester) async {

@@ -17,7 +17,7 @@ class CustomBottomNavigation extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
         child: BackdropFilter(
@@ -71,8 +71,15 @@ class CustomBottomNavigation extends StatelessWidget {
                   context,
                   colorScheme,
                   3, // Index 3
-                  Icons.person_rounded,
-                  'Profil',
+                  Icons.inbox_rounded,
+                  'Inbox',
+                ),
+                _buildNavItem(
+                  context,
+                  colorScheme,
+                  4, // Index 4
+                  Icons.sticky_note_2_rounded,
+                  'Çıkartmalar',
                 ),
               ],
             ),
@@ -99,7 +106,7 @@ class CustomBottomNavigation extends StatelessWidget {
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
         padding: EdgeInsets.symmetric(
-          horizontal: isSelected ? 18 : 12,
+          horizontal: isSelected ? 14 : 8,
           vertical: 8,
         ),
         decoration: isSelected

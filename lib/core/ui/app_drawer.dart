@@ -4,21 +4,25 @@ import 'package:go_router/go_router.dart';
 import 'package:journal_app/core/auth/auth_service.dart';
 import 'package:journal_app/core/auth/user_service.dart';
 import 'package:journal_app/core/navigation/app_router.dart';
-import 'package:journal_app/features/invite/invite_service.dart';
-
-/// Provider that watches pending invite count for badge display
-final pendingInviteCountProvider = StreamProvider<int>((ref) {
-  final inviteService = ref.watch(inviteServiceProvider);
-  return inviteService.watchMyInvites().map((invites) => invites.length);
-});
+import 'package:journal_app/features/notifications/notifications_repository.dart';
 
 class AppDrawer extends ConsumerWidget {
-  const AppDrawer({super.key});
+  const AppDrawer({super.key, this.onInboxTap});
+
+  final VoidCallback? onInboxTap;
+
+  String _avatarInitial(String? name) {
+    final normalized = name?.trim();
+    if (normalized == null || normalized.isEmpty) {
+      return '?';
+    }
+    return normalized.substring(0, 1).toUpperCase();
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userProfileAsync = ref.watch(myProfileProvider);
-    final inviteCountAsync = ref.watch(pendingInviteCountProvider);
+    final inviteCountAsync = ref.watch(unreadNotificationCountProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
     const shape = RoundedRectangleBorder(
@@ -68,6 +72,15 @@ class AppDrawer extends ConsumerWidget {
                   ),
                   _buildDrawerItem(
                     context,
+                    icon: Icons.people_outline_rounded,
+                    label: 'Arkadaşlar',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.go('/');
+                    },
+                  ),
+                  _buildDrawerItem(
+                    context,
                     icon: Icons.group_outlined,
                     label: 'Takımlarım',
                     onTap: () {
@@ -86,7 +99,11 @@ class AppDrawer extends ConsumerWidget {
                     ),
                     onTap: () {
                       Navigator.pop(context);
-                      context.push('/notifications');
+                      if (onInboxTap != null) {
+                        onInboxTap!.call();
+                      } else {
+                        context.push('/notifications');
+                      }
                     },
                   ),
                   _buildDrawerItem(
@@ -103,15 +120,6 @@ class AppDrawer extends ConsumerWidget {
                     child: Divider(
                       color: colorScheme.outlineVariant.withValues(alpha: 0.3),
                     ),
-                  ),
-                  _buildDrawerItem(
-                    context,
-                    icon: Icons.person_outlined,
-                    label: 'Profil ve Ayarlar',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/profile');
-                    },
                   ),
                   _buildDrawerItem(
                     context,
@@ -143,7 +151,9 @@ class AppDrawer extends ConsumerWidget {
                 ),
                 dense: true,
                 onTap: () async {
-                  Navigator.pop(context);
+                  final navigator = Navigator.of(context);
+                  final router = GoRouter.of(context);
+                  final messenger = ScaffoldMessenger.of(context);
                   final confirmed = await showDialog<bool>(
                     context: context,
                     builder: (ctx) => AlertDialog(
@@ -166,9 +176,19 @@ class AppDrawer extends ConsumerWidget {
                       ],
                     ),
                   );
-                  if (confirmed == true && context.mounted) {
-                    await ref.read(authServiceProvider).signOut();
-                    ref.read(needsProfileSetupProvider.notifier).state = null;
+                  if (confirmed == true) {
+                    if (navigator.canPop()) {
+                      navigator.pop();
+                    }
+                    try {
+                      await ref.read(authServiceProvider).signOut();
+                      ref.read(needsProfileSetupProvider.notifier).state = null;
+                      router.go('/login');
+                    } catch (e) {
+                      messenger.showSnackBar(
+                        SnackBar(content: Text('Çıkış yapılamadı: $e')),
+                      );
+                    }
                   }
                 },
               ),
@@ -195,7 +215,7 @@ class AppDrawer extends ConsumerWidget {
                 : null,
             child: profile?.photoUrl == null
                 ? Text(
-                    (profile?.displayName ?? '?')[0].toUpperCase(),
+                    _avatarInitial(profile?.displayName),
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,

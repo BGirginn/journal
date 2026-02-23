@@ -1,20 +1,25 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:journal_app/core/auth/auth_service.dart';
 import 'package:journal_app/core/theme/nostalgic_themes.dart';
 import 'package:journal_app/providers/journal_providers.dart';
 import 'package:journal_app/core/ui/custom_bottom_navigation.dart';
-import 'package:journal_app/core/ui/app_drawer.dart';
-import 'package:journal_app/features/profile/profile_settings_screen.dart';
-import 'package:journal_app/features/search/journal_search_delegate.dart';
 
 /// Library screen - displays list of journals
 import 'package:journal_app/features/home/home_screen.dart';
 import 'package:journal_app/features/friends/friends_screen.dart';
 import 'package:journal_app/features/library/journal_library_view.dart';
 import 'package:journal_app/features/library/theme_picker_dialog.dart';
+import 'package:journal_app/features/notifications/notifications_screen.dart';
+import 'package:journal_app/features/stickers/screens/sticker_manager_screen.dart';
 
 import 'package:journal_app/core/services/deep_link_service.dart';
+import 'package:journal_app/core/services/notification_service.dart';
+import 'package:journal_app/core/theme/tokens/brand_colors.dart';
+import 'package:journal_app/l10n/app_localizations.dart';
 
 class LibraryScreen extends ConsumerStatefulWidget {
   const LibraryScreen({super.key});
@@ -24,101 +29,183 @@ class LibraryScreen extends ConsumerStatefulWidget {
 }
 
 class _LibraryScreenState extends ConsumerState<LibraryScreen> {
+  static const int _tabCount = 5;
+
   int _selectedIndex = 0;
   late final PageController _pageController;
+  StreamSubscription<NotificationTapIntent>? _notificationTapSubscription;
+  final Set<String> _handledTapIds = <String>{};
+  DeepLinkService? _deepLinkService;
+  NotificationService? _notificationService;
 
   final _titles = [
     'Anasayfa', // 0
     'Günlüklerim', // 1
     'Arkadaşlar', // 2
-    'Profil ve Ayarlar', // 3
+    'Inbox', // 3
+    'Çıkartmalar', // 4
   ];
+
+  String get _currentTitle {
+    if (_selectedIndex >= 0 && _selectedIndex < _titles.length) {
+      return _titles[_selectedIndex];
+    }
+    return _titles.first;
+  }
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
+    _deepLinkService = ref.read(deepLinkServiceProvider);
+    _notificationService = ref.read(notificationServiceProvider);
 
     // Initialize deep link listener after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(deepLinkServiceProvider).init(context);
+      if (!mounted) {
+        return;
+      }
+      final initFuture = _deepLinkService?.init(context);
+      if (initFuture != null) {
+        unawaited(initFuture);
+      }
+      _bindNotificationTapListener();
     });
   }
 
   @override
   void dispose() {
-    ref.read(deepLinkServiceProvider).dispose();
+    _notificationTapSubscription?.cancel();
+    _deepLinkService?.dispose();
     _pageController.dispose();
     super.dispose();
   }
 
+  void _bindNotificationTapListener() {
+    final notificationService = _notificationService;
+    if (notificationService == null) {
+      return;
+    }
+    final pendingIntent = notificationService.takePendingTapIntent();
+    if (pendingIntent != null) {
+      unawaited(_handleNotificationTapIntent(pendingIntent));
+    }
+
+    _notificationTapSubscription = notificationService.notificationTapStream
+        .listen((intent) {
+          unawaited(_handleNotificationTapIntent(intent));
+        });
+  }
+
+  Future<void> _handleNotificationTapIntent(
+    NotificationTapIntent intent,
+  ) async {
+    final notificationId = intent.notificationId;
+    if (notificationId.isNotEmpty && _handledTapIds.contains(notificationId)) {
+      return;
+    }
+    if (notificationId.isNotEmpty) {
+      _handledTapIds.add(notificationId);
+    }
+
+    final uid = ref.read(authStateProvider).value?.uid;
+    if (uid != null && notificationId.isNotEmpty) {
+      await ref
+          .read(notificationServiceProvider)
+          .markNotificationRead(uid: uid, notificationId: notificationId);
+    }
+
+    final isFirebaseAvailable = ref.read(firebaseAvailableProvider);
+    if (isFirebaseAvailable) {
+      await NotificationService.logEvent(
+        'push_opened',
+        parameters: {'type': intent.type},
+      );
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    final route = intent.route.isNotEmpty ? intent.route : '/notifications';
+    if (route == '/notifications') {
+      _onItemTapped(3);
+      return;
+    }
+    context.push(route);
+  }
+
   void _onItemTapped(int index) {
+    final targetIndex = index.clamp(0, _tabCount - 1);
+    if (targetIndex == _selectedIndex) {
+      return;
+    }
+
+    final currentIndex = _selectedIndex;
     setState(() {
-      _selectedIndex = index;
+      _selectedIndex = targetIndex;
     });
+
+    if (!_pageController.hasClients) {
+      return;
+    }
+
+    final distance = (targetIndex - currentIndex).abs();
+    if (distance > 1) {
+      _pageController.jumpToPage(targetIndex);
+      return;
+    }
+
     _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
+      targetIndex,
+      duration: const Duration(milliseconds: 170),
+      curve: Curves.easeOutCubic,
     );
   }
 
   void _onPageChanged(int index) {
+    final targetIndex = index.clamp(0, _tabCount - 1);
+    if (targetIndex == _selectedIndex) {
+      return;
+    }
     setState(() {
-      _selectedIndex = index;
+      _selectedIndex = targetIndex;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final inviteCount = ref.watch(pendingInviteCountProvider);
-
     return Scaffold(
       extendBody: true,
-      drawer: const AppDrawer(),
       appBar: AppBar(
         title: Text(
-          _titles[_selectedIndex],
+          _currentTitle,
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
-          // Search icon
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {
-              showSearch(
-                context: context,
-                delegate: JournalSearchDelegate(ref),
-              );
-            },
-          ),
-          // Notification bell with badge
-          IconButton(
-            icon: inviteCount.when(
-              data: (count) => count > 0
-                  ? Badge(
-                      label: Text('$count'),
-                      child: const Icon(Icons.notifications_outlined),
-                    )
-                  : const Icon(Icons.notifications_outlined),
-              loading: () => const Icon(Icons.notifications_outlined),
-              error: (e, s) => const Icon(Icons.notifications_outlined),
+          if (_selectedIndex == 4)
+            IconButton(
+              icon: const Icon(Icons.add),
+              tooltip: 'Çıkartma Ekle',
+              onPressed: () => context.push('/stickers/create'),
             ),
-            onPressed: () {
-              context.push('/notifications');
-            },
+          IconButton(
+            icon: const Icon(Icons.person_rounded),
+            tooltip: 'Profil',
+            onPressed: () => context.push('/profile'),
           ),
         ],
       ),
       body: PageView(
         controller: _pageController,
         onPageChanged: _onPageChanged,
-        physics: const BouncingScrollPhysics(),
+        physics: const ClampingScrollPhysics(),
         children: const [
           HomeScreen(), // 0
           JournalLibraryView(), // 1
           FriendsView(), // 2
-          ProfileSettingsView(), // 3
+          NotificationsView(), // 3
+          StickerManagerView(), // 4
         ],
       ),
       bottomNavigationBar: CustomBottomNavigation(
@@ -147,6 +234,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   // We can keep it here for now.
 
   void _showCreateDialog(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final controller = TextEditingController();
     String selectedThemeId = 'default';
 
@@ -159,11 +247,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               selectedTheme.visuals.coverGradient.first.computeLuminance() >
               0.56;
           final coverTextColor = useDarkText
-              ? const Color(0xFF3A2411)
+              ? BrandColors.primary900
               : Colors.white;
 
           return AlertDialog(
-            title: const Text('Yeni Günlük'),
+            title: Text(l10n.libraryCreateTitle),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -171,16 +259,16 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                 TextField(
                   controller: controller,
                   autofocus: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Günlük Adı',
-                    hintText: 'Örn: Seyahat Notlarım',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.libraryRenameHint,
+                    hintText: l10n.libraryCreateHint,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Tema',
-                  style: TextStyle(fontWeight: FontWeight.w500),
+                Text(
+                  l10n.libraryThemePickerTitle,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: 8),
                 GestureDetector(
@@ -240,7 +328,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('İptal'),
+                child: Text(l10n.cancel),
               ),
               FilledButton(
                 onPressed: () {
@@ -253,7 +341,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                     );
                   }
                 },
-                child: const Text('Oluştur'),
+                child: Text(l10n.libraryCreateAction),
               ),
             ],
           );
@@ -268,6 +356,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     String title,
     String themeId,
   ) async {
+    final l10n = AppLocalizations.of(context);
     Navigator.pop(context);
 
     // Use the provider which handles ownerId and cloud sync
@@ -277,9 +366,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       await createJournal(title: title, coverStyle: themeId);
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Hata: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${l10n?.errorPrefix ?? 'Error'}: $e')),
+        );
       }
     }
   }

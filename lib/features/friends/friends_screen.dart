@@ -1,9 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:journal_app/core/auth/user_service.dart';
+import 'package:go_router/go_router.dart';
 import 'package:journal_app/core/auth/auth_service.dart';
+import 'package:journal_app/core/auth/user_service.dart';
 
 class FriendsScreen extends StatelessWidget {
   const FriendsScreen({super.key});
@@ -30,9 +31,18 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
   bool _isSearching = false;
   String? _error;
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   void _handleSearch() async {
     final query = _searchController.text.trim();
-    if (query.isEmpty) return;
+    if (query.isEmpty) {
+      setState(() => _error = 'Lütfen bir kullanıcı adı girin.');
+      return;
+    }
 
     setState(() {
       _isSearching = true;
@@ -49,9 +59,13 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _error = 'Arama hatası: $e');
+      if (mounted) {
+        setState(() => _error = 'Arama hatası: $e');
+      }
     } finally {
-      if (mounted) setState(() => _isSearching = false);
+      if (mounted) {
+        setState(() => _isSearching = false);
+      }
     }
   }
 
@@ -60,9 +74,12 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
       await ref.read(userServiceProvider).sendFriendRequest(user.uid);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${user.displayName}\'e istek gönderildi!')),
+          SnackBar(
+            content: Text(
+              '${user.displayName} kullanıcısına istek gönderildi.',
+            ),
+          ),
         );
-        setState(() {}); // Refresh UI
       }
     } catch (e) {
       if (mounted) {
@@ -78,7 +95,7 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
       await ref.read(userServiceProvider).acceptFriendRequest(uid);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$name ile artık arkadaşsınız!')),
+          SnackBar(content: Text('$name ile artık arkadaşsınız.')),
         );
       }
     } catch (e) {
@@ -93,6 +110,11 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
   void _handleRejectRequest(String uid) async {
     try {
       await ref.read(userServiceProvider).rejectFriendRequest(uid);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('İstek reddedildi.')));
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -109,7 +131,6 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('İstek iptal edildi.')));
-        setState(() {});
       }
     } catch (e) {
       if (mounted) {
@@ -197,98 +218,36 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
           );
         }
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+        return DefaultTabController(
+          length: 3,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Personal ID Card
-              _buildMyIdCard(profile),
-              const SizedBox(height: 32),
-
-              // Search Section
-              Text(
-                'Arkadaş Ekle',
-                style: Theme.of(context).textTheme.titleLarge,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: _buildMyIdCard(profile),
               ),
-              const SizedBox(height: 16),
-              _buildSearchBar(),
-
-              if (_isSearching)
-                const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Center(
-                    child: Text(
-                      _error!,
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                  ),
-                ),
-
-              if (_searchResult != null)
-                _buildSearchResultCard(_searchResult!, profile),
-
-              const SizedBox(height: 32),
-
-              // Friend Requests Section
-              if (profile.receivedFriendRequests.isNotEmpty) ...[
-                Row(
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildStatsSummary(profile),
+              ),
+              const SizedBox(height: 8),
+              const TabBar(
+                tabs: [
+                  Tab(text: 'Ekle'),
+                  Tab(text: 'İstekler'),
+                  Tab(text: 'Arkadaşlar'),
+                ],
+              ),
+              Expanded(
+                child: TabBarView(
                   children: [
-                    Text(
-                      'Gelen İstekler',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '${profile.receivedFriendRequests.length}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
+                    _buildAddTab(profile),
+                    _buildRequestsTab(profile),
+                    _buildFriendsTab(profile),
                   ],
                 ),
-                const SizedBox(height: 16),
-                _buildRequestsList(profile.receivedFriendRequests),
-                const SizedBox(height: 32),
-              ],
-
-              // Friends List Section
-              Text(
-                'Arkadaşlarım',
-                style: Theme.of(context).textTheme.titleLarge,
               ),
-              const SizedBox(height: 16),
-              if (profile.friends.isEmpty)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text(
-                      'Henüz arkadaşın yok. Kullanıcı adı ile arayıp ekleyebilirsin!',
-                    ),
-                  ),
-                )
-              else
-                _buildFriendsList(profile.friends),
             ],
           ),
         );
@@ -298,7 +257,135 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
     );
   }
 
-  // Id Card and Search Bar remains same...
+  Widget _buildStatsSummary(UserProfile profile) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        _buildCountChip('Arkadaş', profile.friends.length, Icons.people),
+        _buildCountChip(
+          'Gelen',
+          profile.receivedFriendRequests.length,
+          Icons.inbox,
+        ),
+        _buildCountChip(
+          'Gönderilen',
+          profile.sentFriendRequests.length,
+          Icons.outbox,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCountChip(String label, int count, IconData icon) {
+    return Chip(
+      avatar: Icon(icon, size: 16),
+      label: Text('$label: $count'),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+
+  Widget _buildAddTab(UserProfile profile) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Text('Arkadaş Ekle', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 12),
+        _buildSearchBar(),
+        if (_isSearching)
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Text(
+              _error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
+        if (_searchResult != null)
+          _buildSearchResultCard(_searchResult!, profile),
+      ],
+    );
+  }
+
+  Widget _buildRequestsTab(UserProfile profile) {
+    final hasReceived = profile.receivedFriendRequests.isNotEmpty;
+    final hasSent = profile.sentFriendRequests.isNotEmpty;
+
+    if (!hasReceived && !hasSent) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text('Bekleyen istek yok.'),
+        ),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        if (hasReceived) ...[
+          Text(
+            'Gelen İstekler (${profile.receivedFriendRequests.length})',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 12),
+          _buildRequestsList(profile.receivedFriendRequests),
+        ],
+        if (hasReceived && hasSent) const SizedBox(height: 20),
+        if (hasSent) ...[
+          Text(
+            'Gönderilen İstekler (${profile.sentFriendRequests.length})',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 12),
+          _buildSentRequestsList(profile.sentFriendRequests),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildFriendsTab(UserProfile profile) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _buildTeamsShortcutCard(),
+        const SizedBox(height: 16),
+        if (profile.friends.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(8),
+            child: Text(
+              'Henüz arkadaşın yok. Ekle sekmesinden kullanıcı adı ile arama yapabilirsin.',
+              textAlign: TextAlign.center,
+            ),
+          )
+        else ...[
+          Text(
+            'Arkadaşlarım (${profile.friends.length})',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 12),
+          _buildFriendsList(profile.friends),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildTeamsShortcutCard() {
+    return Card(
+      child: ListTile(
+        leading: const Icon(Icons.groups_rounded),
+        title: const Text('Takımlarım'),
+        subtitle: const Text('Arkadaşlar bölümünün altında takım yönetimi'),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: () => context.push('/teams'),
+      ),
+    );
+  }
+
   Widget _buildMyIdCard(UserProfile profile) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -344,7 +431,7 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
                   ),
                 ),
                 Text(
-                  '@${profile.username}',
+                  '@${profile.username ?? '-'}',
                   style: const TextStyle(color: Colors.white70, fontSize: 14),
                 ),
               ],
@@ -356,7 +443,7 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
               Clipboard.setData(ClipboardData(text: profile.username ?? ''));
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Kullanıcı adı kopyalandı!'),
+                  content: Text('Kullanıcı adı kopyalandı.'),
                   duration: Duration(seconds: 1),
                 ),
               );
@@ -401,29 +488,23 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
 
   Widget _buildSearchResultCard(UserProfile user, UserProfile currentMe) {
     final isMe = user.uid == currentMe.uid;
-    final isReason = currentMe.receivedFriendRequests.contains(user.uid);
+    final isReceived = currentMe.receivedFriendRequests.contains(user.uid);
     final isSent = currentMe.sentFriendRequests.contains(user.uid);
     final isFriend = currentMe.friends.contains(user.uid);
 
     Widget trailing;
 
     if (isMe) {
-      trailing = const Text('(Sen)', style: TextStyle(color: Colors.grey));
+      trailing = const Chip(label: Text('Sen'));
     } else if (isFriend) {
-      trailing = const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.check_circle, color: Colors.green, size: 20),
-          SizedBox(width: 4),
-          Text('Arkadaşsınız'),
-        ],
+      trailing = const Chip(
+        avatar: Icon(Icons.check_circle, color: Colors.green, size: 16),
+        label: Text('Arkadaşsınız'),
       );
-    } else if (isReason) {
+    } else if (isReceived) {
       trailing = Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('İstek Var'),
-          const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.check, color: Colors.green),
             onPressed: () => _handleAcceptRequest(user.uid, user.displayName),
@@ -437,10 +518,10 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
     } else if (isSent) {
       trailing = OutlinedButton(
         onPressed: () => _handleCancelRequest(user.uid),
-        child: const Text('İstek Gönderildi (İptal)'),
+        child: const Text('İptal Et'),
       );
     } else {
-      trailing = ElevatedButton.icon(
+      trailing = FilledButton.icon(
         icon: const Icon(Icons.person_add, size: 18),
         label: const Text('Ekle'),
         onPressed: () => _handleSendRequest(user),
@@ -458,7 +539,7 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
           child: user.photoUrl == null ? const Icon(Icons.person) : null,
         ),
         title: Text(user.displayName),
-        subtitle: Text('@${user.username}'),
+        subtitle: Text('@${user.username ?? '-'}'),
         trailing: trailing,
       ),
     );
@@ -475,6 +556,21 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
           uid: requestUids[index],
           onAccept: (uid, name) => _handleAcceptRequest(uid, name),
           onReject: (uid) => _handleRejectRequest(uid),
+        );
+      },
+    );
+  }
+
+  Widget _buildSentRequestsList(List<String> requestUids) {
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: requestUids.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        return _SentRequestListTile(
+          uid: requestUids[index],
+          onCancel: (uid) => _handleCancelRequest(uid),
         );
       },
     );
@@ -539,7 +635,7 @@ class _FriendRequestListTile extends StatelessWidget {
               child: user.photoUrl == null ? const Icon(Icons.person) : null,
             ),
             title: Text(user.displayName),
-            subtitle: Text('@${user.username}'),
+            subtitle: Text('@${user.username ?? '-'}'),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -554,6 +650,48 @@ class _FriendRequestListTile extends StatelessWidget {
                   tooltip: 'Reddet',
                 ),
               ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SentRequestListTile extends StatelessWidget {
+  const _SentRequestListTile({required this.uid, required this.onCancel});
+
+  final String uid;
+  final Function(String uid) onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('users').doc(uid).get(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData ||
+            snapshot.data == null ||
+            !snapshot.data!.exists) {
+          return const SizedBox.shrink();
+        }
+        final data = snapshot.data!.data() as Map<String, dynamic>?;
+        if (data == null) return const SizedBox.shrink();
+
+        final user = UserProfile.fromMap(data);
+
+        return Card(
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundImage: user.photoUrl != null
+                  ? NetworkImage(user.photoUrl!)
+                  : null,
+              child: user.photoUrl == null ? const Icon(Icons.person) : null,
+            ),
+            title: Text(user.displayName),
+            subtitle: Text('@${user.username ?? '-'}'),
+            trailing: OutlinedButton(
+              onPressed: () => onCancel(user.uid),
+              child: const Text('İptal Et'),
             ),
           ),
         );
@@ -598,7 +736,7 @@ class _FriendListTile extends ConsumerWidget {
               child: friend.photoUrl == null ? const Icon(Icons.person) : null,
             ),
             title: Text(friend.displayName),
-            subtitle: Text('@${friend.username ?? "boş"}'),
+            subtitle: Text('@${friend.username ?? "-"}'),
             trailing: IconButton(
               icon: const Icon(Icons.person_remove, color: Colors.red),
               onPressed: () => onRemove(friend.uid, friend.displayName),
