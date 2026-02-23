@@ -19,7 +19,9 @@ class FriendsScreen extends StatelessWidget {
 }
 
 class FriendsView extends ConsumerStatefulWidget {
-  const FriendsView({super.key});
+  final void Function(int rootTabIndex)? onEdgeSwipeToRootTab;
+
+  const FriendsView({super.key, this.onEdgeSwipeToRootTab});
 
   @override
   ConsumerState<FriendsView> createState() => _FriendsViewState();
@@ -32,6 +34,7 @@ class _FriendsViewState extends ConsumerState<FriendsView>
   UserProfile? _searchResult;
   bool _isSearching = false;
   String? _error;
+  bool _edgeSwipeLocked = false;
 
   @override
   void initState() {
@@ -49,6 +52,9 @@ class _FriendsViewState extends ConsumerState<FriendsView>
   }
 
   void _onTabChanged() {
+    if (_tabController.index != _tabController.length - 1) {
+      _edgeSwipeLocked = false;
+    }
     if (_tabController.index != 0 &&
         (_searchResult != null ||
             _error != null ||
@@ -59,6 +65,34 @@ class _FriendsViewState extends ConsumerState<FriendsView>
         _error = null;
       });
     }
+  }
+
+  bool _handleTabScrollNotification(ScrollNotification notification) {
+    if (notification.metrics.axis != Axis.horizontal) {
+      return false;
+    }
+
+    final onEdgeSwipeToRootTab = widget.onEdgeSwipeToRootTab;
+    if (onEdgeSwipeToRootTab == null) {
+      return false;
+    }
+
+    if (notification is ScrollEndNotification) {
+      _edgeSwipeLocked = false;
+      return false;
+    }
+
+    final isLastFriendsTab = _tabController.index == _tabController.length - 1;
+    if (!isLastFriendsTab || _edgeSwipeLocked) {
+      return false;
+    }
+
+    if (notification is OverscrollNotification &&
+        notification.overscroll.abs() > 12) {
+      _edgeSwipeLocked = true;
+      onEdgeSwipeToRootTab(4);
+    }
+    return false;
   }
 
   void _handleSearch() async {
@@ -270,13 +304,16 @@ class _FriendsViewState extends ConsumerState<FriendsView>
               ],
             ),
             Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildAddTab(profile),
-                  _buildRequestsTab(profile),
-                  _buildFriendsTab(profile),
-                ],
+              child: NotificationListener<ScrollNotification>(
+                onNotification: _handleTabScrollNotification,
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildAddTab(profile),
+                    _buildRequestsTab(profile),
+                    _buildFriendsTab(profile),
+                  ],
+                ),
               ),
             ),
           ],

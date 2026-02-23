@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:journal_app/core/auth/auth_service.dart';
 import 'package:journal_app/core/ui/custom_bottom_navigation.dart';
+import 'package:journal_app/core/theme/nostalgic_themes.dart';
 import 'package:journal_app/l10n/app_localizations.dart';
 import 'package:journal_app/providers/providers.dart';
 
@@ -12,6 +13,7 @@ import 'package:journal_app/providers/providers.dart';
 import 'package:journal_app/features/home/home_screen.dart';
 import 'package:journal_app/features/friends/friends_screen.dart';
 import 'package:journal_app/features/library/journal_library_view.dart';
+import 'package:journal_app/features/library/theme_picker_dialog.dart';
 import 'package:journal_app/features/profile/profile_settings_screen.dart';
 import 'package:journal_app/features/stickers/screens/sticker_manager_screen.dart';
 
@@ -195,60 +197,131 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   Future<void> _showCreateJournalDialog() async {
     final l10n = AppLocalizations.of(context)!;
     final controller = TextEditingController();
-
-    final title = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l10n.libraryCreateTitle),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) {
-            final value = controller.text.trim();
-            if (value.isNotEmpty) {
-              Navigator.pop(dialogContext, value);
-            }
-          },
-          decoration: InputDecoration(hintText: l10n.libraryCreateHint),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () {
-              final value = controller.text.trim();
-              if (value.isEmpty) {
-                return;
-              }
-              Navigator.pop(dialogContext, value);
-            },
-            child: Text(l10n.libraryCreateAction),
-          ),
-        ],
-      ),
-    );
-
-    if (!mounted || title == null || title.trim().isEmpty) {
-      return;
-    }
+    var selectedCoverStyle = 'default';
 
     try {
+      final result = await showDialog<_CreateJournalDialogResult>(
+        context: context,
+        builder: (dialogContext) {
+          return StatefulBuilder(
+            builder: (dialogContext, setDialogState) {
+              final selectedTheme = NostalgicThemes.getById(selectedCoverStyle);
+              return AlertDialog(
+                title: Text(l10n.libraryCreateTitle),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: controller,
+                      autofocus: true,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) {
+                        final value = controller.text.trim();
+                        if (value.isEmpty) {
+                          return;
+                        }
+                        Navigator.pop(
+                          dialogContext,
+                          _CreateJournalDialogResult(
+                            title: value,
+                            coverStyle: selectedCoverStyle,
+                          ),
+                        );
+                      },
+                      decoration: InputDecoration(
+                        hintText: l10n.libraryCreateHint,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () async {
+                        final pickedTheme = await showThemePicker(
+                          dialogContext,
+                          selectedThemeId: selectedCoverStyle,
+                        );
+                        if (pickedTheme != null) {
+                          setDialogState(() {
+                            selectedCoverStyle = pickedTheme.id;
+                          });
+                        }
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: Theme.of(
+                              dialogContext,
+                            ).colorScheme.outlineVariant,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Tema: ${selectedTheme.name}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const Icon(Icons.palette_outlined, size: 18),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    child: Text(l10n.cancel),
+                  ),
+                  FilledButton(
+                    onPressed: () {
+                      final value = controller.text.trim();
+                      if (value.isEmpty) {
+                        return;
+                      }
+                      Navigator.pop(
+                        dialogContext,
+                        _CreateJournalDialogResult(
+                          title: value,
+                          coverStyle: selectedCoverStyle,
+                        ),
+                      );
+                    },
+                    child: Text(l10n.libraryCreateAction),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+
+      if (!mounted || result == null || result.title.trim().isEmpty) {
+        return;
+      }
+
       final createJournal = ref.read(createJournalProvider);
-      final journal = await createJournal(title: title.trim());
+      final journal = await createJournal(
+        title: result.title.trim(),
+        coverStyle: result.coverStyle,
+      );
       if (!mounted) {
         return;
       }
       context.push('/journal/${journal.id}');
     } catch (e) {
-      if (!mounted) {
-        return;
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Günlük oluşturulamadı: $e')));
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Günlük oluşturulamadı: $e')));
     }
   }
 
@@ -273,12 +346,14 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         controller: _pageController,
         onPageChanged: _onPageChanged,
         physics: const ClampingScrollPhysics(),
-        children: const [
-          JournalLibraryView(), // 0
-          StickerManagerView(isEmbeddedInLibrary: true), // 1
-          HomeScreen(isEmbeddedInLibrary: true), // 2
-          FriendsView(), // 3
-          ProfileSettingsView(), // 4
+        children: [
+          const JournalLibraryView(), // 0
+          const StickerManagerView(isEmbeddedInLibrary: true), // 1
+          const HomeScreen(isEmbeddedInLibrary: true), // 2
+          FriendsView(
+            onEdgeSwipeToRootTab: (rootTabIndex) => _onItemTapped(rootTabIndex),
+          ), // 3
+          const ProfileSettingsView(), // 4
         ],
       ),
       bottomNavigationBar: CustomBottomNavigation(
@@ -296,6 +371,16 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           : null,
     );
   }
+}
+
+class _CreateJournalDialogResult {
+  final String title;
+  final String coverStyle;
+
+  const _CreateJournalDialogResult({
+    required this.title,
+    required this.coverStyle,
+  });
 }
 
 class _FabAboveBottomBarLocation extends FloatingActionButtonLocation {

@@ -205,6 +205,26 @@ extension _EditorActionsExtension on _EditorScreenState {
   }
 
   void _addTextBlock() async {
+    final pageLooksDark =
+        _theme.visuals.assetPath != null ||
+        _theme.visuals.pageColor.computeLuminance() < 0.35;
+    final initialPayload = TextBlockPayload(
+      content: '',
+      color: pageLooksDark ? '#FFFFFF' : '#111827',
+    );
+    final textPayload = await showDialog<TextBlockPayload>(
+      context: context,
+      builder: (context) => TextEditDialog(initialPayload: initialPayload),
+    );
+    if (!mounted || textPayload == null) {
+      return;
+    }
+
+    final normalizedContent = textPayload.content.trim();
+    if (normalizedContent.isEmpty) {
+      return;
+    }
+
     final placement = _computeInsertPlacement(baseWidth: 0.4, baseHeight: 0.08);
     final block = Block(
       pageId: widget.page.id,
@@ -214,7 +234,13 @@ extension _EditorActionsExtension on _EditorScreenState {
       width: placement.width,
       height: placement.height,
       zIndex: _blocks.length,
-      payloadJson: TextBlockPayload(content: '').toJsonString(),
+      payloadJson: TextBlockPayload(
+        content: normalizedContent,
+        fontSize: textPayload.fontSize,
+        color: textPayload.color,
+        fontFamily: textPayload.fontFamily,
+        textAlign: textPayload.textAlign,
+      ).toJsonString(),
     );
 
     await _insertBlockWithSync(block);

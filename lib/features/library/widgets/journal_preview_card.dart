@@ -231,8 +231,17 @@ class JournalPreviewCard extends ConsumerWidget {
   ) {
     final notebookTheme = NostalgicThemes.getById(journal.coverStyle);
     final strokes = ref.watch(decodedInkProvider(page.inkData));
-    final sortedBlocks = List<Block>.from(blocks)
-      ..sort((a, b) => a.zIndex.compareTo(b.zIndex));
+    final sortedBlocks = blocks.where((block) {
+      if (block.type != BlockType.text) {
+        return true;
+      }
+      try {
+        final payload = TextBlockPayload.fromJson(block.payload);
+        return payload.content.trim().isNotEmpty;
+      } catch (_) {
+        return true;
+      }
+    }).toList()..sort((a, b) => a.zIndex.compareTo(b.zIndex));
 
     const referenceSize = Size(360, 640);
 

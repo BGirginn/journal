@@ -52,4 +52,51 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('edge swipe on last friends tab requests root profile tab', (
+    tester,
+  ) async {
+    final profile = UserProfile(
+      uid: 'u1',
+      displayName: 'Test User',
+      firstName: 'Test',
+      lastName: 'User',
+      username: 'test_user',
+      friends: const [],
+      receivedFriendRequests: const [],
+      sentFriendRequests: const [],
+      isProfileComplete: true,
+    );
+    int? requestedRootTab;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          firebaseAvailableProvider.overrideWith((ref) => true),
+          authStateProvider.overrideWith((ref) => Stream<User?>.value(null)),
+          myProfileProvider.overrideWith((ref) => Stream.value(profile)),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: FriendsView(
+              onEdgeSwipeToRootTab: (rootTabIndex) {
+                requestedRootTab = rootTabIndex;
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Arkadaşlar'));
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(TabBarView), const Offset(-700, 0));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(requestedRootTab, 4);
+  });
 }

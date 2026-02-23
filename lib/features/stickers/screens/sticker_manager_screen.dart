@@ -20,6 +20,12 @@ class StickerManagerScreen extends ConsumerWidget {
     return Scaffold(
       extendBody: true,
       body: const StickerManagerView(),
+      floatingActionButtonLocation: const _FabAboveBottomBarLocation(gap: 16),
+      floatingActionButton: FloatingActionButton(
+        tooltip: 'Çıkartma Oluştur',
+        onPressed: () => context.push('/stickers/create'),
+        child: const Icon(LucideIcons.plus),
+      ),
       bottomNavigationBar: CustomBottomNavigation(
         selectedIndex: 1,
         onItemSelected: (index) => _onRootNavTap(context, index),
@@ -141,11 +147,6 @@ class StickerManagerView extends ConsumerWidget {
                                 ?.copyWith(fontWeight: FontWeight.w900),
                           ),
                           const Spacer(),
-                          IconButton(
-                            tooltip: 'Çıkartma Oluştur',
-                            onPressed: () => context.push('/stickers/create'),
-                            icon: const Icon(LucideIcons.plusCircle),
-                          ),
                           IconButton(
                             tooltip: 'Inbox',
                             onPressed: () => context.push('/notifications'),
@@ -522,4 +523,32 @@ List<Color> _categoryGradient(String category, ColorScheme colorScheme) {
       colorScheme.secondaryContainer.withValues(alpha: 0.7),
     ],
   };
+}
+
+class _FabAboveBottomBarLocation extends FloatingActionButtonLocation {
+  final double gap;
+
+  const _FabAboveBottomBarLocation({required this.gap});
+
+  @override
+  Offset getOffset(ScaffoldPrelayoutGeometry scaffoldGeometry) {
+    final fabSize = scaffoldGeometry.floatingActionButtonSize;
+    final bottomInset = scaffoldGeometry.minInsets.bottom;
+    final barTop =
+        scaffoldGeometry.scaffoldSize.height -
+        bottomInset -
+        CustomBottomNavigation.kBarBottomInset -
+        CustomBottomNavigation.kBarHeight;
+    final y = barTop - fabSize.height - gap;
+    const horizontalMargin = 16.0;
+    final x = switch (scaffoldGeometry.textDirection) {
+      TextDirection.rtl => scaffoldGeometry.minInsets.left + horizontalMargin,
+      TextDirection.ltr =>
+        scaffoldGeometry.scaffoldSize.width -
+            scaffoldGeometry.minInsets.right -
+            horizontalMargin -
+            fabSize.width,
+    };
+    return Offset(x, y);
+  }
 }

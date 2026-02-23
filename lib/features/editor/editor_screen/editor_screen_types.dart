@@ -4,20 +4,22 @@ class _EraserPreviewPainter extends CustomPainter {
   final Offset point;
   final double radius;
   final Color color;
+  final bool isDarkSurface;
 
   const _EraserPreviewPainter({
     required this.point,
     required this.radius,
     required this.color,
+    required this.isDarkSurface,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    final contrastRing = isDarkSurface ? Colors.black : Colors.white;
     final outerStroke = Paint()
-      ..color = (color == Colors.white ? Colors.black : Colors.white)
-          .withValues(alpha: 0.3)
+      ..color = contrastRing.withValues(alpha: 0.72)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
+      ..strokeWidth = 3.2;
 
     final fill = Paint()
       ..color = color.withValues(alpha: 0.14)
@@ -37,7 +39,8 @@ class _EraserPreviewPainter extends CustomPainter {
   bool shouldRepaint(covariant _EraserPreviewPainter oldDelegate) {
     return oldDelegate.point != point ||
         oldDelegate.radius != radius ||
-        oldDelegate.color != color;
+        oldDelegate.color != color ||
+        oldDelegate.isDarkSurface != isDarkSurface;
   }
 }
 

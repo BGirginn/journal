@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:journal_app/core/models/block.dart';
 import 'package:journal_app/core/models/journal.dart';
 import 'package:journal_app/core/models/page.dart' as model;
+import 'package:journal_app/features/editor/blocks/block_widget.dart';
 import 'package:journal_app/core/theme/nostalgic_themes.dart';
 import 'package:journal_app/features/library/widgets/journal_preview_card.dart';
 import 'package:journal_app/providers/journal_providers.dart';
@@ -131,7 +132,9 @@ void main() {
     expect(find.text('0'), findsOneWidget);
   });
 
-  testWidgets('live preview mode falls back safely when pages stream errors', (tester) async {
+  testWidgets('live preview mode falls back safely when pages stream errors', (
+    tester,
+  ) async {
     final journal = Journal(
       id: 'j3',
       title: 'Archive',
@@ -157,5 +160,50 @@ void main() {
     expect(find.text('Archive'), findsOneWidget);
     expect(find.text('A'), findsOneWidget);
     expect(find.text('StateError: boom'), findsNothing);
+  });
+
+  testWidgets('live preview skips empty text blocks', (tester) async {
+    final journal = Journal(
+      id: 'j4',
+      title: 'Filtered',
+      coverStyle: 'default',
+      updatedAt: DateTime.now(),
+    );
+    final page = model.Page(id: 'p1', journalId: journal.id, pageIndex: 0);
+    final blocks = <Block>[
+      Block(
+        id: 'b-empty',
+        pageId: page.id,
+        type: BlockType.text,
+        x: 0.1,
+        y: 0.1,
+        width: 0.4,
+        height: 0.1,
+        payloadJson: TextBlockPayload(content: '   ').toJsonString(),
+      ),
+      Block(
+        id: 'b-full',
+        pageId: page.id,
+        type: BlockType.text,
+        x: 0.2,
+        y: 0.25,
+        width: 0.5,
+        height: 0.1,
+        payloadJson: TextBlockPayload(content: 'Merhaba').toJsonString(),
+      ),
+    ];
+
+    await tester.pumpWidget(
+      _buildCard(
+        journal: journal,
+        pageStream: (_) => Stream.value([page]),
+        blockStream: (_) => Stream.value(blocks),
+        visualMode: JournalCardVisualMode.livePreview,
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.byType(BlockWidget), findsOneWidget);
   });
 }

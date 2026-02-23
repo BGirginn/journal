@@ -570,6 +570,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             },
           ),
           actions: [
+            if (_selectedBlockId != null)
+              IconButton(
+                icon: const Icon(Icons.delete_outline),
+                tooltip: l10n.editorToolDelete,
+                onPressed: _deleteSelectedBlock,
+              ),
             // Share/Export button
             PopupMenuButton<String>(
               icon: const Icon(Icons.share),

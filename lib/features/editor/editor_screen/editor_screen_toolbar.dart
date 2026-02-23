@@ -90,8 +90,7 @@ extension _EditorToolbarExtension on _EditorScreenState {
                     _ToolBtn(
                       icon: Icons.draw_rounded,
                       tooltip: l10n.editorToolDraw,
-                      isSelected:
-                          _mode == EditorMode.draw || _mode == EditorMode.erase,
+                      isSelected: _mode == EditorMode.draw,
                       onTap: () => _applyState(() {
                         _mode = EditorMode.draw;
                         _eraserPreviewPoint = null;
@@ -292,15 +291,24 @@ extension _EditorToolbarExtension on _EditorScreenState {
             ),
           ),
           const Spacer(),
-          // Clear
-          IconButton(
-            icon: Icon(Icons.delete_outline, color: textColor),
+          // Keep clear action visible with text, especially on compact devices.
+          TextButton.icon(
             onPressed: () {
               _applyState(() {
                 _strokes = [];
                 _isDirty = true;
               });
             },
+            icon: Icon(Icons.delete_outline, color: textColor, size: 18),
+            label: Text(
+              l10n.editorDelete,
+              style: TextStyle(color: textColor, fontWeight: FontWeight.w600),
+            ),
+            style: TextButton.styleFrom(
+              minimumSize: const Size(0, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
           ),
         ],
       ),

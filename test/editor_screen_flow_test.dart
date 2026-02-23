@@ -107,11 +107,25 @@ void main() {
 
     await tester.pumpWidget(app);
     await _waitForEditorLoaded(tester);
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(EditorScreen)),
+    )!;
+    final drawToolIcon = find.descendant(
+      of: find.byTooltip(l10n.editorToolDraw),
+      matching: find.byIcon(Icons.draw_rounded),
+    );
+    final eraseToolIcon = find.descendant(
+      of: find.byTooltip(l10n.editorToolErase),
+      matching: find.byIcon(Icons.cleaning_services_outlined),
+    );
 
     expect(find.byIcon(Icons.text_fields_rounded), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.text_fields_rounded));
-    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Test metni');
+    await tester.tap(find.text('Kaydet').last);
+    await tester.pumpAndSettle();
 
     var blocks = await db.blockDao.getBlocksForPage(page.id);
     expect(
@@ -121,11 +135,14 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.draw_rounded));
     await tester.pump();
+    expect(tester.widget<Icon>(drawToolIcon).color, Colors.white);
     await tester.drag(find.byType(InteractiveViewer), const Offset(30, 20));
     await tester.pump(const Duration(milliseconds: 300));
 
     await tester.tap(find.byIcon(Icons.cleaning_services_outlined));
     await tester.pump();
+    expect(tester.widget<Icon>(eraseToolIcon).color, Colors.white);
+    expect(tester.widget<Icon>(drawToolIcon).color, isNot(Colors.white));
     await tester.drag(find.byType(InteractiveViewer), const Offset(10, 10));
     await tester.pump(const Duration(milliseconds: 300));
 

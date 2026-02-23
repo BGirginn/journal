@@ -3,6 +3,9 @@ part of '../editor_screen.dart';
 extension _EditorCanvasExtension on _EditorScreenState {
   Widget _buildCanvas() {
     final colorScheme = Theme.of(context).colorScheme;
+    final pageLooksDark =
+        _theme.visuals.assetPath != null ||
+        _theme.visuals.pageColor.computeLuminance() < 0.45;
     return LayoutBuilder(
       builder: (context, constraints) {
         final pageSize = Size(constraints.maxWidth, constraints.maxHeight);
@@ -58,11 +61,14 @@ extension _EditorCanvasExtension on _EditorScreenState {
                         ),
                       ),
 
-                      if (_selectedBlockId != null && _mode == EditorMode.select)
+                      if (_selectedBlockId != null &&
+                          _mode == EditorMode.select)
                         IgnorePointer(
                           child: CustomPaint(
                             painter: _SnapGridPainter(
-                              lineColor: colorScheme.onSurface.withValues(alpha: 0.06),
+                              lineColor: colorScheme.onSurface.withValues(
+                                alpha: 0.06,
+                              ),
                             ),
                             size: Size.infinite,
                           ),
@@ -102,11 +108,8 @@ extension _EditorCanvasExtension on _EditorScreenState {
                             painter: _EraserPreviewPainter(
                               point: _eraserPreviewPoint!,
                               radius: _eraseRadius,
-                              color:
-                                  (_theme.visuals.pageColor.computeLuminance() <
-                                      0.45
-                                  ? colorScheme.onSurface
-                                  : colorScheme.onSurface),
+                              color: colorScheme.onSurface,
+                              isDarkSurface: pageLooksDark,
                             ),
                             size: Size.infinite,
                           ),

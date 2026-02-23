@@ -38,7 +38,10 @@ void main() {
     prefs = await SharedPreferences.getInstance();
   });
 
-  ProviderScope buildScope({required Widget child}) {
+  ProviderScope buildScope({
+    required Widget child,
+    List<Override> extraOverrides = const [],
+  }) {
     final profile = UserProfile(
       uid: 'u1',
       displayName: 'Test User',
@@ -67,6 +70,7 @@ void main() {
         notificationServiceProvider.overrideWithValue(
           _StubNotificationService(prefs: prefs),
         ),
+        ...extraOverrides,
       ],
       child: child,
     );
@@ -111,5 +115,57 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Profil ve Ayarlar'), findsWidgets);
+  });
+
+  testWidgets('create dialog passes selected coverStyle to createJournal', (
+    tester,
+  ) async {
+    String? capturedTitle;
+    String? capturedCoverStyle;
+
+    await tester.pumpWidget(
+      buildScope(
+        extraOverrides: [
+          createJournalProvider.overrideWith((ref) {
+            return ({
+              required String title,
+              String coverStyle = 'default',
+              String? teamId,
+            }) async {
+              capturedTitle = title;
+              capturedCoverStyle = coverStyle;
+              throw Exception('skip_navigation_for_test');
+            };
+          }),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: LibraryScreen(initialTab: 0),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(LibraryScreen)),
+    )!;
+    await tester.enterText(find.byType(TextField), 'Yeni Test Günlüğü');
+
+    await tester.tap(find.textContaining('Tema:'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Özel Kağıt 1').first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text(l10n.libraryCreateAction).last);
+    await tester.pumpAndSettle();
+
+    expect(capturedTitle, 'Yeni Test Günlüğü');
+    expect(capturedCoverStyle, 'paper_img_1');
   });
 }
