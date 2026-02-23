@@ -7,7 +7,6 @@ import 'package:journal_app/features/auth/profile_setup_screen.dart';
 import 'package:journal_app/features/library/library_screen.dart';
 import 'package:journal_app/features/onboarding/onboarding_screen.dart';
 import 'package:journal_app/features/profile/profile_settings_screen.dart';
-import 'package:journal_app/features/sync/sync_debug_screen.dart';
 import 'package:journal_app/features/team/screens/team_list_screen.dart';
 import 'package:journal_app/features/team/screens/team_management_screen.dart';
 import 'package:journal_app/features/stickers/screens/sticker_manager_screen.dart';
@@ -178,10 +177,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/notifications',
         builder: (context, state) => const NotificationsScreen(),
-      ),
-      GoRoute(
-        path: '/sync-debug',
-        builder: (context, state) => const SyncDebugScreen(),
       ),
       GoRoute(
         path: '/journal/:id',

@@ -84,19 +84,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingTitleCaptureMemories => 'Capture Your Memories';
 
   @override
-  String get onboardingDescCaptureMemories => 'Build your personal journal with text, photo, video, and audio. Keep every memory alive on a unique page.';
+  String get onboardingDescCaptureMemories =>
+      'Build your personal journal with text, photo, video, and audio. Keep every memory alive on a unique page.';
 
   @override
   String get onboardingTitleShareTogether => 'Share Together';
 
   @override
-  String get onboardingDescShareTogether => 'Create teams, invite friends, and keep shared journals together. Memories become more meaningful when shared.';
+  String get onboardingDescShareTogether =>
+      'Create teams, invite friends, and keep shared journals together. Memories become more meaningful when shared.';
 
   @override
   String get onboardingTitlePersonalize => 'Personalize It';
 
   @override
-  String get onboardingDescPersonalize => 'Make your journal your own with nostalgic themes, stickers, and drawing tools.';
+  String get onboardingDescPersonalize =>
+      'Make your journal your own with nostalgic themes, stickers, and drawing tools.';
 
   @override
   String get onboardingSkip => 'Skip';
@@ -114,7 +117,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loginProfileChecking => 'Checking profile...';
 
   @override
-  String get loginGoogleSignIn => 'Continue with Google';
+  String get loginGoogleSignIn => 'Continue with Gmail';
 
   @override
   String get loginAppleSignIn => 'Sign in with Apple';
@@ -123,25 +126,45 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loginAccountExistsWithGoogleTitle => 'Use Google to Continue';
 
   @override
-  String get loginAccountExistsWithGoogleMessage => 'This email is already registered with your Google account.';
+  String get loginAccountExistsWithGoogleMessage =>
+      'This email is already registered with your Google account.';
 
   @override
   String get loginContinueWithGoogle => 'Continue with Google';
 
   @override
-  String get loginCanLinkAppleLater => 'After signing in with Google, you can link Apple from Profile settings.';
+  String get loginCanLinkAppleLater =>
+      'After signing in with Google, you can link Apple from Profile settings.';
 
   @override
   String get loginAppleIOSOnly => 'Apple Sign-In is available only on iOS.';
 
   @override
-  String get loginAppleMissingToken => 'Apple identity token could not be retrieved.';
+  String get loginAppleMissingToken =>
+      'Apple identity token could not be retrieved.';
 
   @override
   String get loginAppleInvalidCredential => 'Apple credential is invalid.';
 
   @override
-  String get loginGoogleConfigError => 'Google Sign-In configuration is invalid.';
+  String get loginAppleProviderNotEnabled =>
+      'Apple Sign-In is not enabled in Firebase Auth provider settings.';
+
+  @override
+  String get loginAppleAuthorizationFailed =>
+      'Apple authorization failed. Check Apple ID session on device/simulator.';
+
+  @override
+  String get loginAppleCredentialRequestFailed =>
+      'Apple credential request failed. Please try again.';
+
+  @override
+  String get loginAppleFlowTimeout =>
+      'Apple sign-in dialog did not respond. Sign out/in Apple ID on simulator and try again.';
+
+  @override
+  String get loginGoogleConfigError =>
+      'Google Sign-In configuration is invalid.';
 
   @override
   String get loginFirebaseUnavailable => 'Firebase could not be initialized.';
@@ -168,16 +191,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get linkAppleSuccess => 'Apple account linked successfully.';
 
   @override
-  String get linkAppleUnsupported => 'Apple account linking is only available on iOS.';
+  String get linkAppleUnsupported =>
+      'Apple account linking is only available on iOS.';
 
   @override
-  String get linkAppleNeedsRecentLogin => 'Please sign in again before linking Apple.';
+  String get linkAppleNeedsRecentLogin =>
+      'Please sign in again before linking Apple.';
 
   @override
   String get linkAppleAlreadyLinked => 'Apple account is already linked.';
 
   @override
-  String get linkAppleCredentialInUse => 'This Apple account is linked to another user.';
+  String get linkAppleCredentialInUse =>
+      'This Apple account is linked to another user.';
 
   @override
   String editorPageTitle(int pageNumber) {
@@ -283,7 +309,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get editorTextPlaceholder => 'Add text...';
 
   @override
-  String get editorMicPermissionRequired => 'Microphone permission is required. Please allow it in settings.';
+  String get editorMicPermissionRequired =>
+      'Microphone permission is required. Please allow it in settings.';
 
   @override
   String editorRecordError(Object error) {
@@ -345,7 +372,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get editorDeleteBlockTitle => 'Delete Block';
 
   @override
-  String get editorDeleteBlockMessage => 'Are you sure you want to delete this block?';
+  String get editorDeleteBlockMessage =>
+      'Are you sure you want to delete this block?';
 
   @override
   String get editorDelete => 'Delete';
@@ -365,7 +393,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get editorUnsavedTitle => 'Unsaved Changes';
 
   @override
-  String get editorUnsavedMessage => 'You have unsaved changes. What would you like to do?';
+  String get editorUnsavedMessage =>
+      'You have unsaved changes. What would you like to do?';
 
   @override
   String get editorExitWithoutSave => 'Exit (Don\'t Save)';
@@ -376,5 +405,94 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String editorErrorWithMessage(Object error) {
     return 'Error: $error';
+  }
+
+  @override
+  String get libraryGreetingMorning => 'Good morning';
+
+  @override
+  String get libraryGreetingAfternoon => 'Good afternoon';
+
+  @override
+  String get libraryGreetingEvening => 'Good evening';
+
+  @override
+  String get libraryHeaderYourJournals => 'Your Journals';
+
+  @override
+  String get librarySectionSubtitle => 'Pick up where you left off';
+
+  @override
+  String get libraryEmptyTitle => 'Start your first journal';
+
+  @override
+  String get libraryEmptySubtitle =>
+      'Capture moments with text, photos, audio, and drawings.';
+
+  @override
+  String get libraryEmptyCta => 'Create Journal';
+
+  @override
+  String get libraryCreateTitle => 'New Journal';
+
+  @override
+  String get libraryCreateHint => 'Example: Travel Notes';
+
+  @override
+  String get libraryCreateAction => 'Create';
+
+  @override
+  String get libraryActionPreview => 'Live Preview';
+
+  @override
+  String get libraryActionCustomizeCover => 'Customize Cover';
+
+  @override
+  String get libraryActionRename => 'Rename';
+
+  @override
+  String get libraryActionDelete => 'Delete';
+
+  @override
+  String get libraryPreviewTitle => 'Live Journal Preview';
+
+  @override
+  String get libraryRenameTitle => 'Rename Journal';
+
+  @override
+  String get libraryRenameHint => 'Journal title';
+
+  @override
+  String get libraryDeleteTitle => 'Delete Journal';
+
+  @override
+  String libraryDeleteMessage(Object journalTitle) {
+    return 'Are you sure you want to delete \"$journalTitle\"?';
+  }
+
+  @override
+  String get libraryThemePickerTitle => 'Choose Theme';
+
+  @override
+  String get libraryCoverCustomizeTitle => 'Customize Cover';
+
+  @override
+  String get libraryThemeTab => 'Themes';
+
+  @override
+  String get libraryPhotoTab => 'Photo';
+
+  @override
+  String get libraryUploading => 'Uploading...';
+
+  @override
+  String get librarySelectFromGallery => 'Select From Gallery';
+
+  @override
+  String get libraryCustomCoverHint => 'Upload a custom cover photo';
+
+  @override
+  String libraryUploadError(Object error) {
+    return 'Upload failed: $error';
   }
 }

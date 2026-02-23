@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:journal_app/core/auth/apple_sign_in_client.dart';
 import 'package:journal_app/core/auth/auth_service.dart';
 import 'package:journal_app/core/errors/app_error.dart';
@@ -9,6 +10,8 @@ import 'package:mocktail/mocktail.dart';
 import 'fakes/fake_apple_sign_in_client.dart';
 
 class MockFirebaseAuth extends Mock implements FirebaseAuth {}
+
+class MockGoogleSignIn extends Mock implements GoogleSignIn {}
 
 class MockUserCredential extends Mock implements UserCredential {}
 
@@ -233,4 +236,29 @@ void main() {
 
     verify(() => user.updateDisplayName('Ada Lovelace')).called(1);
   });
+
+  test(
+    'signOut continues with Firebase signOut when Google signOut fails',
+    () async {
+      final firebaseAuth = MockFirebaseAuth();
+      final googleSignIn = MockGoogleSignIn();
+
+      when(
+        () => googleSignIn.signOut(),
+      ).thenThrow(Exception('google sign-out failed'));
+      when(() => firebaseAuth.signOut()).thenAnswer((_) async {});
+
+      final authService = AuthService(
+        isFirebaseAvailable: true,
+        auth: firebaseAuth,
+        googleSignIn: googleSignIn,
+        appleSignInClient: FakeAppleSignInClient(),
+      );
+
+      await authService.signOut();
+
+      verify(() => googleSignIn.signOut()).called(1);
+      verify(() => firebaseAuth.signOut()).called(1);
+    },
+  );
 }

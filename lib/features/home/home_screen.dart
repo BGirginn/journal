@@ -7,9 +7,6 @@ import 'package:journal_app/core/auth/user_service.dart';
 import 'package:journal_app/core/theme/journal_theme.dart';
 import 'package:journal_app/providers/providers.dart';
 import 'package:journal_app/features/journal/journal_view_screen.dart';
-import 'package:journal_app/features/notifications/notifications_screen.dart';
-import 'package:journal_app/features/invite/invite_service.dart';
-import 'package:journal_app/core/models/invite.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -42,16 +39,7 @@ class HomeScreen extends ConsumerWidget {
     final totalPageCountAsync = ref.watch(totalPageCountProvider);
 
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            colorScheme.primary.withValues(alpha: 0.1),
-            colorScheme.tertiary.withValues(alpha: 0.05),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
+      color: colorScheme.surface,
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
         child: Column(
@@ -107,9 +95,8 @@ class HomeScreen extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Date and Notifications
+        // Date
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
               _formatDate(DateTime.now()),
@@ -117,58 +104,6 @@ class HomeScreen extends ConsumerWidget {
                 color: colorScheme.onSurfaceVariant,
               ),
             ).animate().fadeIn(delay: 100.ms),
-
-            // Notification Bell with Badge
-            // Notification Bell with Badge
-            Consumer(
-              builder: (context, ref, child) {
-                final inviteService = ref.watch(inviteServiceProvider);
-                return StreamBuilder<List<Invite>>(
-                  stream: inviteService.watchMyInvites(),
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData) {
-                      return IconButton(
-                        icon: const Icon(Icons.notifications_outlined),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const NotificationsScreen(),
-                            ),
-                          );
-                        },
-                      );
-                    }
-
-                    final invites = snapshot.data!;
-                    final pendingCount = invites
-                        .where((i) => i.status == InviteStatus.pending)
-                        .length;
-
-                    return IconButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const NotificationsScreen(),
-                          ),
-                        );
-                      },
-                      icon: Badge(
-                        isLabelVisible: pendingCount > 0,
-                        label: Text('$pendingCount'),
-                        child: Icon(
-                          pendingCount > 0
-                              ? Icons.notifications_active
-                              : Icons.notifications_outlined,
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
           ],
         ),
 

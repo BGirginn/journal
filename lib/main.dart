@@ -67,14 +67,40 @@ void main() async {
       child: const JournalApp(),
     ),
   );
+}
 
-  // Do not block first frame on notification/analytics initialization.
-  if (isFirebaseAvailable) {
+class JournalApp extends ConsumerStatefulWidget {
+  const JournalApp({super.key});
+
+  @override
+  ConsumerState<JournalApp> createState() => _JournalAppState();
+}
+
+class _JournalAppState extends ConsumerState<JournalApp> {
+  bool _notificationInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initNotificationServiceIfNeeded();
+    });
+  }
+
+  void _initNotificationServiceIfNeeded() {
+    if (_notificationInitialized) {
+      return;
+    }
+    final isFirebaseAvailable = ref.read(firebaseAvailableProvider);
+    if (!isFirebaseAvailable) {
+      return;
+    }
+
+    _notificationInitialized = true;
     unawaited(
       Future<void>(() async {
         try {
-          final notificationService = NotificationService();
-          await notificationService.init();
+          await ref.read(notificationServiceProvider).init();
           debugPrint('Notification/Analytics/Crashlytics initialized.');
         } catch (e) {
           debugPrint('Notification/Analytics init failed: $e');
@@ -82,13 +108,9 @@ void main() async {
       }),
     );
   }
-}
-
-class JournalApp extends ConsumerWidget {
-  const JournalApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final themeSettings = ref.watch(themeProvider);
     final locale = ref.watch(localeProvider);
 
@@ -97,8 +119,14 @@ class JournalApp extends ConsumerWidget {
     return MaterialApp.router(
       onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.getTheme(Brightness.light),
-      darkTheme: AppTheme.getTheme(Brightness.dark),
+      theme: AppTheme.getTheme(
+        Brightness.light,
+        variant: themeSettings.effectiveVariant,
+      ),
+      darkTheme: AppTheme.getTheme(
+        Brightness.dark,
+        variant: themeSettings.effectiveVariant,
+      ),
       themeMode: themeSettings.mode,
       locale: locale,
       localizationsDelegates: AppLocalizations.localizationsDelegates,

@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal_app/core/auth/auth_service.dart';
 import 'package:journal_app/core/database/firestore_paths.dart';
+import 'package:journal_app/core/device/device_identity.dart';
 import 'package:journal_app/core/errors/app_error.dart';
 import 'package:journal_app/core/models/oplog.dart';
 import 'package:journal_app/core/models/journal.dart';
@@ -13,7 +14,6 @@ import 'package:journal_app/core/sync/hlc.dart';
 import 'package:journal_app/core/theme/theme_provider.dart';
 import 'package:journal_app/providers/database_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uuid/uuid.dart';
 
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {
   final authService = ref.watch(authServiceProvider);
@@ -28,7 +28,6 @@ class FirestoreService {
   final SharedPreferences _prefs;
   final FirebaseFirestore _firestore;
   final String? Function()? _currentUidProvider;
-  static const _deviceIdKey = 'sync_device_id';
   static const _lastHlcKey = 'sync_last_hlc';
 
   FirestoreService(
@@ -241,11 +240,7 @@ class FirestoreService {
   }
 
   String get _deviceId {
-    final existing = _prefs.getString(_deviceIdKey);
-    if (existing != null && existing.isNotEmpty) return existing;
-    final created = const Uuid().v4();
-    _prefs.setString(_deviceIdKey, created);
-    return created;
+    return getOrCreateSyncDeviceId(_prefs);
   }
 
   Hlc _nextHlc() {

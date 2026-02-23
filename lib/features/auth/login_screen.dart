@@ -5,9 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal_app/core/auth/auth_service.dart';
 import 'package:journal_app/core/errors/app_error.dart';
 import 'package:journal_app/core/navigation/app_router.dart';
-import 'package:journal_app/core/theme/design_tokens.dart';
+import 'package:journal_app/core/theme/tokens/brand_colors.dart';
 import 'package:journal_app/l10n/app_localizations.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -18,9 +17,8 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _isGoogleLoading = false;
-  bool _isAppleLoading = false;
 
-  bool get _isAnyLoading => _isGoogleLoading || _isAppleLoading;
+  bool get _isAnyLoading => _isGoogleLoading;
 
   Future<void> _handleGoogleSignIn() async {
     final authService = ref.read(authServiceProvider);
@@ -28,35 +26,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       await authService.signInWithGoogle();
     } catch (e) {
-      if (mounted) {
-        final colorScheme = Theme.of(context).colorScheme;
-        final l10n = AppLocalizations.of(context)!;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_readableErrorMessage(l10n, e)),
-            backgroundColor: colorScheme.errorContainer,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isGoogleLoading = false);
-    }
-  }
-
-  Future<void> _handleAppleSignIn() async {
-    final authService = ref.read(authServiceProvider);
-    setState(() => _isAppleLoading = true);
-    try {
-      await authService.signInWithApple();
-    } catch (e) {
       if (!mounted) return;
-      final l10n = AppLocalizations.of(context)!;
-      if (e is AuthError &&
-          e.code == 'auth/account_exists_with_different_credential_apple') {
-        await _showAccountExistsWithGoogleDialog(l10n);
-        return;
-      }
       final colorScheme = Theme.of(context).colorScheme;
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(_readableErrorMessage(l10n, e)),
@@ -64,32 +36,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
       );
     } finally {
-      if (mounted) setState(() => _isAppleLoading = false);
-    }
-  }
-
-  Future<void> _showAccountExistsWithGoogleDialog(AppLocalizations l10n) async {
-    final shouldContinueWithGoogle = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.loginAccountExistsWithGoogleTitle),
-        content: Text(
-          '${l10n.loginAccountExistsWithGoogleMessage}\n\n${l10n.loginCanLinkAppleLater}',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(l10n.loginContinueWithGoogle),
-          ),
-        ],
-      ),
-    );
-    if (shouldContinueWithGoogle == true && mounted) {
-      await _handleGoogleSignIn();
+      if (mounted) setState(() => _isGoogleLoading = false);
     }
   }
 
@@ -104,10 +51,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         return l10n.loginAppleMissingToken;
       case 'auth/apple_invalid_credential':
         return l10n.loginAppleInvalidCredential;
+      case 'auth/apple_provider_not_enabled':
+        return l10n.loginAppleProviderNotEnabled;
+      case 'auth/apple_authorization_failed':
+        return l10n.loginAppleAuthorizationFailed;
+      case 'auth/apple_credential_request_failed':
+        return l10n.loginAppleCredentialRequestFailed;
+      case 'auth/apple_flow_timeout':
+        return l10n.loginAppleFlowTimeout;
       case 'auth/google_sign_in_config_error':
         return l10n.loginGoogleConfigError;
       case 'auth/firebase_unavailable':
         return l10n.loginFirebaseUnavailable;
+      case 'auth/account_exists_with_different_credential_apple':
+        return l10n.loginAccountExistsWithGoogleMessage;
       default:
         return '${l10n.errorPrefix}: ${error.message}';
     }
@@ -116,178 +73,490 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final reduceMotion =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = theme.brightness == Brightness.dark;
+
     final bgGradient = isDark
-        ? const [AppColorTokens.darkSurfaceContainerAlt, Color(0xFF5A2F1E)]
-        : const [Color(0xFFFFE6C4), Color(0xFFF7B97A)];
-    final heroTextColor = isDark ? Colors.white : const Color(0xFF432210);
+        ? const [Color(0xFF17161D), Color(0xFF252330), Color(0xFF36445A)]
+        : const [Color(0xFFECE7DE), Color(0xFFD8D3C8), Color(0xFFC5CEDC)];
+
+    final titleColor = isDark
+        ? const Color(0xFFF4EFE5)
+        : BrandColors.primary900;
+    final subtitleColor = titleColor.withValues(alpha: isDark ? 0.88 : 0.78);
+
+    final orbPrimary = colorScheme.primary.withValues(
+      alpha: isDark ? 0.26 : 0.18,
+    );
+    final orbWarm = BrandColors.warmAccent.withValues(
+      alpha: isDark ? 0.22 : 0.3,
+    );
+    final orbMint = BrandColors.softMint.withValues(alpha: isDark ? 0.2 : 0.26);
 
     return Scaffold(
-      body: Stack(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: bgGradient,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: bgGradient,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            stops: const [0.0, 0.5, 1.0],
           ),
-          Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  (reduceMotion
-                      ? _buildLogoCircle(context)
-                      : _buildLogoCircle(context).animate().scale(
-                          duration: 600.ms,
-                          curve: Curves.easeOutBack,
-                        )),
-                  const SizedBox(height: 40),
-                  (reduceMotion
-                      ? Text(
-                          l10n.appTitle,
-                          style: Theme.of(context).textTheme.displayMedium
-                              ?.copyWith(color: heroTextColor),
-                        )
-                      : Text(
-                              l10n.appTitle,
-                              style: Theme.of(context).textTheme.displayMedium
-                                  ?.copyWith(color: heroTextColor),
-                            )
-                            .animate()
-                            .fadeIn(delay: 200.ms)
-                            .moveY(begin: 20, end: 0)),
-                  const SizedBox(height: 12),
-                  (reduceMotion
-                      ? Text(
-                          l10n.loginTagline,
-                          style: Theme.of(context).textTheme.bodyLarge
-                              ?.copyWith(
-                                color: heroTextColor.withValues(alpha: 0.86),
-                              ),
-                        )
-                      : Text(
-                              l10n.loginTagline,
-                              style: Theme.of(context).textTheme.bodyLarge
-                                  ?.copyWith(
-                                    color: heroTextColor.withValues(
-                                      alpha: 0.86,
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              top: -120,
+              right: -110,
+              child: _BackdropOrb(size: 320, color: orbPrimary),
+            ),
+            Positioned(
+              top: 170,
+              left: -95,
+              child: _BackdropOrb(size: 250, color: orbWarm),
+            ),
+            Positioned(
+              bottom: -130,
+              right: -70,
+              child: _BackdropOrb(size: 290, color: orbMint),
+            ),
+            SafeArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final topSection = _buildTopSection(
+                    context: context,
+                    l10n: l10n,
+                    titleColor: titleColor,
+                    subtitleColor: subtitleColor,
+                    isDark: isDark,
+                  );
+
+                  final authPanel = _buildAuthPanel(
+                    context: context,
+                    l10n: l10n,
+                    isDark: isDark,
+                  );
+
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight - 40,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          reduceMotion
+                              ? topSection
+                              : topSection
+                                    .animate()
+                                    .fadeIn(duration: 420.ms)
+                                    .slideY(
+                                      begin: 0.08,
+                                      end: 0,
+                                      curve: Curves.easeOutCubic,
                                     ),
-                                  ),
-                            )
-                            .animate()
-                            .fadeIn(delay: 400.ms)
-                            .moveY(begin: 20, end: 0)),
-                  const SizedBox(height: 60),
-                  (reduceMotion
-                      ? _buildLoginCard(context, l10n)
-                      : _buildLoginCard(context, l10n)
-                            .animate()
-                            .fadeIn(delay: 600.ms)
-                            .moveY(begin: 50, end: 0)),
-                ],
+                          const SizedBox(height: 22),
+                          reduceMotion
+                              ? authPanel
+                              : authPanel
+                                    .animate()
+                                    .fadeIn(delay: 220.ms, duration: 420.ms)
+                                    .slideY(
+                                      begin: 0.08,
+                                      end: 0,
+                                      curve: Curves.easeOutCubic,
+                                    ),
+                          const SizedBox(height: 10),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildLogoCircle(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      width: 120,
-      height: 120,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withValues(alpha: 0.2),
-            blurRadius: 30,
-            offset: const Offset(0, 10),
+  Widget _buildTopSection({
+    required BuildContext context,
+    required AppLocalizations l10n,
+    required Color titleColor,
+    required Color subtitleColor,
+    required bool isDark,
+  }) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 8),
+        _HeroBadge(isDark: isDark),
+        const SizedBox(height: 28),
+        Text(
+          l10n.appTitle,
+          style: textTheme.displaySmall?.copyWith(
+            color: titleColor,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.2,
           ),
-        ],
-      ),
-      child: Center(
-        child: Icon(Icons.book, size: 64, color: colorScheme.primary),
-      ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          l10n.loginTagline,
+          style: textTheme.titleMedium?.copyWith(
+            color: subtitleColor,
+            height: 1.35,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 26),
+        _HighlightsPanel(
+          firstLabel: l10n.onboardingTitleCaptureMemories,
+          firstDescription: l10n.onboardingDescCaptureMemories,
+          secondLabel: l10n.onboardingTitleShareTogether,
+          secondDescription: l10n.onboardingDescShareTogether,
+          thirdLabel: l10n.onboardingTitlePersonalize,
+          thirdDescription: l10n.onboardingDescPersonalize,
+        ),
+      ],
     );
   }
 
-  Widget _buildLoginCard(BuildContext context, AppLocalizations l10n) {
+  Widget _buildAuthPanel({
+    required BuildContext context,
+    required AppLocalizations l10n,
+    required bool isDark,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
-    final shouldShowAppleButton =
-        !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+    final textTheme = Theme.of(context).textTheme;
+    final authState = ref.watch(authStateProvider).value;
+    final firebaseAvailable = ref.watch(firebaseAvailableProvider);
+    final firebaseError = ref.watch(firebaseErrorProvider);
+
+    final shouldShowGmailButton =
+        !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS);
 
     return Container(
-      padding: const EdgeInsets.all(32),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
       decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.82),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: colorScheme.outlineVariant),
+        color: colorScheme.surface.withValues(alpha: isDark ? 0.88 : 0.9),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(
+            alpha: isDark ? 0.78 : 0.9,
+          ),
+        ),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.shadow.withValues(alpha: 0.15),
-            blurRadius: 30,
-            spreadRadius: 5,
+            color: colorScheme.shadow.withValues(alpha: isDark ? 0.32 : 0.16),
+            blurRadius: 34,
+            offset: const Offset(0, 16),
           ),
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (ref.watch(authStateProvider).value != null) ...[
-            CircularProgressIndicator(color: colorScheme.primary),
-            const SizedBox(height: 16),
-            Text(
-              l10n.loginProfileChecking,
-              style: TextStyle(color: colorScheme.onSurfaceVariant),
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer.withValues(alpha: 0.75),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(
+                  Icons.lock_person_rounded,
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                l10n.appTitle,
+                style: textTheme.titleMedium?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (authState != null) ...[
+            Center(
+              child: CircularProgressIndicator(color: colorScheme.primary),
             ),
-            const SizedBox(height: 24),
-            TextButton.icon(
-              onPressed: () async {
-                await ref.read(authServiceProvider).signOut();
-                ref.read(needsProfileSetupProvider.notifier).state = null;
-              },
-              icon: Icon(Icons.logout, color: colorScheme.onSurfaceVariant),
-              label: Text(
-                l10n.signOut,
-                style: TextStyle(color: colorScheme.onSurfaceVariant),
+            const SizedBox(height: 14),
+            Center(
+              child: Text(
+                l10n.loginProfileChecking,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Center(
+              child: TextButton.icon(
+                onPressed: () async {
+                  try {
+                    await ref.read(authServiceProvider).signOut();
+                    ref.read(needsProfileSetupProvider.notifier).state = null;
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${l10n.errorPrefix}: $e')),
+                    );
+                  }
+                },
+                icon: Icon(
+                  Icons.logout_rounded,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                label: Text(
+                  l10n.signOut,
+                  style: textTheme.labelLarge?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ),
             ),
           ] else ...[
             _LoginButton(
               label: l10n.loginGoogleSignIn,
-              icon: Icons.g_mobiledata,
-              onPressed: _isAnyLoading ? null : _handleGoogleSignIn,
+              icon: const _GmailLogoIcon(size: 20),
+              onPressed: shouldShowGmailButton && !_isAnyLoading
+                  ? _handleGoogleSignIn
+                  : null,
               isLoading: _isGoogleLoading,
             ),
-            if (shouldShowAppleButton) ...[
+            if (!firebaseAvailable) ...[
               const SizedBox(height: 12),
-              _AppleLoginButton(
-                label: l10n.loginAppleSignIn,
-                onPressed: _isAnyLoading ? null : _handleAppleSignIn,
-                isLoading: _isAppleLoading,
-              ),
-            ],
-            if (!ref.watch(firebaseAvailableProvider)) ...[
-              const SizedBox(height: 8),
               Text(
-                ref.watch(firebaseErrorProvider) ??
-                    l10n.loginFirebaseUnavailable,
-                style: TextStyle(color: colorScheme.error, fontSize: 12),
-                textAlign: TextAlign.center,
+                firebaseError ?? l10n.loginFirebaseUnavailable,
+                style: textTheme.bodySmall?.copyWith(color: colorScheme.error),
               ),
             ],
-            const SizedBox(height: 16),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _BackdropOrb extends StatelessWidget {
+  const _BackdropOrb({required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [color, color.withValues(alpha: 0)],
+            stops: const [0.0, 1.0],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroBadge extends StatelessWidget {
+  const _HeroBadge({required this.isDark});
+
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: 108,
+      height: 108,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(30),
+        gradient: LinearGradient(
+          colors: isDark
+              ? const [Color(0xFF2B3042), Color(0xFF3F4C66)]
+              : const [Color(0xFFF8F4EC), Color(0xFFE4DDD2)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(
+            alpha: isDark ? 0.72 : 0.9,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withValues(alpha: isDark ? 0.36 : 0.14),
+            blurRadius: 28,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          color: colorScheme.surface.withValues(alpha: isDark ? 0.26 : 0.74),
+        ),
+        child: Center(
+          child: Icon(
+            Icons.menu_book_rounded,
+            size: 46,
+            color: colorScheme.primary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HighlightsPanel extends StatelessWidget {
+  const _HighlightsPanel({
+    required this.firstLabel,
+    required this.firstDescription,
+    required this.secondLabel,
+    required this.secondDescription,
+    required this.thirdLabel,
+    required this.thirdDescription,
+  });
+
+  final String firstLabel;
+  final String firstDescription;
+  final String secondLabel;
+  final String secondDescription;
+  final String thirdLabel;
+  final String thirdDescription;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.surface.withValues(alpha: isDark ? 0.18 : 0.5),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(
+            alpha: isDark ? 0.72 : 0.88,
+          ),
+        ),
+      ),
+      child: Column(
+        children: [
+          _HighlightItem(
+            icon: Icons.auto_stories_rounded,
+            label: firstLabel,
+            description: firstDescription,
+          ),
+          const SizedBox(height: 10),
+          _HighlightItem(
+            icon: Icons.groups_rounded,
+            label: secondLabel,
+            description: secondDescription,
+          ),
+          const SizedBox(height: 10),
+          _HighlightItem(
+            icon: Icons.palette_rounded,
+            label: thirdLabel,
+            description: thirdDescription,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HighlightItem extends StatelessWidget {
+  const _HighlightItem({
+    required this.icon,
+    required this.label,
+    required this.description,
+  });
+
+  final IconData icon;
+  final String label;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surface.withValues(alpha: isDark ? 0.2 : 0.78),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(
+            alpha: isDark ? 0.5 : 0.65,
+          ),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 18, color: colorScheme.primary),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.25,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -303,48 +572,88 @@ class _LoginButton extends StatelessWidget {
   });
 
   final String label;
-  final IconData icon;
+  final Widget icon;
   final VoidCallback? onPressed;
   final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isEnabled = onPressed != null || isLoading;
+
     return Semantics(
       button: true,
       enabled: onPressed != null,
       label: label,
       child: SizedBox(
         width: double.infinity,
-        height: 56,
-        child: ElevatedButton(
+        height: 60,
+        child: FilledButton(
           onPressed: onPressed,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.primary,
-            foregroundColor: Theme.of(context).colorScheme.onPrimary,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+          style: ButtonStyle(
+            elevation: WidgetStateProperty.all(0),
+            padding: WidgetStateProperty.all(
+              const EdgeInsets.symmetric(horizontal: 16),
             ),
+            shape: WidgetStateProperty.all(
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            ),
+            backgroundColor: WidgetStateProperty.resolveWith((states) {
+              if (isLoading) return colorScheme.primary;
+              if (states.contains(WidgetState.disabled)) {
+                return colorScheme.surfaceContainerHighest;
+              }
+              return colorScheme.primary;
+            }),
+            foregroundColor: WidgetStateProperty.resolveWith((states) {
+              if (isLoading) return colorScheme.onPrimary;
+              if (states.contains(WidgetState.disabled)) {
+                return colorScheme.onSurfaceVariant;
+              }
+              return colorScheme.onPrimary;
+            }),
           ),
           child: isLoading
               ? SizedBox(
-                  width: 24,
-                  height: 24,
+                  width: 22,
+                  height: 22,
                   child: CircularProgressIndicator(
-                    color: Theme.of(context).colorScheme.onPrimary,
                     strokeWidth: 2,
+                    color: colorScheme.onPrimary,
                   ),
                 )
               : Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(icon, size: 28),
-                    const SizedBox(width: 12),
-                    Text(
-                      label,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.onPrimary,
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: isEnabled
+                            ? colorScheme.onPrimary.withValues(alpha: 0.14)
+                            : colorScheme.surface,
+                        borderRadius: BorderRadius.circular(11),
                       ),
+                      child: Center(child: icon),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        label,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: isEnabled
+                              ? colorScheme.onPrimary
+                              : colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 20,
+                      color: isEnabled
+                          ? colorScheme.onPrimary.withValues(alpha: 0.9)
+                          : colorScheme.onSurfaceVariant,
                     ),
                   ],
                 ),
@@ -354,54 +663,42 @@ class _LoginButton extends StatelessWidget {
   }
 }
 
-class _AppleLoginButton extends StatelessWidget {
-  const _AppleLoginButton({
-    required this.label,
-    required this.onPressed,
-    required this.isLoading,
-  });
+class _GmailLogoIcon extends StatelessWidget {
+  const _GmailLogoIcon({this.size = 20});
 
-  final String label;
-  final VoidCallback? onPressed;
-  final bool isLoading;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final style = isDark
-        ? SignInWithAppleButtonStyle.white
-        : SignInWithAppleButtonStyle.black;
-    final enabled = onPressed != null;
-
-    return Semantics(
-      button: true,
-      enabled: enabled,
-      label: label,
-      child: SizedBox(
-        width: double.infinity,
-        height: 56,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Opacity(
-              opacity: enabled ? 1 : 0.6,
-              child: AbsorbPointer(
-                absorbing: !enabled,
-                child: SignInWithAppleButton(
-                  onPressed: onPressed ?? () {},
-                  style: style,
-                  text: label,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-            ),
-            if (isLoading)
-              const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(size * 0.25),
+      ),
+      child: ShaderMask(
+        blendMode: BlendMode.srcIn,
+        shaderCallback: (bounds) => const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF4285F4),
+            Color(0xFF34A853),
+            Color(0xFFFBBC05),
+            Color(0xFFEA4335),
           ],
+          stops: [0.0, 0.4, 0.72, 1.0],
+        ).createShader(bounds),
+        child: Text(
+          'G',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: size * 0.78,
+            height: 1,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );

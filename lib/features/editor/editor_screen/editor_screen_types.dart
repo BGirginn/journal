@@ -89,46 +89,62 @@ class _InsertPlacement {
 
 class _ToolBtn extends StatelessWidget {
   final IconData icon;
-  final String label;
+  final String tooltip;
   final bool isSelected;
+  final bool isDanger;
   final VoidCallback onTap;
 
-  const _ToolBtn(this.icon, this.label, this.isSelected, this.onTap);
+  const _ToolBtn({
+    required this.icon,
+    required this.tooltip,
+    required this.isSelected,
+    required this.onTap,
+    this.isDanger = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? colorScheme.primary.withValues(alpha: 0.15)
-              : null,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
+    final semantic =
+        Theme.of(context).extension<JournalSemanticColors>() ??
+        (Theme.of(context).brightness == Brightness.dark
+            ? JournalSemanticColors.dark
+            : JournalSemanticColors.light);
+    final radius =
+        Theme.of(context).extension<JournalRadiusScale>() ??
+        JournalRadiusScale.standard;
+    final iconColor = isSelected
+        ? Colors.white
+        : isDanger
+        ? colorScheme.error
+        : colorScheme.onSurfaceVariant;
+
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(radius.medium),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: isSelected
+                ? colorScheme.primary
+                : isDanger
+                ? colorScheme.errorContainer.withValues(alpha: 0.4)
+                : semantic.elevated.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(radius.medium),
+            border: Border.all(
               color: isSelected
                   ? colorScheme.primary
-                  : colorScheme.onSurfaceVariant,
-              size: 20,
+                  : isDanger
+                  ? colorScheme.error.withValues(alpha: 0.3)
+                  : semantic.divider,
             ),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 9,
-                color: isSelected
-                    ? colorScheme.primary
-                    : colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
+          ),
+          child: Icon(icon, color: iconColor, size: 22),
         ),
       ),
     );

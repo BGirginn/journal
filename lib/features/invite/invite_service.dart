@@ -127,6 +127,17 @@ class InviteService {
     return _inviteDao.watchMyInvites(uid);
   }
 
+  Future<Invite?> fetchInviteById(String inviteId) async {
+    final doc = await _firestore
+        .collection(FirestorePaths.invites)
+        .doc(inviteId)
+        .get();
+    if (!doc.exists) {
+      return null;
+    }
+    return Invite.fromJson(doc.data()!);
+  }
+
   Future<Invite> createInvite({
     required InviteType type,
     required String targetId,

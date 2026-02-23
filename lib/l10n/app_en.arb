@@ -35,7 +35,7 @@
   "onboardingGetStarted": "Get Started",
   "loginTagline": "Preserve your memories with a modern touch",
   "loginProfileChecking": "Checking profile...",
-  "loginGoogleSignIn": "Continue with Google",
+  "loginGoogleSignIn": "Continue with Gmail",
   "loginAppleSignIn": "Sign in with Apple",
   "loginAccountExistsWithGoogleTitle": "Use Google to Continue",
   "loginAccountExistsWithGoogleMessage": "This email is already registered with your Google account.",
@@ -44,6 +44,10 @@
   "loginAppleIOSOnly": "Apple Sign-In is available only on iOS.",
   "loginAppleMissingToken": "Apple identity token could not be retrieved.",
   "loginAppleInvalidCredential": "Apple credential is invalid.",
+  "loginAppleProviderNotEnabled": "Apple Sign-In is not enabled in Firebase Auth provider settings.",
+  "loginAppleAuthorizationFailed": "Apple authorization failed. Check Apple ID session on device/simulator.",
+  "loginAppleCredentialRequestFailed": "Apple credential request failed. Please try again.",
+  "loginAppleFlowTimeout": "Apple sign-in dialog did not respond. Sign out/in Apple ID on simulator and try again.",
   "loginGoogleConfigError": "Google Sign-In configuration is invalid.",
   "loginFirebaseUnavailable": "Firebase could not be initialized.",
   "linkedAccountsTitle": "Linked Accounts",
@@ -145,6 +149,44 @@
   "editorSaveAndExit": "Save and Exit",
   "editorErrorWithMessage": "Error: {error}",
   "@editorErrorWithMessage": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "libraryGreetingMorning": "Good morning",
+  "libraryGreetingAfternoon": "Good afternoon",
+  "libraryGreetingEvening": "Good evening",
+  "libraryHeaderYourJournals": "Your Journals",
+  "librarySectionSubtitle": "Pick up where you left off",
+  "libraryEmptyTitle": "Start your first journal",
+  "libraryEmptySubtitle": "Capture moments with text, photos, audio, and drawings.",
+  "libraryEmptyCta": "Create Journal",
+  "libraryCreateTitle": "New Journal",
+  "libraryCreateHint": "Example: Travel Notes",
+  "libraryCreateAction": "Create",
+  "libraryActionPreview": "Live Preview",
+  "libraryActionCustomizeCover": "Customize Cover",
+  "libraryActionRename": "Rename",
+  "libraryActionDelete": "Delete",
+  "libraryPreviewTitle": "Live Journal Preview",
+  "libraryRenameTitle": "Rename Journal",
+  "libraryRenameHint": "Journal title",
+  "libraryDeleteTitle": "Delete Journal",
+  "libraryDeleteMessage": "Are you sure you want to delete \"{journalTitle}\"?",
+  "@libraryDeleteMessage": {
+    "placeholders": {
+      "journalTitle": {}
+    }
+  },
+  "libraryThemePickerTitle": "Choose Theme",
+  "libraryCoverCustomizeTitle": "Customize Cover",
+  "libraryThemeTab": "Themes",
+  "libraryPhotoTab": "Photo",
+  "libraryUploading": "Uploading...",
+  "librarySelectFromGallery": "Select From Gallery",
+  "libraryCustomCoverHint": "Upload a custom cover photo",
+  "libraryUploadError": "Upload failed: {error}",
+  "@libraryUploadError": {
     "placeholders": {
       "error": {}
     }

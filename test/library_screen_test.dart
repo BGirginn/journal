@@ -72,7 +72,7 @@ void main() {
   }
 
   testWidgets(
-    'library app bar keeps profile shortcut but no search/notification icons',
+    'library app bar keeps inbox shortcut but no search/profile icons',
     (tester) async {
       await tester.pumpWidget(
         buildScope(
@@ -87,13 +87,25 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byIcon(Icons.search), findsNothing);
-      expect(find.byIcon(Icons.notifications_outlined), findsNothing);
-      expect(find.byIcon(Icons.person_rounded), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byIcon(Icons.person_rounded),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byIcon(Icons.inbox_rounded),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('Anasayfa'), findsWidgets);
     },
   );
 
-  testWidgets('inbox is reachable from bottom navigation', (tester) async {
+  testWidgets('profile is reachable from bottom navigation', (tester) async {
     await tester.pumpWidget(
       buildScope(
         child: const MaterialApp(
@@ -106,10 +118,9 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.inbox_rounded));
+    await tester.tap(find.byIcon(Icons.person_rounded));
     await tester.pumpAndSettle();
 
-    expect(find.text('Inbox'), findsWidgets);
-    expect(find.text('Henüz bir bildirim yok.'), findsOneWidget);
+    expect(find.text('Profil ve Ayarlar'), findsWidgets);
   });
 }

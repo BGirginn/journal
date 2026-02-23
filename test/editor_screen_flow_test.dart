@@ -108,9 +108,9 @@ void main() {
     await tester.pumpWidget(app);
     await _waitForEditorLoaded(tester);
 
-    expect(find.byIcon(Icons.text_fields), findsOneWidget);
+    expect(find.byIcon(Icons.text_fields_rounded), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.text_fields));
+    await tester.tap(find.byIcon(Icons.text_fields_rounded));
     await tester.pump(const Duration(milliseconds: 250));
 
     var blocks = await db.blockDao.getBlocksForPage(page.id);
@@ -119,7 +119,7 @@ void main() {
       isNotEmpty,
     );
 
-    await tester.tap(find.byIcon(Icons.edit));
+    await tester.tap(find.byIcon(Icons.draw_rounded));
     await tester.pump();
     await tester.drag(find.byType(InteractiveViewer), const Offset(30, 20));
     await tester.pump(const Duration(milliseconds: 300));

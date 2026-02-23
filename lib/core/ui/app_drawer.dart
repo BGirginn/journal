@@ -121,15 +121,6 @@ class AppDrawer extends ConsumerWidget {
                       color: colorScheme.outlineVariant.withValues(alpha: 0.3),
                     ),
                   ),
-                  _buildDrawerItem(
-                    context,
-                    icon: Icons.sync,
-                    label: 'Sync Debug',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/sync-debug');
-                    },
-                  ),
                 ],
               ),
             ),

@@ -12,6 +12,8 @@ class FirestorePaths {
   static const String oplogs = 'oplogs';
   static const String usernames = 'usernames';
   static const String displayIds = 'displayIds';
+  static const String pushTokens = 'push_tokens';
+  static const String notifications = 'notifications';
 
   static String userDoc(String uid) => '$users/$uid';
   static String journalDoc(String uid, String journalId) =>
@@ -20,4 +22,8 @@ class FirestorePaths {
       '${journalDoc(uid, journalId)}/$pages/$pageId';
   static String blockDoc(String uid, String blockId) =>
       '${userDoc(uid)}/$blocks/$blockId';
+  static String userPushTokenDoc(String uid, String deviceId) =>
+      '${userDoc(uid)}/$pushTokens/$deviceId';
+  static String userNotificationDoc(String uid, String notificationId) =>
+      '${userDoc(uid)}/$notifications/$notificationId';
 }

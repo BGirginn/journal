@@ -62,7 +62,8 @@ import 'app_localizations_tr.dart';
 /// be consistent with the languages listed in the AppLocalizations.supportedLocales
 /// property.
 abstract class AppLocalizations {
-  AppLocalizations(String locale) : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+  AppLocalizations(String locale)
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -70,7 +71,8 @@ abstract class AppLocalizations {
     return Localizations.of<AppLocalizations>(context, AppLocalizations);
   }
 
-  static const LocalizationsDelegate<AppLocalizations> delegate = _AppLocalizationsDelegate();
+  static const LocalizationsDelegate<AppLocalizations> delegate =
+      _AppLocalizationsDelegate();
 
   /// A list of this localizations delegate along with the default localizations
   /// delegates.
@@ -82,17 +84,18 @@ abstract class AppLocalizations {
   /// Additional delegates can be added by appending to this list in
   /// MaterialApp. This list does not have to be used at all if a custom list
   /// of delegates is preferred or required.
-  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates = <LocalizationsDelegate<dynamic>>[
-    delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-  ];
+  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
+      <LocalizationsDelegate<dynamic>>[
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
-    Locale('tr')
+    Locale('tr'),
   ];
 
   /// No description provided for @appTitle.
@@ -308,7 +311,7 @@ abstract class AppLocalizations {
   /// No description provided for @loginGoogleSignIn.
   ///
   /// In en, this message translates to:
-  /// **'Continue with Google'**
+  /// **'Continue with Gmail'**
   String get loginGoogleSignIn;
 
   /// No description provided for @loginAppleSignIn.
@@ -358,6 +361,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Apple credential is invalid.'**
   String get loginAppleInvalidCredential;
+
+  /// No description provided for @loginAppleProviderNotEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Apple Sign-In is not enabled in Firebase Auth provider settings.'**
+  String get loginAppleProviderNotEnabled;
+
+  /// No description provided for @loginAppleAuthorizationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Apple authorization failed. Check Apple ID session on device/simulator.'**
+  String get loginAppleAuthorizationFailed;
+
+  /// No description provided for @loginAppleCredentialRequestFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Apple credential request failed. Please try again.'**
+  String get loginAppleCredentialRequestFailed;
+
+  /// No description provided for @loginAppleFlowTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'Apple sign-in dialog did not respond. Sign out/in Apple ID on simulator and try again.'**
+  String get loginAppleFlowTimeout;
 
   /// No description provided for @loginGoogleConfigError.
   ///
@@ -814,9 +841,178 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Error: {error}'**
   String editorErrorWithMessage(Object error);
+
+  /// No description provided for @libraryGreetingMorning.
+  ///
+  /// In en, this message translates to:
+  /// **'Good morning'**
+  String get libraryGreetingMorning;
+
+  /// No description provided for @libraryGreetingAfternoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Good afternoon'**
+  String get libraryGreetingAfternoon;
+
+  /// No description provided for @libraryGreetingEvening.
+  ///
+  /// In en, this message translates to:
+  /// **'Good evening'**
+  String get libraryGreetingEvening;
+
+  /// No description provided for @libraryHeaderYourJournals.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Journals'**
+  String get libraryHeaderYourJournals;
+
+  /// No description provided for @librarySectionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick up where you left off'**
+  String get librarySectionSubtitle;
+
+  /// No description provided for @libraryEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Start your first journal'**
+  String get libraryEmptyTitle;
+
+  /// No description provided for @libraryEmptySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Capture moments with text, photos, audio, and drawings.'**
+  String get libraryEmptySubtitle;
+
+  /// No description provided for @libraryEmptyCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Journal'**
+  String get libraryEmptyCta;
+
+  /// No description provided for @libraryCreateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New Journal'**
+  String get libraryCreateTitle;
+
+  /// No description provided for @libraryCreateHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Example: Travel Notes'**
+  String get libraryCreateHint;
+
+  /// No description provided for @libraryCreateAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Create'**
+  String get libraryCreateAction;
+
+  /// No description provided for @libraryActionPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Live Preview'**
+  String get libraryActionPreview;
+
+  /// No description provided for @libraryActionCustomizeCover.
+  ///
+  /// In en, this message translates to:
+  /// **'Customize Cover'**
+  String get libraryActionCustomizeCover;
+
+  /// No description provided for @libraryActionRename.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get libraryActionRename;
+
+  /// No description provided for @libraryActionDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get libraryActionDelete;
+
+  /// No description provided for @libraryPreviewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Live Journal Preview'**
+  String get libraryPreviewTitle;
+
+  /// No description provided for @libraryRenameTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename Journal'**
+  String get libraryRenameTitle;
+
+  /// No description provided for @libraryRenameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Journal title'**
+  String get libraryRenameHint;
+
+  /// No description provided for @libraryDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Journal'**
+  String get libraryDeleteTitle;
+
+  /// No description provided for @libraryDeleteMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete \"{journalTitle}\"?'**
+  String libraryDeleteMessage(Object journalTitle);
+
+  /// No description provided for @libraryThemePickerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose Theme'**
+  String get libraryThemePickerTitle;
+
+  /// No description provided for @libraryCoverCustomizeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Customize Cover'**
+  String get libraryCoverCustomizeTitle;
+
+  /// No description provided for @libraryThemeTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Themes'**
+  String get libraryThemeTab;
+
+  /// No description provided for @libraryPhotoTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo'**
+  String get libraryPhotoTab;
+
+  /// No description provided for @libraryUploading.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploading...'**
+  String get libraryUploading;
+
+  /// No description provided for @librarySelectFromGallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Select From Gallery'**
+  String get librarySelectFromGallery;
+
+  /// No description provided for @libraryCustomCoverHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload a custom cover photo'**
+  String get libraryCustomCoverHint;
+
+  /// No description provided for @libraryUploadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload failed: {error}'**
+  String libraryUploadError(Object error);
 }
 
-class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
+class _AppLocalizationsDelegate
+    extends LocalizationsDelegate<AppLocalizations> {
   const _AppLocalizationsDelegate();
 
   @override
@@ -825,25 +1021,26 @@ class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> 
   }
 
   @override
-  bool isSupported(Locale locale) => <String>['en', 'tr'].contains(locale.languageCode);
+  bool isSupported(Locale locale) =>
+      <String>['en', 'tr'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
 }
 
 AppLocalizations lookupAppLocalizations(Locale locale) {
-
-
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
-    case 'en': return AppLocalizationsEn();
-    case 'tr': return AppLocalizationsTr();
+    case 'en':
+      return AppLocalizationsEn();
+    case 'tr':
+      return AppLocalizationsTr();
   }
 
   throw FlutterError(
     'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
     'an issue with the localizations generation tool. Please file an issue '
     'on GitHub with a reproducible sample app and the gen-l10n configuration '
-    'that was used.'
+    'that was used.',
   );
 }

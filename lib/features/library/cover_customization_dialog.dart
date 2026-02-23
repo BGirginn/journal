@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:journal_app/core/theme/nostalgic_themes.dart';
+import 'package:journal_app/l10n/app_localizations.dart';
 
 /// Dialog for customizing journal cover with themes or custom photo
 class CoverCustomizationDialog extends ConsumerStatefulWidget {
@@ -30,6 +31,15 @@ class _CoverCustomizationDialogState
   String? _uploadedImageUrl;
   bool _isUploading = false;
   File? _selectedImage;
+
+  Color _coverTextColor(NotebookTheme theme) {
+    final sample = theme.visuals.coverGradient.reduce(
+      (a, b) => Color.lerp(a, b, 0.5)!,
+    );
+    return ThemeData.estimateBrightnessForColor(sample) == Brightness.dark
+        ? Colors.white
+        : Colors.black87;
+  }
 
   @override
   void initState() {
@@ -80,15 +90,21 @@ class _CoverCustomizationDialogState
     } catch (e) {
       setState(() => _isUploading = false);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Yükleme hatası: $e')));
+        final l10n = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              l10n?.libraryUploadError(e.toString()) ?? 'Yükleme hatası: $e',
+            ),
+          ),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final colorScheme = Theme.of(context).colorScheme;
     final themes = NostalgicThemes.all;
 
@@ -103,10 +119,10 @@ class _CoverCustomizationDialogState
               padding: const EdgeInsets.fromLTRB(20, 16, 8, 0),
               child: Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Kapak Özelleştir',
-                      style: TextStyle(
+                      l10n?.libraryCoverCustomizeTitle ?? 'Kapak Özelleştir',
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -128,7 +144,7 @@ class _CoverCustomizationDialogState
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.15),
+                    color: colorScheme.shadow.withValues(alpha: 0.15),
                     blurRadius: 8,
                     offset: const Offset(0, 4),
                   ),
@@ -143,9 +159,9 @@ class _CoverCustomizationDialogState
             // Tab bar
             TabBar(
               controller: _tabController,
-              tabs: const [
-                Tab(text: 'Temalar'),
-                Tab(text: 'Fotoğraf'),
+              tabs: [
+                Tab(text: l10n?.libraryThemeTab ?? 'Temalar'),
+                Tab(text: l10n?.libraryPhotoTab ?? 'Fotoğraf'),
               ],
             ),
 
@@ -168,6 +184,7 @@ class _CoverCustomizationDialogState
                     itemBuilder: (context, index) {
                       final theme = themes[index];
                       final isSelected = _selectedThemeId == theme.id;
+                      final coverTextColor = _coverTextColor(theme);
                       return GestureDetector(
                         onTap: () {
                           setState(() {
@@ -202,19 +219,26 @@ class _CoverCustomizationDialogState
                               const SizedBox(height: 4),
                               Text(
                                 theme.name,
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                style: TextStyle(
+                                  color: coverTextColor,
                                   fontSize: 10,
                                   fontWeight: FontWeight.w500,
+                                  shadows: const [
+                                    Shadow(
+                                      color: Color(0x33000000),
+                                      blurRadius: 2,
+                                      offset: Offset(0, 1),
+                                    ),
+                                  ],
                                 ),
                                 textAlign: TextAlign.center,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                               if (isSelected)
-                                const Icon(
+                                Icon(
                                   Icons.check_circle,
-                                  color: Colors.white,
+                                  color: coverTextColor,
                                   size: 16,
                                 ),
                             ],
@@ -253,22 +277,26 @@ class _CoverCustomizationDialogState
                                 ? null
                                 : _pickAndUploadImage,
                             icon: _isUploading
-                                ? const SizedBox(
+                                ? SizedBox(
                                     width: 16,
                                     height: 16,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      color: Colors.white,
+                                      color: colorScheme.onPrimary,
                                     ),
                                   )
                                 : const Icon(Icons.photo_library),
                             label: Text(
-                              _isUploading ? 'Yükleniyor...' : 'Galeriden Seç',
+                              _isUploading
+                                  ? (l10n?.libraryUploading ?? 'Yukleniyor...')
+                                  : (l10n?.librarySelectFromGallery ??
+                                        'Galeriden Seç'),
                             ),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Özel kapak fotoğrafı yükleyin',
+                            l10n?.libraryCustomCoverHint ??
+                                'Özel kapak fotoğrafı yükleyin',
                             style: TextStyle(
                               fontSize: 12,
                               color: colorScheme.onSurfaceVariant,
@@ -294,7 +322,7 @@ class _CoverCustomizationDialogState
                       'coverImageUrl': _uploadedImageUrl,
                     });
                   },
-                  child: const Text('Uygula'),
+                  child: Text(l10n?.editorApply ?? 'Uygula'),
                 ),
               ),
             ),
@@ -322,6 +350,7 @@ class _CoverCustomizationDialogState
     }
 
     final theme = NostalgicThemes.getById(_selectedThemeId);
+    final coverTextColor = _coverTextColor(theme);
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -343,10 +372,17 @@ class _CoverCustomizationDialogState
             const SizedBox(height: 8),
             Text(
               theme.name,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: coverTextColor,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
+                shadows: const [
+                  Shadow(
+                    color: Color(0x33000000),
+                    blurRadius: 3,
+                    offset: Offset(0, 1),
+                  ),
+                ],
               ),
             ),
           ],

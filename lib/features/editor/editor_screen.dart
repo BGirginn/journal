@@ -30,6 +30,10 @@ import 'package:journal_app/features/export/services/pdf_export_service.dart';
 import 'package:journal_app/features/editor/widgets/drawing_canvas_screen.dart';
 import 'package:journal_app/features/editor/widgets/tag_editor_widget.dart';
 import 'package:journal_app/core/services/notification_service.dart';
+import 'package:journal_app/core/theme/tokens/brand_colors.dart';
+import 'package:journal_app/core/theme/tokens/brand_elevation.dart';
+import 'package:journal_app/core/theme/tokens/brand_radius.dart';
+import 'package:journal_app/core/theme/tokens/brand_spacing.dart';
 import 'package:journal_app/l10n/app_localizations.dart';
 
 part 'editor_screen/editor_screen_toolbar.dart';
@@ -522,8 +526,16 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final colorScheme = Theme.of(context).colorScheme;
+    final semantic =
+        Theme.of(context).extension<JournalSemanticColors>() ??
+        (Theme.of(context).brightness == Brightness.dark
+            ? JournalSemanticColors.dark
+            : JournalSemanticColors.light);
+    final topBarSolid =
+        _selectedBlockId != null ||
+        _mode != EditorMode.select ||
+        _currentPageScale > 1.001;
 
     return PopScope(
       canPop: !_isDirty,
@@ -537,13 +549,15 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: colorScheme.surface,
+        backgroundColor: semantic.background,
         appBar: AppBar(
           title: Text(l10n.editorPageTitle(widget.page.pageIndex + 1)),
           centerTitle: true,
-          backgroundColor: colorScheme.surface,
+          backgroundColor: colorScheme.surface.withValues(
+            alpha: topBarSolid ? 0.96 : 0.72,
+          ),
           foregroundColor: colorScheme.onSurface,
-          elevation: 0,
+          elevation: topBarSolid ? 1 : 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () async {
@@ -633,12 +647,24 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         ),
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : Column(
+            : Stack(
                 children: [
-                  _buildToolbar(isDark),
-                  if (_mode == EditorMode.draw || _mode == EditorMode.erase)
-                    _buildPenOptions(),
-                  Expanded(child: _buildCanvas()),
+                  Positioned.fill(
+                    child: Column(
+                      children: [
+                        Expanded(child: _buildCanvas()),
+                        if (_mode == EditorMode.draw || _mode == EditorMode.erase)
+                          _buildPenOptions(),
+                        const SizedBox(height: 98),
+                      ],
+                    ),
+                  ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: _buildToolbar(topBarSolid),
+                  ),
                 ],
               ),
       ),

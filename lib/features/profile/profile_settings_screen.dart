@@ -1,8 +1,10 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:journal_app/l10n/app_localizations.dart';
@@ -11,6 +13,7 @@ import 'package:journal_app/core/auth/auth_service.dart';
 import 'package:journal_app/core/auth/user_service.dart';
 import 'package:journal_app/core/localization/locale_provider.dart';
 import 'package:journal_app/core/theme/theme_provider.dart';
+import 'package:journal_app/core/theme/theme_variant.dart';
 import 'package:journal_app/core/navigation/app_router.dart';
 import 'package:journal_app/core/database/storage_service.dart';
 import 'package:journal_app/core/errors/app_error.dart';
@@ -41,6 +44,46 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
   String _dbSizeText = 'Hesaplanıyor...';
   bool _isUploadingAvatar = false;
   bool _isLinkingApple = false;
+
+  String _avatarInitial(String? name) {
+    final normalized = name?.trim();
+    if (normalized == null || normalized.isEmpty) {
+      return '?';
+    }
+    return normalized.substring(0, 1).toUpperCase();
+  }
+
+  String _normalizeLocaleSelection(Locale? locale) {
+    final code = locale?.languageCode.toLowerCase();
+    if (code == 'tr' || code == 'en') {
+      return code!;
+    }
+    return 'system';
+  }
+
+  bool _isTurkish(BuildContext context) {
+    return Localizations.localeOf(context).languageCode.toLowerCase() == 'tr';
+  }
+
+  String _paletteTitle(BuildContext context) {
+    return _isTurkish(context) ? 'Tema Paleti' : 'Theme Palette';
+  }
+
+  String _paletteLabel(BuildContext context, AppThemeVariant variant) {
+    final isTurkish = _isTurkish(context);
+    return switch (variant) {
+      AppThemeVariant.calmEditorialPremium =>
+        isTurkish ? 'Calm Editorial Premium' : 'Calm Editorial Premium',
+      AppThemeVariant.inkPurple =>
+        isTurkish ? 'Mürekkep & Mor' : 'Ink & Purple',
+      AppThemeVariant.deepDarkCreator =>
+        isTurkish ? 'Deep Dark Creator' : 'Deep Dark Creator',
+      AppThemeVariant.neoAnalogJournal =>
+        isTurkish ? 'Neo Analog Journal' : 'Neo Analog Journal',
+      AppThemeVariant.minimalProductivityPro =>
+        isTurkish ? 'Minimal Productivity Pro' : 'Minimal Productivity Pro',
+    };
+  }
 
   @override
   void initState() {
@@ -241,6 +284,7 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
     final themeSettings = ref.watch(themeProvider);
     final themeNotifier = ref.read(themeProvider.notifier);
     final locale = ref.watch(localeProvider);
+    final localeSelection = _normalizeLocaleSelection(locale);
     final localeNotifier = ref.read(localeProvider.notifier);
 
     return userProfileAsync.when(
@@ -319,6 +363,43 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
                         ),
                       ),
 
+                      const SizedBox(height: 20),
+
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.color_lens_outlined,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            _paletteTitle(context),
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<AppThemeVariant>(
+                        initialValue: themeSettings.effectiveVariant,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                        ),
+                        items: AppThemeVariant.values
+                            .map(
+                              (variant) => DropdownMenuItem<AppThemeVariant>(
+                                value: variant,
+                                child: Text(_paletteLabel(context, variant)),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          themeNotifier.setThemeVariant(value);
+                        },
+                      ),
+
                       const SizedBox(height: 24),
 
                       // Language Selector
@@ -339,7 +420,7 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
-                        initialValue: locale?.languageCode ?? 'system',
+                        initialValue: localeSelection,
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(),
                         ),
@@ -357,11 +438,30 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
                             child: Text(l10n.languageEnglish),
                           ),
                         ],
-                        onChanged: (value) {
-                          if (value == null || value == 'system') {
-                            localeNotifier.setLocale(null);
-                          } else {
-                            localeNotifier.setLocale(Locale(value));
+                        onChanged: (value) async {
+                          try {
+                            if (value == null || value == 'system') {
+                              await localeNotifier.setLocale(null);
+                              final systemLanguage = PlatformDispatcher
+                                  .instance
+                                  .locale
+                                  .languageCode;
+                              await ref
+                                  .read(userServiceProvider)
+                                  .updatePreferredLanguage(systemLanguage);
+                            } else {
+                              await localeNotifier.setLocale(Locale(value));
+                              await ref
+                                  .read(userServiceProvider)
+                                  .updatePreferredLanguage(value);
+                            }
+                          } catch (e) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('${l10n.errorPrefix}: $e'),
+                              ),
+                            );
                           }
                         },
                       ),
@@ -470,12 +570,19 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
                     );
 
                     if (confirmed == true) {
-                      await ref.read(authServiceProvider).signOut();
-                      ref.read(needsProfileSetupProvider.notifier).state = null;
-                      if (context.mounted) {
-                        Navigator.of(
-                          context,
-                        ).popUntil((route) => route.isFirst);
+                      try {
+                        await ref.read(authServiceProvider).signOut();
+                        ref.read(needsProfileSetupProvider.notifier).state =
+                            null;
+                        if (context.mounted) {
+                          context.go('/login');
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('${l10n.errorPrefix}: $e')),
+                          );
+                        }
                       }
                     }
                   },
@@ -523,6 +630,10 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
       );
     }
 
+    final displayName = profile.displayName.trim().isEmpty
+        ? 'Kullanıcı'
+        : profile.displayName.trim();
+
     return Card(
       elevation: 0,
       color: Theme.of(context).colorScheme.primaryContainer,
@@ -543,7 +654,7 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
                         : null,
                     child: profile.photoUrl == null
                         ? Text(
-                            profile.displayName[0].toUpperCase(),
+                            _avatarInitial(displayName),
                             style: TextStyle(
                               fontSize: 32,
                               color: Theme.of(context).colorScheme.onPrimary,
@@ -591,12 +702,12 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
                 children: [
                   // Editable display name
                   GestureDetector(
-                    onTap: () => _editDisplayName(profile.displayName),
+                    onTap: () => _editDisplayName(displayName),
                     child: Row(
                       children: [
                         Flexible(
                           child: Text(
-                            profile.displayName,
+                            displayName,
                             style: Theme.of(context).textTheme.titleLarge
                                 ?.copyWith(fontWeight: FontWeight.bold),
                           ),

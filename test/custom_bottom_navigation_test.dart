@@ -10,7 +10,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           bottomNavigationBar: CustomBottomNavigation(
-            selectedIndex: 1,
+            selectedIndex: 0,
             onItemSelected: (index) => tappedIndex = index,
           ),
         ),
@@ -19,10 +19,10 @@ void main() {
 
     expect(find.text('Günlükler'), findsOneWidget);
     expect(find.text('Anasayfa'), findsNothing);
-    expect(find.byIcon(Icons.inbox_rounded), findsOneWidget);
     expect(find.byIcon(Icons.sticky_note_2_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.person_rounded), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.sticky_note_2_rounded));
+    await tester.tap(find.byIcon(Icons.person_rounded));
     await tester.pumpAndSettle();
 
     expect(tappedIndex, 4);
@@ -42,6 +42,6 @@ void main() {
     );
 
     expect(find.byType(CustomBottomNavigation), findsOneWidget);
-    expect(find.text('Anasayfa'), findsOneWidget);
+    expect(find.text('Günlükler'), findsOneWidget);
   });
 }

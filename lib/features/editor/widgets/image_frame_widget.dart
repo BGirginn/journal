@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:journal_app/core/models/block.dart';
+import 'package:journal_app/core/theme/tokens/brand_colors.dart';
 
 /// Renders an image with various frame styles
 class ImageFrameWidget extends StatelessWidget {
@@ -24,6 +25,13 @@ class ImageFrameWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final semantic =
+        Theme.of(context).extension<JournalSemanticColors>() ??
+        (Theme.of(context).brightness == Brightness.dark
+            ? JournalSemanticColors.dark
+            : JournalSemanticColors.light);
+
     final image = Image(
       image: (cacheWidth != null || cacheHeight != null)
           ? ResizeImage(imageProvider, width: cacheWidth, height: cacheHeight)
@@ -35,23 +43,23 @@ class ImageFrameWidget extends StatelessWidget {
 
     switch (frameStyle) {
       case ImageFrameStyles.polaroid:
-        return _buildPolaroid(image);
+        return _buildPolaroid(image, colorScheme);
       case ImageFrameStyles.tape:
-        return _buildTape(image);
+        return _buildTape(image, colorScheme);
       case ImageFrameStyles.shadow:
-        return _buildShadow(image);
+        return _buildShadow(image, colorScheme);
       case ImageFrameStyles.simpleBorder:
-        return _buildSimpleBorder(image);
+        return _buildSimpleBorder(image, colorScheme);
       case ImageFrameStyles.circle:
-        return _buildCircle(image);
+        return _buildCircle(image, colorScheme);
       case ImageFrameStyles.rounded:
-        return _buildRounded(image);
+        return _buildRounded(image, colorScheme);
       case ImageFrameStyles.stacked:
-        return _buildStacked(image);
+        return _buildStacked(image, colorScheme, semantic);
       case ImageFrameStyles.film:
-        return _buildFilm(image);
+        return _buildFilm(image, colorScheme);
       case ImageFrameStyles.sticker:
-        return _buildSticker(image);
+        return _buildSticker(image, colorScheme);
       case ImageFrameStyles.gradient:
         return _buildGradient(image);
       case ImageFrameStyles.vintage:
@@ -59,25 +67,25 @@ class ImageFrameWidget extends StatelessWidget {
       case ImageFrameStyles.layered:
         return _buildLayered(image);
       case ImageFrameStyles.tapeCorners:
-        return _buildTapeCorners(image);
+        return _buildTapeCorners(image, colorScheme);
       case ImageFrameStyles.polaroidClassic:
-        return _buildPolaroidClassic(image);
+        return _buildPolaroidClassic(image, colorScheme);
       case ImageFrameStyles.vintageEdge:
-        return _buildVintageEdge(image);
+        return _buildVintageEdge(image, colorScheme);
       case ImageFrameStyles.none:
       default:
         return ClipRRect(borderRadius: BorderRadius.circular(4), child: image);
     }
   }
 
-  Widget _buildPolaroid(Widget image) {
+  Widget _buildPolaroid(Widget image, ColorScheme colorScheme) {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 40),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(40),
+            color: colorScheme.shadow.withValues(alpha: 0.2),
             blurRadius: 10,
             offset: const Offset(2, 4),
           ),
@@ -87,17 +95,17 @@ class ImageFrameWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildTape(Widget image) {
+  Widget _buildTape(Widget image, ColorScheme colorScheme) {
     return Stack(
       clipBehavior: Clip.none,
       children: [
         Container(
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: colorScheme.surface,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withAlpha(30),
+                color: colorScheme.shadow.withValues(alpha: 0.18),
                 blurRadius: 5,
                 offset: const Offset(1, 2),
               ),
@@ -105,7 +113,6 @@ class ImageFrameWidget extends StatelessWidget {
           ),
           child: image,
         ),
-        // Tape effect on top center
         Positioned(
           top: -10,
           left: (width / 2) - 30,
@@ -115,7 +122,7 @@ class ImageFrameWidget extends StatelessWidget {
               width: 60,
               height: 25,
               decoration: BoxDecoration(
-                color: const Color(0xAAFFE082),
+                color: BrandColors.warmAccent.withValues(alpha: 0.7),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -125,14 +132,14 @@ class ImageFrameWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildShadow(Widget image) {
+  Widget _buildShadow(Widget image, ColorScheme colorScheme) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(8),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(50),
+            color: colorScheme.shadow.withValues(alpha: 0.26),
             blurRadius: 15,
             offset: const Offset(4, 8),
           ),
@@ -143,43 +150,46 @@ class ImageFrameWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildSimpleBorder(Widget image) {
+  Widget _buildSimpleBorder(Widget image, ColorScheme colorScheme) {
     return Container(
       padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.white, width: 4),
+        border: Border.all(color: colorScheme.surface, width: 4),
         boxShadow: [
-          BoxShadow(color: Colors.black.withAlpha(30), blurRadius: 4),
+          BoxShadow(
+            color: colorScheme.shadow.withValues(alpha: 0.2),
+            blurRadius: 4,
+          ),
         ],
       ),
       child: image,
     );
   }
 
-  Widget _buildCircle(Widget image) {
+  Widget _buildCircle(Widget image, ColorScheme colorScheme) {
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(40),
+            color: colorScheme.shadow.withValues(alpha: 0.22),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
-        border: Border.all(color: Colors.white, width: 4),
+        border: Border.all(color: colorScheme.surface, width: 4),
       ),
       child: ClipOval(child: image),
     );
   }
 
-  Widget _buildRounded(Widget image) {
+  Widget _buildRounded(Widget image, ColorScheme colorScheme) {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(30),
+            color: colorScheme.shadow.withValues(alpha: 0.2),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -189,7 +199,11 @@ class ImageFrameWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildStacked(Widget image) {
+  Widget _buildStacked(
+    Widget image,
+    ColorScheme colorScheme,
+    JournalSemanticColors semantic,
+  ) {
     return Stack(
       children: [
         Transform.rotate(
@@ -198,8 +212,8 @@ class ImageFrameWidget extends StatelessWidget {
             width: width,
             height: height,
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: Colors.grey[300]!),
+              color: colorScheme.surface,
+              border: Border.all(color: colorScheme.outlineVariant),
             ),
           ),
         ),
@@ -209,53 +223,54 @@ class ImageFrameWidget extends StatelessWidget {
             width: width,
             height: height,
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: Colors.grey[300]!),
+              color: colorScheme.surface,
+              border: Border.all(color: colorScheme.outlineVariant),
               boxShadow: [
-                BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 5),
+                BoxShadow(
+                  color: colorScheme.shadow.withValues(alpha: 0.16),
+                  blurRadius: 5,
+                ),
               ],
             ),
           ),
         ),
         Container(
           padding: const EdgeInsets.all(4),
-          decoration: const BoxDecoration(color: Colors.white),
+          decoration: BoxDecoration(color: semantic.card),
           child: image,
         ),
       ],
     );
   }
 
-  Widget _buildFilm(Widget image) {
+  Widget _buildFilm(Widget image, ColorScheme colorScheme) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 2), // Film holes spacing
-      decoration: const BoxDecoration(color: Colors.black),
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      decoration: BoxDecoration(color: colorScheme.onSurface),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Top holes
-          _buildFilmHoles(),
+          _buildFilmHoles(colorScheme.surface),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: image,
           ),
-          // Bottom holes
-          _buildFilmHoles(),
+          _buildFilmHoles(colorScheme.surface),
         ],
       ),
     );
   }
 
-  Widget _buildFilmHoles() {
+  Widget _buildFilmHoles(Color holeColor) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: List.generate(
         8,
-        (index) => Container(
+        (_) => Container(
           width: 8,
           height: 12,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: holeColor,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -263,15 +278,15 @@ class ImageFrameWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildSticker(Widget image) {
+  Widget _buildSticker(Widget image, ColorScheme colorScheme) {
     return Container(
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(40),
+            color: colorScheme.shadow.withValues(alpha: 0.18),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -286,7 +301,7 @@ class ImageFrameWidget extends StatelessWidget {
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Colors.blue, Colors.purple, Colors.red],
+          colors: [BrandColors.primary600, BrandColors.primary500, BrandColors.mutedRose],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -299,16 +314,19 @@ class ImageFrameWidget extends StatelessWidget {
   Widget _buildVintage(Widget image) {
     return ColorFiltered(
       colorFilter: const ColorFilter.mode(
-        Color(0xFF704214), // Sepia tone
+        Color(0xFF704214),
         BlendMode.overlay,
       ),
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: const Color(0xFFFDF5E6), // Old lace
-          border: Border.all(color: Colors.brown, width: 1),
+          color: const Color(0xFFFDF5E6),
+          border: Border.all(color: const Color(0xFF8D6E63), width: 1),
           boxShadow: [
-            BoxShadow(color: Colors.brown.withAlpha(40), blurRadius: 6),
+            BoxShadow(
+              color: const Color(0xFF8D6E63).withValues(alpha: 0.25),
+              blurRadius: 6,
+            ),
           ],
         ),
         child: image,
@@ -325,7 +343,7 @@ class ImageFrameWidget extends StatelessWidget {
           child: Container(
             width: width,
             height: height,
-            color: Colors.blue.withValues(alpha: 0.2),
+            color: BrandColors.primary600.withValues(alpha: 0.18),
           ),
         ),
         Positioned(
@@ -334,7 +352,7 @@ class ImageFrameWidget extends StatelessWidget {
           child: Container(
             width: width,
             height: height,
-            color: Colors.red.withValues(alpha: 0.2),
+            color: BrandColors.mutedRose.withValues(alpha: 0.16),
           ),
         ),
         image,
@@ -342,7 +360,7 @@ class ImageFrameWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildTapeCorners(Widget image) {
+  Widget _buildTapeCorners(Widget image, ColorScheme colorScheme) {
     Widget tape(double angle) {
       return Transform.rotate(
         angle: angle,
@@ -350,7 +368,7 @@ class ImageFrameWidget extends StatelessWidget {
           width: width * 0.18,
           height: height * 0.08,
           decoration: BoxDecoration(
-            color: const Color(0xBFF9E4A8),
+            color: BrandColors.warmAccent.withValues(alpha: 0.72),
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -363,10 +381,10 @@ class ImageFrameWidget extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: colorScheme.surface,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.18),
+                color: colorScheme.shadow.withValues(alpha: 0.18),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -382,15 +400,15 @@ class ImageFrameWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildPolaroidClassic(Widget image) {
+  Widget _buildPolaroidClassic(Widget image, ColorScheme colorScheme) {
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 10, 10, 34),
       decoration: BoxDecoration(
-        color: const Color(0xFFFDFDFD),
-        border: Border.all(color: const Color(0xFFE8E8E8), width: 1),
+        color: colorScheme.surface,
+        border: Border.all(color: colorScheme.outlineVariant, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
+            color: colorScheme.shadow.withValues(alpha: 0.2),
             blurRadius: 14,
             offset: const Offset(0, 8),
           ),
@@ -398,14 +416,14 @@ class ImageFrameWidget extends StatelessWidget {
       ),
       child: Container(
         decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFDFDFDF), width: 0.8),
+          border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.8), width: 0.8),
         ),
         child: image,
       ),
     );
   }
 
-  Widget _buildVintageEdge(Widget image) {
+  Widget _buildVintageEdge(Widget image, ColorScheme colorScheme) {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -416,7 +434,7 @@ class ImageFrameWidget extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.24),
+            color: colorScheme.shadow.withValues(alpha: 0.24),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),

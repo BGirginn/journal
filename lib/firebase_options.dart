@@ -65,7 +65,7 @@ class DefaultFirebaseOptions {
     projectId: 'journal-cf6d7',
     storageBucket: 'journal-cf6d7.firebasestorage.app',
     androidClientId:
-        '317674243768-ldc0pr0p5odtkr750jkb2jq3stg8geic.apps.googleusercontent.com',
+        '317674243768-50kru3bhhhpvpdr0fr9uqe7j2lfk0b4g.apps.googleusercontent.com',
     iosClientId:
         '317674243768-d01a007ul3ta3djjlre1h0b7q2s0f3gt.apps.googleusercontent.com',
     iosBundleId: 'com.bgirginn.journalApp',
@@ -78,7 +78,7 @@ class DefaultFirebaseOptions {
     projectId: 'journal-cf6d7',
     storageBucket: 'journal-cf6d7.firebasestorage.app',
     androidClientId:
-        '317674243768-ldc0pr0p5odtkr750jkb2jq3stg8geic.apps.googleusercontent.com',
+        '317674243768-50kru3bhhhpvpdr0fr9uqe7j2lfk0b4g.apps.googleusercontent.com',
     iosClientId:
         '317674243768-d01a007ul3ta3djjlre1h0b7q2s0f3gt.apps.googleusercontent.com',
     iosBundleId: 'com.bgirginn.journalApp',

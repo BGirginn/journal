@@ -1,4 +1,5 @@
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:journal_app/core/errors/app_error.dart';
 
 enum AppleAuthorizationScope { email, fullName }
 
@@ -49,7 +50,17 @@ class AppleSignInClientImpl implements AppleSignInClient {
       if (e.code == AuthorizationErrorCode.canceled) {
         return null;
       }
-      rethrow;
+      throw AuthError(
+        code: 'auth/apple_authorization_failed',
+        message: 'Apple kimlik dogrulama basarisiz oldu: ${e.code.name}',
+        cause: e,
+      );
+    } catch (e) {
+      throw AuthError(
+        code: 'auth/apple_credential_request_failed',
+        message: 'Apple kimlik bilgisi alinamadi.',
+        cause: e,
+      );
     }
   }
 

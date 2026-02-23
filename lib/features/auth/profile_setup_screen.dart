@@ -304,9 +304,17 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                   // Sign out button for using different account
                   TextButton.icon(
                     onPressed: () async {
-                      await ref.read(authServiceProvider).signOut();
-                      ref.read(needsProfileSetupProvider.notifier).state = null;
-                      // Router will automatically redirect due to auth state change
+                      final messenger = ScaffoldMessenger.of(context);
+                      try {
+                        await ref.read(authServiceProvider).signOut();
+                        ref.read(needsProfileSetupProvider.notifier).state =
+                            null;
+                        // Router will automatically redirect due to auth state change
+                      } catch (e) {
+                        messenger.showSnackBar(
+                          SnackBar(content: Text('Çıkış yapılamadı: $e')),
+                        );
+                      }
                     },
                     icon: const Icon(Icons.swap_horiz, color: Colors.white70),
                     label: const Text(

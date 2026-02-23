@@ -25,6 +25,7 @@ class UserProfile {
   final String? lastName;
   final String? username;
   final String? photoUrl;
+  final String? preferredLanguage;
   final List<String> friends;
   final List<String> receivedFriendRequests;
   final List<String> sentFriendRequests;
@@ -37,6 +38,7 @@ class UserProfile {
     this.lastName,
     this.username,
     this.photoUrl,
+    this.preferredLanguage,
     required this.friends,
     this.receivedFriendRequests = const [],
     this.sentFriendRequests = const [],
@@ -51,6 +53,7 @@ class UserProfile {
       lastName: map['lastName'],
       username: map['username'],
       photoUrl: map['photoUrl'],
+      preferredLanguage: map['preferredLanguage'],
       friends: List<String>.from(map['friends'] ?? []),
       receivedFriendRequests: List<String>.from(
         map['receivedFriendRequests'] ?? [],
@@ -68,6 +71,7 @@ class UserProfile {
       'lastName': lastName,
       'username': username,
       'photoUrl': photoUrl,
+      'preferredLanguage': preferredLanguage,
       'friends': friends,
       'receivedFriendRequests': receivedFriendRequests,
       'sentFriendRequests': sentFriendRequests,
@@ -81,6 +85,7 @@ class UserProfile {
     String? lastName,
     String? username,
     String? photoUrl,
+    String? preferredLanguage,
     List<String>? friends,
     List<String>? receivedFriendRequests,
     List<String>? sentFriendRequests,
@@ -93,6 +98,7 @@ class UserProfile {
       lastName: lastName ?? this.lastName,
       username: username ?? this.username,
       photoUrl: photoUrl ?? this.photoUrl,
+      preferredLanguage: preferredLanguage ?? this.preferredLanguage,
       friends: friends ?? this.friends,
       receivedFriendRequests:
           receivedFriendRequests ?? this.receivedFriendRequests,
@@ -417,6 +423,21 @@ class UserService {
 
     await firestore.collection(FirestorePaths.users).doc(uid).update({
       'displayName': displayName,
+    });
+  }
+
+  Future<void> updatePreferredLanguage(String code) async {
+    final firestore = _firestore;
+    if (!_isAvailable || firestore == null) return;
+
+    final uid = _currentUid;
+    if (uid == null) return;
+
+    final normalized = code.trim().toLowerCase();
+    final supported = normalized.startsWith('en') ? 'en' : 'tr';
+
+    await firestore.collection(FirestorePaths.users).doc(uid).update({
+      'preferredLanguage': supported,
     });
   }
 

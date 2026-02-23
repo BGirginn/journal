@@ -61,3 +61,7 @@ test/coverage/
 /key.properties
 /android/key.properties
 /android/app/release-keystore.jks
+
+# Firebase Functions
+/functions/node_modules/
+/functions/lib/

@@ -2,6 +2,8 @@ import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:journal_app/core/theme/tokens/brand_colors.dart';
+import 'package:journal_app/l10n/app_localizations.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
@@ -19,21 +21,21 @@ class _DrawingCanvasScreenState extends State<DrawingCanvasScreen> {
   final List<DrawingStroke> _strokes = [];
   final List<DrawingStroke> _undoneStrokes = [];
   DrawingStroke? _currentStroke;
-  Color _selectedColor = Colors.black;
+  Color _selectedColor = BrandColors.primary900;
   double _strokeWidth = 3.0;
   bool _isEraser = false;
   final GlobalKey _canvasKey = GlobalKey();
 
   final _colors = [
-    Colors.black,
-    Colors.red,
-    Colors.blue,
-    Colors.green,
-    Colors.orange,
-    Colors.purple,
-    Colors.brown,
-    Colors.pink,
-    Colors.teal,
+    BrandColors.primary900,
+    BrandColors.mutedRose,
+    BrandColors.primary600,
+    BrandColors.softMint,
+    BrandColors.warmAccent,
+    BrandColors.primary500,
+    const Color(0xFF7A614E),
+    const Color(0xFFE38CA7),
+    const Color(0xFF2AB9B3),
     Colors.white,
   ];
 
@@ -41,12 +43,13 @@ class _DrawingCanvasScreenState extends State<DrawingCanvasScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        title: const Text('Çizim'),
+        title: Text(l10n?.editorMediaDrawing ?? 'Cizim'),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.pop(context),
@@ -83,10 +86,10 @@ class _DrawingCanvasScreenState extends State<DrawingCanvasScreen> {
                     });
                   },
           ),
-          FilledButton.icon(
+          IconButton.filled(
             onPressed: _strokes.isEmpty ? null : _saveAndReturn,
-            icon: const Icon(Icons.check, size: 18),
-            label: const Text('Kaydet'),
+            tooltip: l10n?.editorTooltipSave ?? 'Kaydet',
+            icon: const Icon(Icons.check),
           ),
           const SizedBox(width: 8),
         ],
@@ -98,12 +101,12 @@ class _DrawingCanvasScreenState extends State<DrawingCanvasScreen> {
             child: RepaintBoundary(
               key: _canvasKey,
               child: Container(
-                color: Colors.white,
+                color: colorScheme.surface,
                 child: GestureDetector(
                   onPanStart: (details) {
                     setState(() {
                       _currentStroke = DrawingStroke(
-                        color: _isEraser ? Colors.white : _selectedColor,
+                        color: _isEraser ? colorScheme.surface : _selectedColor,
                         width: _isEraser ? _strokeWidth * 3 : _strokeWidth,
                         points: [details.localPosition],
                       );
@@ -206,7 +209,7 @@ class _DrawingCanvasScreenState extends State<DrawingCanvasScreen> {
                                 border: Border.all(
                                   color: isSelected
                                       ? colorScheme.primary
-                                      : Colors.grey.shade300,
+                                      : colorScheme.outlineVariant,
                                   width: isSelected ? 3 : 1,
                                 ),
                               ),
@@ -245,7 +248,9 @@ class _DrawingCanvasScreenState extends State<DrawingCanvasScreen> {
                               height: width + 4,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: _isEraser ? Colors.grey : _selectedColor,
+                                color: _isEraser
+                                    ? colorScheme.onSurfaceVariant
+                                    : _selectedColor,
                               ),
                             ),
                           ),
@@ -283,9 +288,15 @@ class _DrawingCanvasScreenState extends State<DrawingCanvasScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Kaydetme hatası: $e')));
+        final l10n = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              l10n?.editorErrorWithMessage(e.toString()) ??
+                  'Hata: ${e.toString()}',
+            ),
+          ),
+        );
       }
     }
   }

@@ -11,6 +11,13 @@ Offline-first journal uygulamasi (Flutter + Drift + Firebase).
   - `fvm flutter build apk --debug`
   - `fvm flutter build ios --simulator --no-codesign`
 
+## Firebase Functions (Invite Notifications)
+- Functions source: `functions/`
+- Install deps: `cd functions && npm install`
+- Build: `cd functions && npm run build`
+- Test: `cd functions && npm run test`
+- Deploy with rules: `firebase deploy --only functions,firestore:rules`
+
 ## iOS / Xcode Run
 - Always open `ios/Runner.xcworkspace` (not `ios/Runner.xcodeproj`).
 - After pulling iOS dependency changes, run `cd ios && pod install`.

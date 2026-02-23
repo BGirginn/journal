@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:journal_app/core/theme/nostalgic_themes.dart';
+import 'package:journal_app/core/theme/tokens/brand_colors.dart';
+import 'package:journal_app/l10n/app_localizations.dart';
 
 /// Theme picker dialog for selecting journal theme
 class ThemePickerDialog extends StatelessWidget {
@@ -14,6 +16,7 @@ class ThemePickerDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final themes = NostalgicThemes.all;
 
     return Dialog(
@@ -24,9 +27,9 @@ class ThemePickerDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Tema Seçin',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            Text(
+              l10n?.libraryThemePickerTitle ?? 'Tema Seçin',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -59,7 +62,7 @@ class ThemePickerDialog extends StatelessWidget {
               alignment: Alignment.centerRight,
               child: TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('İptal'),
+                child: Text(l10n?.cancel ?? 'İptal'),
               ),
             ),
           ],
@@ -84,6 +87,22 @@ class _ThemeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final labelBackground = theme.visuals.pageColor == Colors.transparent
+        ? colorScheme.surfaceContainer
+        : theme.visuals.pageColor;
+    final labelTextColor =
+        ThemeData.estimateBrightnessForColor(labelBackground) == Brightness.dark
+        ? Colors.white
+        : BrandColors.primary900;
+    final coverSampleColor = theme.visuals.coverGradient.reduce(
+      (a, b) => Color.lerp(a, b, 0.5)!,
+    );
+    final coverTextColor =
+        ThemeData.estimateBrightnessForColor(coverSampleColor) ==
+            Brightness.dark
+        ? Colors.white
+        : BrandColors.primary900;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -130,7 +149,14 @@ class _ThemeCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white.withAlpha(200),
+                            color: coverTextColor.withValues(alpha: 0.9),
+                            shadows: const [
+                              Shadow(
+                                color: Color(0x33000000),
+                                blurRadius: 3,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
                           ),
                         ),
                       )
@@ -143,9 +169,7 @@ class _ThemeCard extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 decoration: BoxDecoration(
-                  color: theme.visuals.pageColor == Colors.transparent
-                      ? colorScheme.surfaceContainer
-                      : theme.visuals.pageColor,
+                  color: labelBackground,
                   borderRadius: const BorderRadius.vertical(
                     bottom: Radius.circular(12),
                   ),
@@ -153,10 +177,10 @@ class _ThemeCard extends StatelessWidget {
                 child: Center(
                   child: Text(
                     theme.name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF2F241C),
+                      color: labelTextColor,
                     ),
                     textAlign: TextAlign.center,
                     maxLines: 1,

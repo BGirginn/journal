@@ -6,18 +6,13 @@ import 'package:journal_app/core/auth/auth_service.dart';
 import 'package:journal_app/core/errors/app_error.dart';
 import 'package:journal_app/features/auth/login_screen.dart';
 import 'package:journal_app/l10n/app_localizations.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 class TestAuthService extends AuthService {
-  TestAuthService({
-    this.authStream = const Stream.empty(),
-    this.onGoogleSignIn,
-    this.onAppleSignIn,
-  }) : super(isFirebaseAvailable: false);
+  TestAuthService({this.authStream = const Stream.empty(), this.onGoogleSignIn})
+    : super(isFirebaseAvailable: false);
 
   final Stream<User?> authStream;
   final Future<UserCredential?> Function()? onGoogleSignIn;
-  final Future<UserCredential?> Function()? onAppleSignIn;
 
   @override
   Stream<User?> get authStateChanges => authStream;
@@ -29,7 +24,7 @@ class TestAuthService extends AuthService {
 
   @override
   Future<UserCredential?> signInWithApple() async {
-    return onAppleSignIn?.call();
+    return null;
   }
 }
 
@@ -53,14 +48,15 @@ Widget _buildTestApp({required AuthService authService}) {
 
 void main() {
   testWidgets(
-    'iOS renders Apple sign-in button',
+    'iOS renders Gmail sign-in button',
     (tester) async {
       final service = TestAuthService(authStream: Stream<User?>.value(null));
 
       await tester.pumpWidget(_buildTestApp(authService: service));
       await tester.pumpAndSettle();
 
-      expect(find.byType(SignInWithAppleButton), findsOneWidget);
+      expect(find.text('Continue with Gmail'), findsOneWidget);
+      expect(find.text('Sign in with Apple'), findsNothing);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
@@ -69,17 +65,37 @@ void main() {
   );
 
   testWidgets(
-    'Apple cancel flow does not crash',
+    'Android renders Gmail sign-in button',
+    (tester) async {
+      final service = TestAuthService(authStream: Stream<User?>.value(null));
+
+      await tester.pumpWidget(_buildTestApp(authService: service));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Continue with Gmail'), findsOneWidget);
+      expect(find.text('Sign in with Apple'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    },
+    variant: const TargetPlatformVariant(<TargetPlatform>{
+      TargetPlatform.android,
+    }),
+  );
+
+  testWidgets(
+    'Gmail cancel flow does not crash',
     (tester) async {
       final service = TestAuthService(
         authStream: Stream<User?>.value(null),
-        onAppleSignIn: () async => null,
+        onGoogleSignIn: () async => null,
       );
 
       await tester.pumpWidget(_buildTestApp(authService: service));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(SignInWithAppleButton));
+      await tester.ensureVisible(find.text('Continue with Gmail'));
+      await tester.tap(find.text('Continue with Gmail'));
       await tester.pumpAndSettle();
 
       expect(find.byType(AlertDialog), findsNothing);
@@ -92,11 +108,11 @@ void main() {
   );
 
   testWidgets(
-    'shows account-exists dialog for Apple credential conflicts',
+    'shows account-exists message for sign-in conflicts',
     (tester) async {
       final service = TestAuthService(
         authStream: Stream<User?>.value(null),
-        onAppleSignIn: () async {
+        onGoogleSignIn: () async {
           throw const AuthError(
             code: 'auth/account_exists_with_different_credential_apple',
             message: 'conflict',
@@ -107,11 +123,15 @@ void main() {
       await tester.pumpWidget(_buildTestApp(authService: service));
       await tester.pump(const Duration(milliseconds: 300));
 
-      await tester.tap(find.byType(SignInWithAppleButton));
+      await tester.ensureVisible(find.text('Continue with Gmail'));
+      await tester.tap(find.text('Continue with Gmail'));
       await tester.pump(const Duration(milliseconds: 300));
 
-      expect(find.text('Use Google to Continue'), findsOneWidget);
-      expect(find.text('Continue with Google'), findsAtLeastNWidgets(1));
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(
+        find.text('This email is already registered with your Google account.'),
+        findsOneWidget,
+      );
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();

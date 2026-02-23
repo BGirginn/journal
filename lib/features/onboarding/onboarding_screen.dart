@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:journal_app/core/theme/design_tokens.dart';
+import 'package:journal_app/core/theme/tokens/brand_colors.dart';
 import 'package:journal_app/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -26,24 +26,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         title: l10n.onboardingTitleCaptureMemories,
         description: l10n.onboardingDescCaptureMemories,
         gradient: isDark
-            ? const [AppColorTokens.darkSurfaceContainerAlt, Color(0xFF7A431F)]
-            : const [Color(0xFFFFD9A6), Color(0xFFEDA861)],
+            ? const [Color(0xFF232735), Color(0xFF4A5570)]
+            : const [Color(0xFFC6CDDB), Color(0xFFB1BBCD)],
       ),
       _OnboardingPage(
         icon: Icons.group_rounded,
         title: l10n.onboardingTitleShareTogether,
         description: l10n.onboardingDescShareTogether,
         gradient: isDark
-            ? const [Color(0xFF5A2D20), Color(0xFF8A3F2F)]
-            : const [Color(0xFFFFC8A5), Color(0xFFEB8F63)],
+            ? const [Color(0xFF2D2421), Color(0xFF5A4A40)]
+            : const [Color(0xFFD9C4B2), Color(0xFFC9AB97)],
       ),
       _OnboardingPage(
         icon: Icons.palette_rounded,
         title: l10n.onboardingTitlePersonalize,
         description: l10n.onboardingDescPersonalize,
         gradient: isDark
-            ? const [Color(0xFF4B3322), Color(0xFF7A522A)]
-            : const [Color(0xFFFFE3B5), Color(0xFFDB8F44)],
+            ? const [Color(0xFF1E2D29), Color(0xFF3C554D)]
+            : const [Color(0xFFBED1C8), Color(0xFFA9BEB3)],
       ),
     ];
   }
@@ -66,9 +66,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final pages = _buildPages(l10n, isDark);
     final isLastPage = _currentPage == pages.length - 1;
-    final foreground = isDark ? Colors.white : const Color(0xFF3D2414);
-    final buttonBackground = isDark ? const Color(0xFFF7E5CF) : Colors.white;
-    final buttonForeground = pages[_currentPage].gradient[1];
+    final foreground = isDark
+        ? const Color(0xFFF5F1E9)
+        : BrandColors.primary900;
+    final descriptionColor = foreground.withValues(alpha: isDark ? 0.9 : 0.82);
+    final buttonBackground = isDark
+        ? const Color(0xFFEAE5D9)
+        : const Color(0xFFF5F1E8);
+    const buttonForeground = BrandColors.primary900;
+    final iconBubbleColor = isDark
+        ? Colors.white.withValues(alpha: 0.14)
+        : Colors.white.withValues(alpha: 0.28);
+    final indicatorActive = foreground.withValues(alpha: 0.9);
+    final indicatorInactive = foreground.withValues(alpha: 0.32);
 
     return Scaffold(
       body: Stack(
@@ -98,13 +108,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               width: 120,
                               height: 120,
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
+                                color: iconBubbleColor,
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
                                 page.icon,
                                 size: 64,
-                                color: Colors.white,
+                                color: foreground,
                               ),
                             )
                             .animate()
@@ -113,10 +123,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         const SizedBox(height: 48),
                         Text(
                               page.title,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 28,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                                color: foreground,
                               ),
                               textAlign: TextAlign.center,
                             )
@@ -128,7 +138,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               page.description,
                               style: TextStyle(
                                 fontSize: 16,
-                                color: Colors.white.withValues(alpha: 0.9),
+                                color: descriptionColor,
                                 height: 1.5,
                               ),
                               textAlign: TextAlign.center,
@@ -164,8 +174,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           height: 8,
                           decoration: BoxDecoration(
                             color: index == _currentPage
-                                ? Colors.white
-                                : Colors.white.withValues(alpha: 0.4),
+                                ? indicatorActive
+                                : indicatorInactive,
                             borderRadius: BorderRadius.circular(4),
                           ),
                         ),
@@ -180,7 +190,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           child: Text(
                             l10n.onboardingSkip,
                             style: TextStyle(
-                              color: foreground.withValues(alpha: 0.78),
+                              color: foreground.withValues(alpha: 0.84),
                               fontSize: 16,
                             ),
                           ),

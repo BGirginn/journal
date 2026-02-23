@@ -13,7 +13,7 @@ import 'package:journal_app/features/home/home_screen.dart';
 import 'package:journal_app/features/friends/friends_screen.dart';
 import 'package:journal_app/features/library/journal_library_view.dart';
 import 'package:journal_app/features/library/theme_picker_dialog.dart';
-import 'package:journal_app/features/notifications/notifications_screen.dart';
+import 'package:journal_app/features/profile/profile_settings_screen.dart';
 import 'package:journal_app/features/stickers/screens/sticker_manager_screen.dart';
 
 import 'package:journal_app/core/services/deep_link_service.dart';
@@ -30,8 +30,9 @@ class LibraryScreen extends ConsumerStatefulWidget {
 
 class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   static const int _tabCount = 5;
+  static const int _homeTabIndex = 2;
 
-  int _selectedIndex = 0;
+  int _selectedIndex = _homeTabIndex;
   late final PageController _pageController;
   StreamSubscription<NotificationTapIntent>? _notificationTapSubscription;
   final Set<String> _handledTapIds = <String>{};
@@ -39,24 +40,24 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   NotificationService? _notificationService;
 
   final _titles = [
-    'Anasayfa', // 0
-    'Günlüklerim', // 1
-    'Arkadaşlar', // 2
-    'Inbox', // 3
-    'Çıkartmalar', // 4
+    'Günlüklerim', // 0
+    'Çıkartmalar', // 1
+    'Anasayfa', // 2
+    'Arkadaşlar', // 3
+    'Profil ve Ayarlar', // 4
   ];
 
   String get _currentTitle {
     if (_selectedIndex >= 0 && _selectedIndex < _titles.length) {
       return _titles[_selectedIndex];
     }
-    return _titles.first;
+    return _titles[_homeTabIndex];
   }
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
+    _pageController = PageController(initialPage: _selectedIndex);
     _deepLinkService = ref.read(deepLinkServiceProvider);
     _notificationService = ref.read(notificationServiceProvider);
 
@@ -129,7 +130,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 
     final route = intent.route.isNotEmpty ? intent.route : '/notifications';
     if (route == '/notifications') {
-      _onItemTapped(3);
+      context.push('/notifications');
       return;
     }
     context.push(route);
@@ -183,16 +184,16 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
-          if (_selectedIndex == 4)
+          if (_selectedIndex == 1)
             IconButton(
               icon: const Icon(Icons.add),
               tooltip: 'Çıkartma Ekle',
               onPressed: () => context.push('/stickers/create'),
             ),
           IconButton(
-            icon: const Icon(Icons.person_rounded),
-            tooltip: 'Profil',
-            onPressed: () => context.push('/profile'),
+            icon: const Icon(Icons.inbox_rounded),
+            tooltip: 'Inbox',
+            onPressed: () => context.push('/notifications'),
           ),
         ],
       ),
@@ -201,11 +202,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         onPageChanged: _onPageChanged,
         physics: const ClampingScrollPhysics(),
         children: const [
-          HomeScreen(), // 0
-          JournalLibraryView(), // 1
-          FriendsView(), // 2
-          NotificationsView(), // 3
-          StickerManagerView(), // 4
+          JournalLibraryView(), // 0
+          StickerManagerView(), // 1
+          HomeScreen(), // 2
+          FriendsView(), // 3
+          ProfileSettingsView(), // 4
         ],
       ),
       bottomNavigationBar: CustomBottomNavigation(
@@ -214,7 +215,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       ),
       floatingActionButton:
           _selectedIndex ==
-              1 // Only show FAB on Journals tab (Index 1)
+              0 // Only show FAB on Journals tab (Index 0)
           ? Padding(
               padding: const EdgeInsets.only(bottom: 30),
               child: FloatingActionButton(

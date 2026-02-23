@@ -209,6 +209,26 @@ void main() {
     expect(free, isTrue);
   });
 
+  test('updatePreferredLanguage persists normalized language code', () async {
+    await firestore.collection(FirestorePaths.users).doc(me).set({
+      'uid': me,
+      'displayName': 'Me',
+      'friends': const <String>[],
+    });
+
+    await service.updatePreferredLanguage('en-US');
+
+    final doc = await firestore.collection(FirestorePaths.users).doc(me).get();
+    expect(doc.data()!['preferredLanguage'], equals('en'));
+
+    await service.updatePreferredLanguage('de');
+    final fallbackDoc = await firestore
+        .collection(FirestorePaths.users)
+        .doc(me)
+        .get();
+    expect(fallbackDoc.data()!['preferredLanguage'], equals('tr'));
+  });
+
   test('unavailable service returns null or safe defaults', () async {
     final unavailable = UserService(
       authService,

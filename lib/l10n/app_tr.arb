@@ -35,7 +35,7 @@
   "onboardingGetStarted": "Başlayalım!",
   "loginTagline": "Anılarını modern bir dokunuşla sakla",
   "loginProfileChecking": "Profil kontrol ediliyor...",
-  "loginGoogleSignIn": "Google ile Giriş Yap",
+  "loginGoogleSignIn": "Gmail ile Giriş Yap",
   "loginAppleSignIn": "Apple ile Giriş Yap",
   "loginAccountExistsWithGoogleTitle": "Google ile Devam Et",
   "loginAccountExistsWithGoogleMessage": "Bu e-posta Google hesabınla kayıtlı.",
@@ -44,6 +44,10 @@
   "loginAppleIOSOnly": "Apple ile giriş sadece iOS'ta kullanılabilir.",
   "loginAppleMissingToken": "Apple kimlik tokeni alınamadı.",
   "loginAppleInvalidCredential": "Apple kimlik bilgisi geçersiz.",
+  "loginAppleProviderNotEnabled": "Firebase Authentication içinde Apple sağlayıcısı etkin değil.",
+  "loginAppleAuthorizationFailed": "Apple yetkilendirmesi başarısız. Cihaz/simülatörde Apple ID oturumunu kontrol edin.",
+  "loginAppleCredentialRequestFailed": "Apple kimlik bilgisi alınamadı. Lütfen tekrar deneyin.",
+  "loginAppleFlowTimeout": "Apple giriş penceresi yanıt vermedi. Simülatörde Apple hesabından çıkış yapıp tekrar deneyin.",
   "loginGoogleConfigError": "Google giriş yapılandırması hatalı.",
   "loginFirebaseUnavailable": "Firebase başlatılamadı.",
   "linkedAccountsTitle": "Bağlı Hesaplar",
@@ -145,6 +149,44 @@
   "editorSaveAndExit": "Kaydet ve Çık",
   "editorErrorWithMessage": "Hata: {error}",
   "@editorErrorWithMessage": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "libraryGreetingMorning": "Gunaydin",
+  "libraryGreetingAfternoon": "Iyi gunler",
+  "libraryGreetingEvening": "Iyi aksamlar",
+  "libraryHeaderYourJournals": "Gunluklerin",
+  "librarySectionSubtitle": "Kaldigin yerden devam et",
+  "libraryEmptyTitle": "Ilk gunlugunu baslat",
+  "libraryEmptySubtitle": "Metin, fotograf, ses ve cizim ile anilarini kaydet.",
+  "libraryEmptyCta": "Gunluk Olustur",
+  "libraryCreateTitle": "Yeni Gunluk",
+  "libraryCreateHint": "Orn: Seyahat Notlarim",
+  "libraryCreateAction": "Olustur",
+  "libraryActionPreview": "Canli Onizleme",
+  "libraryActionCustomizeCover": "Kapagi Ozellestir",
+  "libraryActionRename": "Yeniden Adlandir",
+  "libraryActionDelete": "Sil",
+  "libraryPreviewTitle": "Canli Gunluk Onizlemesi",
+  "libraryRenameTitle": "Gunlugu Yeniden Adlandir",
+  "libraryRenameHint": "Gunluk adi",
+  "libraryDeleteTitle": "Gunlugu Sil",
+  "libraryDeleteMessage": "\"{journalTitle}\" gunlugunu silmek istediginize emin misiniz?",
+  "@libraryDeleteMessage": {
+    "placeholders": {
+      "journalTitle": {}
+    }
+  },
+  "libraryThemePickerTitle": "Tema Secin",
+  "libraryCoverCustomizeTitle": "Kapak Ozellestir",
+  "libraryThemeTab": "Temalar",
+  "libraryPhotoTab": "Fotograf",
+  "libraryUploading": "Yukleniyor...",
+  "librarySelectFromGallery": "Galeriden Sec",
+  "libraryCustomCoverHint": "Ozel kapak fotografi yukleyin",
+  "libraryUploadError": "Yukleme hatasi: {error}",
+  "@libraryUploadError": {
     "placeholders": {
       "error": {}
     }

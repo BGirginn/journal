@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:journal_app/core/models/user_sticker.dart' as model;
+import 'package:journal_app/core/theme/tokens/brand_colors.dart';
 import 'package:journal_app/features/stickers/sticker_service.dart';
 
 /// Sticker block type extension
@@ -86,28 +87,28 @@ class BuiltInStickers {
       name: 'Daire',
       asset: '●',
       type: StickerType.shape,
-      color: Colors.red,
+      color: BrandColors.mutedRose,
     ),
     Sticker(
       id: 'square',
       name: 'Kare',
       asset: '■',
       type: StickerType.shape,
-      color: Colors.blue,
+      color: BrandColors.primary600,
     ),
     Sticker(
       id: 'triangle',
       name: 'Üçgen',
       asset: '▲',
       type: StickerType.shape,
-      color: Colors.green,
+      color: BrandColors.softMint,
     ),
     Sticker(
       id: 'star_shape',
       name: 'Yıldız',
       asset: '★',
       type: StickerType.shape,
-      color: Colors.amber,
+      color: BrandColors.warmAccent,
     ),
   ];
 }
@@ -187,17 +188,18 @@ class StickerPicker extends ConsumerWidget {
                       }).toList();
 
                       return _buildSection(
+                        context,
                         'Özel Çıkartmalarım',
                         customStickers,
                       );
                     },
                   ),
                   const SizedBox(height: 12),
-                  _buildSection('Emojiler', BuiltInStickers.emojis),
+                  _buildSection(context, 'Emojiler', BuiltInStickers.emojis),
                   const SizedBox(height: 12),
-                  _buildSection('Dekoratif', BuiltInStickers.decoratives),
+                  _buildSection(context, 'Dekoratif', BuiltInStickers.decoratives),
                   const SizedBox(height: 12),
-                  _buildSection('Şekiller', BuiltInStickers.shapes),
+                  _buildSection(context, 'Şekiller', BuiltInStickers.shapes),
                 ],
               ),
             ),
@@ -207,11 +209,16 @@ class StickerPicker extends ConsumerWidget {
     );
   }
 
-  Widget _buildSection(String title, List<Sticker> stickers) {
+  Widget _buildSection(
+    BuildContext context,
+    String title,
+    List<Sticker> stickers,
+  ) {
+    final textColor = Theme.of(context).colorScheme.onSurfaceVariant;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        Text(title, style: TextStyle(fontSize: 12, color: textColor)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -238,6 +245,7 @@ class _StickerItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     Widget content;
 
     if (sticker.isCustom && File(sticker.asset).existsSync()) {
@@ -265,9 +273,9 @@ class _StickerItem extends StatelessWidget {
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: Colors.grey[100],
+          color: colorScheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey[300]!),
+          border: Border.all(color: colorScheme.outlineVariant),
         ),
         child: content,
       ),

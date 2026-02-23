@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -126,7 +128,9 @@ class AuthService {
     }
 
     try {
-      final bundle = await _buildAppleCredentialBundle();
+      final bundle = await _buildAppleCredentialBundle().timeout(
+        const Duration(seconds: 90),
+      );
       if (bundle == null) {
         return null;
       }
@@ -139,12 +143,23 @@ class AuthService {
         credentialResult: bundle.result,
       );
       return userCredential;
+    } on TimeoutException {
+      throw const AuthError(
+        code: 'auth/apple_flow_timeout',
+        message: 'Apple giris ekrani yanit vermedi.',
+      );
     } on FirebaseAuthException catch (e, st) {
       _logger?.error('apple_firebase_auth_failed', error: e, stackTrace: st);
       if (e.code == 'account-exists-with-different-credential') {
         throw const AuthError(
           code: 'auth/account_exists_with_different_credential_apple',
           message: 'Bu e-posta farkli bir giris saglayicisiyla kayitli.',
+        );
+      }
+      if (e.code == 'operation-not-allowed') {
+        throw const AuthError(
+          code: 'auth/apple_provider_not_enabled',
+          message: 'Firebase Apple giris saglayicisi aktif degil.',
         );
       }
       if (e.code == 'invalid-credential' ||
@@ -156,7 +171,7 @@ class AuthService {
       }
       throw AuthError(
         code: 'auth/apple_sign_in_failed',
-        message: 'Apple Sign-In basarisiz oldu.',
+        message: 'Apple Sign-In basarisiz oldu: ${e.code}',
         cause: e,
         stackTrace: st,
       );
@@ -206,7 +221,9 @@ class AuthService {
     }
 
     try {
-      final bundle = await _buildAppleCredentialBundle();
+      final bundle = await _buildAppleCredentialBundle().timeout(
+        const Duration(seconds: 90),
+      );
       if (bundle == null) {
         return null;
       }
@@ -217,6 +234,11 @@ class AuthService {
         credentialResult: bundle.result,
       );
       return linkedCredential;
+    } on TimeoutException {
+      throw const AuthError(
+        code: 'auth/apple_flow_timeout',
+        message: 'Apple baglama ekrani yanit vermedi.',
+      );
     } on FirebaseAuthException catch (e, st) {
       _logger?.error('apple_link_failed', error: e, stackTrace: st);
       switch (e.code) {
@@ -263,7 +285,14 @@ class AuthService {
   }
 
   Future<void> signOut() async {
-    await _googleSignIn.signOut();
+    try {
+      await _googleSignIn.signOut();
+    } catch (e, st) {
+      // Google local session cleanup can fail on some devices.
+      // Firebase sign-out should still proceed.
+      _logger?.warn('google_sign_out_failed', error: e, stackTrace: st);
+    }
+
     if (_auth != null) {
       await _auth.signOut();
     }

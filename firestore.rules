@@ -31,6 +31,39 @@ service cloud.firestore {
       match /blocks/{blockId} {
         allow read, write: if isOwner(userId);
       }
+
+      // Push tokens (per device)
+      match /push_tokens/{deviceId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasOnly([
+            'token',
+            'platform',
+            'updatedAt',
+            'preferredLanguage',
+            'createdAt'
+          ])
+          && request.resource.data.token is string
+          && request.resource.data.platform is string
+          && (
+            !('preferredLanguage' in request.resource.data)
+            || request.resource.data.preferredLanguage in ['tr', 'en']
+          );
+        allow delete: if isOwner(userId);
+      }
+
+      // Notification inbox docs are server-created only.
+      // Client may only mark as read.
+      match /notifications/{notificationId} {
+        allow read: if isOwner(userId);
+        allow create, delete: if false;
+        allow update: if isOwner(userId)
+          && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+            'isRead',
+            'readAt'
+          ])
+          && request.resource.data.isRead == true;
+      }
     }
 
     // Usernames (for uniqueness checks)

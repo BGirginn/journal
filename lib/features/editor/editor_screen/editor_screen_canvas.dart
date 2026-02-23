@@ -58,6 +58,16 @@ extension _EditorCanvasExtension on _EditorScreenState {
                         ),
                       ),
 
+                      if (_selectedBlockId != null && _mode == EditorMode.select)
+                        IgnorePointer(
+                          child: CustomPaint(
+                            painter: _SnapGridPainter(
+                              lineColor: colorScheme.onSurface.withValues(alpha: 0.06),
+                            ),
+                            size: Size.infinite,
+                          ),
+                        ),
+
                       // Blocks
                       IgnorePointer(
                         ignoring:
@@ -129,6 +139,11 @@ extension _EditorCanvasExtension on _EditorScreenState {
 
   Widget _buildBlock(Block block, Size pageSize) {
     final colorScheme = Theme.of(context).colorScheme;
+    final semantic =
+        Theme.of(context).extension<JournalSemanticColors>() ??
+        (Theme.of(context).brightness == Brightness.dark
+            ? JournalSemanticColors.dark
+            : JournalSemanticColors.light);
     final isSelected = block.id == _selectedBlockId;
     final left = block.x * pageSize.width;
     final top = block.y * pageSize.height;
@@ -150,7 +165,16 @@ extension _EditorCanvasExtension on _EditorScreenState {
               border: isSelected
                   ? Border.all(color: colorScheme.primary, width: 2)
                   : null,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: semantic.selectedGlow,
+                        blurRadius: 16,
+                        spreadRadius: 1,
+                      ),
+                    ]
+                  : null,
             ),
             child: Stack(
               clipBehavior: Clip.none,
@@ -200,7 +224,7 @@ extension _EditorCanvasExtension on _EditorScreenState {
                   // Rotate handle
                   Positioned(
                     left: width / 2 - 24,
-                    top: -44,
+                    top: -46,
                     child: GestureDetector(
                       behavior: HitTestBehavior.translucent,
                       onPanStart: (_) {
@@ -216,7 +240,7 @@ extension _EditorCanvasExtension on _EditorScreenState {
                           width: 20,
                           height: 20,
                           decoration: BoxDecoration(
-                            color: colorScheme.primary,
+                            color: semantic.softMint,
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -247,6 +271,11 @@ extension _EditorCanvasExtension on _EditorScreenState {
     Size pageSize,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
+    final semantic =
+        Theme.of(context).extension<JournalSemanticColors>() ??
+        (Theme.of(context).brightness == Brightness.dark
+            ? JournalSemanticColors.dark
+            : JournalSemanticColors.light);
     return Positioned(
       left: left != null ? left - 18 : null,
       top: top != null ? top - 18 : null,
@@ -265,12 +294,18 @@ extension _EditorCanvasExtension on _EditorScreenState {
           height: 48,
           alignment: Alignment.center,
           child: Container(
-            width: 12,
-            height: 12,
+            width: 10,
+            height: 10,
             decoration: BoxDecoration(
               color: colorScheme.surface,
               border: Border.all(color: colorScheme.primary, width: 2),
-              borderRadius: BorderRadius.circular(2),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: semantic.selectedGlow.withValues(alpha: 0.7),
+                  blurRadius: 6,
+                ),
+              ],
             ),
           ),
         ),
@@ -368,5 +403,31 @@ extension _EditorCanvasExtension on _EditorScreenState {
           durationMs: payload.durationMs,
         );
     }
+  }
+}
+
+class _SnapGridPainter extends CustomPainter {
+  final Color lineColor;
+
+  const _SnapGridPainter({required this.lineColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 1;
+
+    const spacing = 28.0;
+    for (double x = spacing; x < size.width; x += spacing) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+    for (double y = spacing; y < size.height; y += spacing) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SnapGridPainter oldDelegate) {
+    return oldDelegate.lineColor != lineColor;
   }
 }

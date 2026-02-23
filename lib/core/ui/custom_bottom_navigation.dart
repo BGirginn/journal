@@ -15,76 +15,81 @@ class CustomBottomNavigation extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final colorScheme = Theme.of(context).colorScheme;
+    final navSurfaceColor = isDark
+        ? colorScheme.surface.withValues(alpha: 0.82)
+        : colorScheme.surface;
+
+    final navBody = Container(
+      height: 64,
+      decoration: BoxDecoration(
+        color: navSurfaceColor,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(
+            alpha: isDark ? 0.55 : 1,
+          ),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withValues(alpha: isDark ? 0.25 : 0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildNavItem(
+            context,
+            colorScheme,
+            0, // Index 0
+            Icons.book_rounded,
+            'Günlükler',
+          ),
+          _buildNavItem(
+            context,
+            colorScheme,
+            1, // Index 1
+            Icons.sticky_note_2_rounded,
+            'Çıkartmalar',
+          ),
+          _buildNavItem(
+            context,
+            colorScheme,
+            2, // Index 2
+            Icons.home_rounded,
+            'Anasayfa',
+          ),
+          _buildNavItem(
+            context,
+            colorScheme,
+            3, // Index 3
+            Icons.people_rounded,
+            'Arkadaşlar',
+          ),
+          _buildNavItem(
+            context,
+            colorScheme,
+            4, // Index 4
+            Icons.person_rounded,
+            'Profil',
+          ),
+        ],
+      ),
+    );
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            height: 64,
-            decoration: BoxDecoration(
-              color: isDark
-                  ? colorScheme.surface.withValues(alpha: 0.82)
-                  : colorScheme.surface.withValues(alpha: 0.9),
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(
-                color: colorScheme.outlineVariant.withValues(alpha: 0.55),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: colorScheme.shadow.withValues(
-                    alpha: isDark ? 0.25 : 0.08,
-                  ),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildNavItem(
-                  context,
-                  colorScheme,
-                  0, // Index 0
-                  Icons.home_rounded,
-                  'Anasayfa',
-                ),
-                _buildNavItem(
-                  context,
-                  colorScheme,
-                  1, // Index 1
-                  Icons.book_rounded,
-                  'Günlükler',
-                ),
-                _buildNavItem(
-                  context,
-                  colorScheme,
-                  2, // Index 2
-                  Icons.people_rounded,
-                  'Arkadaşlar',
-                ),
-                _buildNavItem(
-                  context,
-                  colorScheme,
-                  3, // Index 3
-                  Icons.inbox_rounded,
-                  'Inbox',
-                ),
-                _buildNavItem(
-                  context,
-                  colorScheme,
-                  4, // Index 4
-                  Icons.sticky_note_2_rounded,
-                  'Çıkartmalar',
-                ),
-              ],
-            ),
-          ),
-        ),
+        child: isDark
+            ? BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: navBody,
+              )
+            : navBody,
       ),
     );
   }

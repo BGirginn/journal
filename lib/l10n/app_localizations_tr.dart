@@ -84,19 +84,22 @@ class AppLocalizationsTr extends AppLocalizations {
   String get onboardingTitleCaptureMemories => 'Anılarınızı Kaydedin';
 
   @override
-  String get onboardingDescCaptureMemories => 'Metin, fotoğraf, video ve ses kayıtları ile özel günlüğünüzü oluşturun. Her anı benzersiz bir sayfada yaşatın.';
+  String get onboardingDescCaptureMemories =>
+      'Metin, fotoğraf, video ve ses kayıtları ile özel günlüğünüzü oluşturun. Her anı benzersiz bir sayfada yaşatın.';
 
   @override
   String get onboardingTitleShareTogether => 'Birlikte Paylaşın';
 
   @override
-  String get onboardingDescShareTogether => 'Takımlar oluşturun, arkadaşlarınızı davet edin ve birlikte ortak günlükler tutun. Anılar paylaşıldığında daha değerli olur.';
+  String get onboardingDescShareTogether =>
+      'Takımlar oluşturun, arkadaşlarınızı davet edin ve birlikte ortak günlükler tutun. Anılar paylaşıldığında daha değerli olur.';
 
   @override
   String get onboardingTitlePersonalize => 'Kişiselleştirin';
 
   @override
-  String get onboardingDescPersonalize => 'Nostaljik temalar, stickerlar ve çizim araçlarıyla günlüğünüzü tamamen kişiselleştirin.';
+  String get onboardingDescPersonalize =>
+      'Nostaljik temalar, stickerlar ve çizim araçlarıyla günlüğünüzü tamamen kişiselleştirin.';
 
   @override
   String get onboardingSkip => 'Atla';
@@ -114,7 +117,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get loginProfileChecking => 'Profil kontrol ediliyor...';
 
   @override
-  String get loginGoogleSignIn => 'Google ile Giriş Yap';
+  String get loginGoogleSignIn => 'Gmail ile Giriş Yap';
 
   @override
   String get loginAppleSignIn => 'Apple ile Giriş Yap';
@@ -123,22 +126,41 @@ class AppLocalizationsTr extends AppLocalizations {
   String get loginAccountExistsWithGoogleTitle => 'Google ile Devam Et';
 
   @override
-  String get loginAccountExistsWithGoogleMessage => 'Bu e-posta Google hesabınla kayıtlı.';
+  String get loginAccountExistsWithGoogleMessage =>
+      'Bu e-posta Google hesabınla kayıtlı.';
 
   @override
   String get loginContinueWithGoogle => 'Google ile Devam Et';
 
   @override
-  String get loginCanLinkAppleLater => 'Google ile giriş yaptıktan sonra Apple hesabını Profil ayarlarından bağlayabilirsin.';
+  String get loginCanLinkAppleLater =>
+      'Google ile giriş yaptıktan sonra Apple hesabını Profil ayarlarından bağlayabilirsin.';
 
   @override
-  String get loginAppleIOSOnly => 'Apple ile giriş sadece iOS\'ta kullanılabilir.';
+  String get loginAppleIOSOnly =>
+      'Apple ile giriş sadece iOS\'ta kullanılabilir.';
 
   @override
   String get loginAppleMissingToken => 'Apple kimlik tokeni alınamadı.';
 
   @override
   String get loginAppleInvalidCredential => 'Apple kimlik bilgisi geçersiz.';
+
+  @override
+  String get loginAppleProviderNotEnabled =>
+      'Firebase Authentication içinde Apple sağlayıcısı etkin değil.';
+
+  @override
+  String get loginAppleAuthorizationFailed =>
+      'Apple yetkilendirmesi başarısız. Cihaz/simülatörde Apple ID oturumunu kontrol edin.';
+
+  @override
+  String get loginAppleCredentialRequestFailed =>
+      'Apple kimlik bilgisi alınamadı. Lütfen tekrar deneyin.';
+
+  @override
+  String get loginAppleFlowTimeout =>
+      'Apple giriş penceresi yanıt vermedi. Simülatörde Apple hesabından çıkış yapıp tekrar deneyin.';
 
   @override
   String get loginGoogleConfigError => 'Google giriş yapılandırması hatalı.';
@@ -168,16 +190,19 @@ class AppLocalizationsTr extends AppLocalizations {
   String get linkAppleSuccess => 'Apple hesabı başarıyla bağlandı.';
 
   @override
-  String get linkAppleUnsupported => 'Apple hesabı bağlama sadece iOS\'ta kullanılabilir.';
+  String get linkAppleUnsupported =>
+      'Apple hesabı bağlama sadece iOS\'ta kullanılabilir.';
 
   @override
-  String get linkAppleNeedsRecentLogin => 'Apple bağlamak için lütfen tekrar giriş yapın.';
+  String get linkAppleNeedsRecentLogin =>
+      'Apple bağlamak için lütfen tekrar giriş yapın.';
 
   @override
   String get linkAppleAlreadyLinked => 'Apple hesabı zaten bağlı.';
 
   @override
-  String get linkAppleCredentialInUse => 'Bu Apple hesabı başka bir kullanıcıya bağlı.';
+  String get linkAppleCredentialInUse =>
+      'Bu Apple hesabı başka bir kullanıcıya bağlı.';
 
   @override
   String editorPageTitle(int pageNumber) {
@@ -283,7 +308,8 @@ class AppLocalizationsTr extends AppLocalizations {
   String get editorTextPlaceholder => 'Yazı ekle...';
 
   @override
-  String get editorMicPermissionRequired => 'Mikrofon izni gerekli. Lütfen ayarlardan izin verin.';
+  String get editorMicPermissionRequired =>
+      'Mikrofon izni gerekli. Lütfen ayarlardan izin verin.';
 
   @override
   String editorRecordError(Object error) {
@@ -345,7 +371,8 @@ class AppLocalizationsTr extends AppLocalizations {
   String get editorDeleteBlockTitle => 'Bloğu Sil';
 
   @override
-  String get editorDeleteBlockMessage => 'Bu bloğu silmek istediğinizden emin misiniz?';
+  String get editorDeleteBlockMessage =>
+      'Bu bloğu silmek istediğinizden emin misiniz?';
 
   @override
   String get editorDelete => 'Sil';
@@ -365,7 +392,8 @@ class AppLocalizationsTr extends AppLocalizations {
   String get editorUnsavedTitle => 'Kaydedilmemiş Değişiklikler';
 
   @override
-  String get editorUnsavedMessage => 'Kaydedilmemiş değişiklikleriniz var. Ne yapmak istersiniz?';
+  String get editorUnsavedMessage =>
+      'Kaydedilmemiş değişiklikleriniz var. Ne yapmak istersiniz?';
 
   @override
   String get editorExitWithoutSave => 'Çık (Kaydetme)';
@@ -376,5 +404,94 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String editorErrorWithMessage(Object error) {
     return 'Hata: $error';
+  }
+
+  @override
+  String get libraryGreetingMorning => 'Gunaydin';
+
+  @override
+  String get libraryGreetingAfternoon => 'Iyi gunler';
+
+  @override
+  String get libraryGreetingEvening => 'Iyi aksamlar';
+
+  @override
+  String get libraryHeaderYourJournals => 'Gunluklerin';
+
+  @override
+  String get librarySectionSubtitle => 'Kaldigin yerden devam et';
+
+  @override
+  String get libraryEmptyTitle => 'Ilk gunlugunu baslat';
+
+  @override
+  String get libraryEmptySubtitle =>
+      'Metin, fotograf, ses ve cizim ile anilarini kaydet.';
+
+  @override
+  String get libraryEmptyCta => 'Gunluk Olustur';
+
+  @override
+  String get libraryCreateTitle => 'Yeni Gunluk';
+
+  @override
+  String get libraryCreateHint => 'Orn: Seyahat Notlarim';
+
+  @override
+  String get libraryCreateAction => 'Olustur';
+
+  @override
+  String get libraryActionPreview => 'Canli Onizleme';
+
+  @override
+  String get libraryActionCustomizeCover => 'Kapagi Ozellestir';
+
+  @override
+  String get libraryActionRename => 'Yeniden Adlandir';
+
+  @override
+  String get libraryActionDelete => 'Sil';
+
+  @override
+  String get libraryPreviewTitle => 'Canli Gunluk Onizlemesi';
+
+  @override
+  String get libraryRenameTitle => 'Gunlugu Yeniden Adlandir';
+
+  @override
+  String get libraryRenameHint => 'Gunluk adi';
+
+  @override
+  String get libraryDeleteTitle => 'Gunlugu Sil';
+
+  @override
+  String libraryDeleteMessage(Object journalTitle) {
+    return '\"$journalTitle\" gunlugunu silmek istediginize emin misiniz?';
+  }
+
+  @override
+  String get libraryThemePickerTitle => 'Tema Secin';
+
+  @override
+  String get libraryCoverCustomizeTitle => 'Kapak Ozellestir';
+
+  @override
+  String get libraryThemeTab => 'Temalar';
+
+  @override
+  String get libraryPhotoTab => 'Fotograf';
+
+  @override
+  String get libraryUploading => 'Yukleniyor...';
+
+  @override
+  String get librarySelectFromGallery => 'Galeriden Sec';
+
+  @override
+  String get libraryCustomCoverHint => 'Ozel kapak fotografi yukleyin';
+
+  @override
+  String libraryUploadError(Object error) {
+    return 'Yukleme hatasi: $error';
   }
 }

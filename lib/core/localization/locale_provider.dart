@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal_app/core/theme/theme_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const _localeKey = 'app_locale_code';
+const appLocaleCodePreferenceKey = 'app_locale_code';
 
 class LocaleNotifier extends StateNotifier<Locale?> {
   final SharedPreferences _prefs;
@@ -14,7 +14,7 @@ class LocaleNotifier extends StateNotifier<Locale?> {
   }
 
   void _load() {
-    final code = _prefs.getString(_localeKey);
+    final code = _prefs.getString(appLocaleCodePreferenceKey);
     if (code == null || code.isEmpty) {
       state = null;
       return;
@@ -25,10 +25,10 @@ class LocaleNotifier extends StateNotifier<Locale?> {
   Future<void> setLocale(Locale? locale) async {
     state = locale;
     if (locale == null) {
-      await _prefs.remove(_localeKey);
+      await _prefs.remove(appLocaleCodePreferenceKey);
       return;
     }
-    await _prefs.setString(_localeKey, locale.languageCode);
+    await _prefs.setString(appLocaleCodePreferenceKey, locale.languageCode);
   }
 }
 

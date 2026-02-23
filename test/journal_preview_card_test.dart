@@ -26,6 +26,7 @@ Widget _buildCard({
   required Journal journal,
   required Stream<List<model.Page>> Function(String) pageStream,
   required Stream<List<Block>> Function(String) blockStream,
+  JournalCardVisualMode visualMode = JournalCardVisualMode.coverFirst,
   VoidCallback? onTap,
   VoidCallback? onLongPress,
 }) {
@@ -42,6 +43,7 @@ Widget _buildCard({
           child: JournalPreviewCard(
             journal: journal,
             theme: _testTheme,
+            visualMode: visualMode,
             onTap: onTap ?? () {},
             onLongPress: onLongPress ?? () {},
           ),
@@ -51,8 +53,15 @@ Widget _buildCard({
   );
 }
 
+String _fmtDate(DateTime date) {
+  final day = date.day.toString().padLeft(2, '0');
+  final month = date.month.toString().padLeft(2, '0');
+  final year = date.year.toString();
+  return '$day.$month.$year';
+}
+
 void main() {
-  testWidgets('empty pages fallback renders title/date and supports gestures', (
+  testWidgets('cover-first card renders title/date and supports gestures', (
     tester,
   ) async {
     var tapped = false;
@@ -78,8 +87,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Memory Book'), findsOneWidget);
-    expect(find.text('Bugün'), findsOneWidget);
+    expect(find.text(_fmtDate(journal.updatedAt)), findsOneWidget);
     expect(find.text('M'), findsOneWidget);
+    expect(find.text('0'), findsOneWidget);
 
     await tester.tap(find.byType(JournalPreviewCard));
     await tester.pump();
@@ -90,7 +100,7 @@ void main() {
     expect(longPressed, isTrue);
   });
 
-  testWidgets('loading then data states switch from spinner to fallback', (
+  testWidgets('page count placeholder resolves after stream emits', (
     tester,
   ) async {
     final journal = Journal(
@@ -113,16 +123,15 @@ void main() {
       ),
     );
 
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text('...'), findsOneWidget);
 
     await tester.pump(const Duration(milliseconds: 80));
     await tester.pumpAndSettle();
 
-    expect(find.byType(CircularProgressIndicator), findsNothing);
-    expect(find.text('Dün'), findsOneWidget);
+    expect(find.text('0'), findsOneWidget);
   });
 
-  testWidgets('error pages stream falls back to cover view', (tester) async {
+  testWidgets('live preview mode falls back safely when pages stream errors', (tester) async {
     final journal = Journal(
       id: 'j3',
       title: 'Archive',
@@ -139,6 +148,7 @@ void main() {
         journal: journal,
         pageStream: failingPages,
         blockStream: (_) => Stream.value(const <Block>[]),
+        visualMode: JournalCardVisualMode.livePreview,
       ),
     );
 

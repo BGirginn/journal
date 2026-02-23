@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "317674243768-67f4um31it8ibal3gif545k1jea2vf42.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.bgirginn.journal_app",
+            "certificate_hash": "c775f13ba3a37f626ea3f846248cddf9ae38eff2"
+          }
+        },
+        {
           "client_id": "317674243768-ldc0pr0p5odtkr750jkb2jq3stg8geic.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
@@ -35,6 +43,14 @@
           "android_info": {
             "package_name": "com.bgirginn.journal_app",
             "certificate_hash": "2145897e6cd17c1a5d512f35f573dabe744b2072"
+          }
+        },
+        {
+          "client_id": "317674243768-r5oi6podfdeji6c79ouekh7donnb7s56.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.bgirginn.journal_app",
+            "certificate_hash": "24e6b49ed908fe90bba557a1819f5b6ab4e3ae96"
           }
         },
         {

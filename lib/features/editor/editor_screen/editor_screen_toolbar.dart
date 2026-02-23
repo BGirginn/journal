@@ -1,101 +1,167 @@
 part of '../editor_screen.dart';
 
 extension _EditorToolbarExtension on _EditorScreenState {
-  Widget _buildToolbar(bool isDark) {
+  Widget _buildToolbar(bool topBarSolid) {
     final l10n = AppLocalizations.of(context)!;
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      color: colorScheme.surface,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _ToolBtn(
-            Icons.pan_tool_alt,
-            l10n.editorToolSelect,
-            _mode == EditorMode.select,
-            () => _applyState(() {
-              _mode = EditorMode.select;
-              _eraserPreviewPoint = null;
-            }),
-          ),
-          _ToolBtn(
-            Icons.text_fields,
-            l10n.editorToolText,
-            _mode == EditorMode.text,
-            () => _addTextBlock(),
-          ),
-          _ToolBtn(
-            Icons.edit,
-            l10n.editorToolDraw,
-            _mode == EditorMode.draw,
-            () => _applyState(() {
-              _mode = EditorMode.draw;
-              _eraserPreviewPoint = null;
-              if (_penColor == Colors.black) {
-                final pageLooksDark =
-                    _theme.visuals.assetPath != null ||
-                    _theme.visuals.pageColor.computeLuminance() < 0.3;
-                if (pageLooksDark) {
-                  _penColor = Colors.white;
-                }
-              }
-            }),
-          ),
-          _ToolBtn(
-            Icons.cleaning_services_outlined,
-            l10n.editorToolErase,
-            _mode == EditorMode.erase,
-            () => _applyState(() => _mode = EditorMode.erase),
-          ),
-          _ToolBtn(
-            Icons.add_circle,
-            l10n.editorToolMedia,
-            false,
-            _showMediaPicker,
-          ),
-          _ToolBtn(
-            Icons.emoji_emotions_outlined,
-            l10n.editorToolSticker,
-            false,
-            _handleStickerPicker,
-          ),
-          _ToolBtn(
-            Icons.label_outline,
-            l10n.editorToolTag,
-            false,
-            _showTagEditor,
-          ),
-          if (_mode == EditorMode.select)
-            _ToolBtn(
-              Icons.filter_1,
-              l10n.editorToolZoomReset,
-              false,
-              _resetPageZoom,
-            ),
-          if (_selectedBlockId != null) ...[
-            if (_getSelectedBlockType() == BlockType.image) ...[
-              _ToolBtn(
-                Icons.rotate_right,
-                l10n.editorToolRotate,
-                false,
-                _showRotateDialog,
+    final semantic =
+        Theme.of(context).extension<JournalSemanticColors>() ??
+        (Theme.of(context).brightness == Brightness.dark
+            ? JournalSemanticColors.dark
+            : JournalSemanticColors.light);
+    final radius =
+        Theme.of(context).extension<JournalRadiusScale>() ??
+        JournalRadiusScale.standard;
+    final spacing =
+        Theme.of(context).extension<JournalSpacingScale>() ??
+        JournalSpacingScale.standard;
+    final elevation =
+        Theme.of(context).extension<JournalElevationScale>() ??
+        (Theme.of(context).brightness == Brightness.dark
+            ? JournalElevationScale.dark
+            : JournalElevationScale.light);
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(spacing.md, 0, spacing.md, spacing.md),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(radius.modal),
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: spacing.xs,
+                vertical: spacing.xs,
               ),
-              _ToolBtn(
-                Icons.style,
-                l10n.editorToolFrame,
-                false,
-                _showFramePicker,
+              decoration: BoxDecoration(
+                color: semantic.floatingToolbar.withValues(
+                  alpha: topBarSolid ? 0.95 : 0.88,
+                ),
+                borderRadius: BorderRadius.circular(radius.modal),
+                border: Border.all(color: semantic.divider),
+                boxShadow: elevation.toolShadow,
               ),
-            ],
-            _ToolBtn(
-              Icons.delete,
-              l10n.editorToolDelete,
-              false,
-              _deleteSelectedBlock,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _ToolBtn(
+                      icon: Icons.pan_tool_alt_rounded,
+                      tooltip: l10n.editorToolSelect,
+                      isSelected: _mode == EditorMode.select,
+                      onTap: () => _applyState(() {
+                        _mode = EditorMode.select;
+                        _eraserPreviewPoint = null;
+                      }),
+                    ),
+                    _ToolBtn(
+                      icon: Icons.text_fields_rounded,
+                      tooltip: l10n.editorToolText,
+                      isSelected: _mode == EditorMode.text,
+                      onTap: () {
+                        _addTextBlock();
+                        _applyState(() => _mode = EditorMode.text);
+                      },
+                    ),
+                    _ToolBtn(
+                      icon: Icons.image_outlined,
+                      tooltip: l10n.editorMediaImage,
+                      isSelected: false,
+                      onTap: _addImage,
+                    ),
+                    _ToolBtn(
+                      icon: Icons.videocam_outlined,
+                      tooltip: l10n.editorMediaVideo,
+                      isSelected: false,
+                      onTap: _addVideoBlock,
+                    ),
+                    _ToolBtn(
+                      icon: Icons.mic_none_rounded,
+                      tooltip: l10n.editorMediaAudio,
+                      isSelected: false,
+                      onTap: _recordAudio,
+                    ),
+                    _ToolBtn(
+                      icon: Icons.brush_rounded,
+                      tooltip: l10n.editorMediaDrawing,
+                      isSelected: false,
+                      onTap: _openDrawingCanvas,
+                    ),
+                    _ToolBtn(
+                      icon: Icons.emoji_emotions_outlined,
+                      tooltip: l10n.editorToolSticker,
+                      isSelected: false,
+                      onTap: _handleStickerPicker,
+                    ),
+                    _ToolBtn(
+                      icon: Icons.draw_rounded,
+                      tooltip: l10n.editorToolDraw,
+                      isSelected:
+                          _mode == EditorMode.draw || _mode == EditorMode.erase,
+                      onTap: () => _applyState(() {
+                        _mode = EditorMode.draw;
+                        _eraserPreviewPoint = null;
+                        if (_penColor == Colors.black &&
+                            (_theme.visuals.assetPath != null ||
+                                _theme.visuals.pageColor.computeLuminance() < 0.3)) {
+                          _penColor = Colors.white;
+                        }
+                      }),
+                    ),
+                    _ToolBtn(
+                      icon: Icons.cleaning_services_outlined,
+                      tooltip: l10n.editorToolErase,
+                      isSelected: _mode == EditorMode.erase,
+                      onTap: () => _applyState(() => _mode = EditorMode.erase),
+                    ),
+                    _ToolBtn(
+                      icon: Icons.label_outline_rounded,
+                      tooltip: l10n.editorToolTag,
+                      isSelected: false,
+                      onTap: _showTagEditor,
+                    ),
+                    if (_mode == EditorMode.select)
+                      _ToolBtn(
+                        icon: Icons.filter_1_rounded,
+                        tooltip: l10n.editorToolZoomReset,
+                        isSelected: false,
+                        onTap: _resetPageZoom,
+                      ),
+                    if (_selectedBlockId != null) ...[
+                      Container(
+                        width: 1,
+                        height: 28,
+                        margin: EdgeInsets.symmetric(horizontal: spacing.xs),
+                        color: semantic.divider,
+                      ),
+                      if (_getSelectedBlockType() == BlockType.image) ...[
+                        _ToolBtn(
+                          icon: Icons.rotate_right_rounded,
+                          tooltip: l10n.editorToolRotate,
+                          isSelected: false,
+                          onTap: _showRotateDialog,
+                        ),
+                        _ToolBtn(
+                          icon: Icons.style_outlined,
+                          tooltip: l10n.editorToolFrame,
+                          isSelected: false,
+                          onTap: _showFramePicker,
+                        ),
+                      ],
+                      _ToolBtn(
+                        icon: Icons.delete_outline_rounded,
+                        tooltip: l10n.editorToolDelete,
+                        isSelected: false,
+                        isDanger: true,
+                        onTap: _deleteSelectedBlock,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
-          ],
-        ],
+          ),
+        ),
       ),
     );
   }
@@ -112,6 +178,14 @@ extension _EditorToolbarExtension on _EditorScreenState {
   Widget _buildPenOptions() {
     final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
+    final semantic =
+        Theme.of(context).extension<JournalSemanticColors>() ??
+        (Theme.of(context).brightness == Brightness.dark
+            ? JournalSemanticColors.dark
+            : JournalSemanticColors.light);
+    final spacing =
+        Theme.of(context).extension<JournalSpacingScale>() ??
+        JournalSpacingScale.standard;
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
     final pageLooksDark =
         _theme.visuals.assetPath != null ||
@@ -134,7 +208,7 @@ extension _EditorToolbarExtension on _EditorScreenState {
         : colorScheme.primary.withValues(alpha: 0.35);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.fromLTRB(spacing.md, spacing.xs, spacing.md, spacing.sm),
       decoration: BoxDecoration(
         color: panelColor,
         border: Border(top: BorderSide(color: dividerColor, width: 0.8)),
@@ -144,11 +218,11 @@ extension _EditorToolbarExtension on _EditorScreenState {
           if (_mode == EditorMode.draw) ...[
             // Colors
             ...[
-              Colors.black,
+              colorScheme.onSurface,
               Colors.white,
-              Colors.blue,
-              Colors.red,
-              Colors.green,
+              BrandColors.primary600,
+              semantic.mutedRose,
+              semantic.softMint,
             ].map(
               (c) => GestureDetector(
                 onTap: () => _applyState(() => _penColor = c),
