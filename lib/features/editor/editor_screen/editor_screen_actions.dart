@@ -62,42 +62,6 @@ extension _EditorActionsExtension on _EditorScreenState {
     _insertBlockWithSync(block);
   }
 
-  Future<void> _openDrawingCanvas() async {
-    final imagePath = await Navigator.push<String>(
-      context,
-      MaterialPageRoute(builder: (context) => const DrawingCanvasScreen()),
-    );
-
-    if (imagePath != null && mounted) {
-      final placement = _computeInsertPlacement(
-        baseWidth: 0.9,
-        baseHeight: 0.4,
-      );
-      // Insert drawing as image block
-      final id = const Uuid().v4();
-      final block = Block(
-        id: id,
-        pageId: widget.page.id,
-        type: BlockType.image,
-        x: placement.x,
-        y: placement.y,
-        width: placement.width,
-        height: placement.height,
-        rotation: 0,
-        zIndex: _blocks.length,
-        payloadJson: ImageBlockPayload(path: imagePath).toJsonString(),
-      );
-
-      _applyState(() {
-        _blocks.add(block);
-        _isDirty = true;
-      });
-
-      _insertBlockWithSync(block);
-      NotificationService.logEvent('drawing_created');
-    }
-  }
-
   void _showTagEditor() {
     final l10n = AppLocalizations.of(context)!;
     final currentTags = widget.page.tagList;

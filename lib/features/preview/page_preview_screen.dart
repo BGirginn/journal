@@ -121,6 +121,10 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
                             child: Image.asset(
                               _theme.visuals.assetPath!,
                               fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => CustomPaint(
+                                painter: NostalgicPagePainter(theme: _theme),
+                                size: Size.infinite,
+                              ),
                             ),
                           )
                         else

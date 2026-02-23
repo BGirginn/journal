@@ -13,6 +13,7 @@ import 'package:journal_app/features/notifications/notifications_repository.dart
 import 'package:journal_app/l10n/app_localizations.dart';
 import 'package:journal_app/providers/journal_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class _NoopDeepLinkService extends DeepLinkService {
   _NoopDeepLinkService(super.ref);
@@ -72,7 +73,7 @@ void main() {
   }
 
   testWidgets(
-    'library app bar keeps inbox shortcut but no search/profile icons',
+    'home tab shows global app bar with inbox and keeps bottom navigation',
     (tester) async {
       await tester.pumpWidget(
         buildScope(
@@ -87,20 +88,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byIcon(Icons.search), findsNothing);
-      expect(
-        find.descendant(
-          of: find.byType(AppBar),
-          matching: find.byIcon(Icons.person_rounded),
-        ),
-        findsNothing,
-      );
-      expect(
-        find.descendant(
-          of: find.byType(AppBar),
-          matching: find.byIcon(Icons.inbox_rounded),
-        ),
-        findsOneWidget,
-      );
+      expect(find.byType(AppBar), findsOneWidget);
+      expect(find.byIcon(LucideIcons.inbox), findsOneWidget);
       expect(find.text('Anasayfa'), findsWidgets);
     },
   );
@@ -118,7 +107,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.person_rounded));
+    await tester.tap(find.byIcon(LucideIcons.user));
     await tester.pumpAndSettle();
 
     expect(find.text('Profil ve Ayarlar'), findsWidgets);

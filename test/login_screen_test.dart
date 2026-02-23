@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:journal_app/core/auth/auth_service.dart';
 import 'package:journal_app/core/errors/app_error.dart';
+import 'package:journal_app/core/theme/theme_provider.dart';
 import 'package:journal_app/features/auth/login_screen.dart';
 import 'package:journal_app/l10n/app_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class TestAuthService extends AuthService {
   TestAuthService({this.authStream = const Stream.empty(), this.onGoogleSignIn})
@@ -28,9 +30,13 @@ class TestAuthService extends AuthService {
   }
 }
 
-Widget _buildTestApp({required AuthService authService}) {
+Widget _buildTestApp({
+  required AuthService authService,
+  required SharedPreferences prefs,
+}) {
   return ProviderScope(
     overrides: [
+      sharedPreferencesProvider.overrideWithValue(prefs),
       authServiceProvider.overrideWithValue(authService),
       firebaseAvailableProvider.overrideWith((ref) => true),
       firebaseErrorProvider.overrideWith((ref) => null),
@@ -47,12 +53,21 @@ Widget _buildTestApp({required AuthService authService}) {
 }
 
 void main() {
+  late SharedPreferences prefs;
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    prefs = await SharedPreferences.getInstance();
+  });
+
   testWidgets(
     'iOS renders Gmail sign-in button',
     (tester) async {
       final service = TestAuthService(authStream: Stream<User?>.value(null));
 
-      await tester.pumpWidget(_buildTestApp(authService: service));
+      await tester.pumpWidget(
+        _buildTestApp(authService: service, prefs: prefs),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Continue with Gmail'), findsOneWidget);
@@ -69,7 +84,9 @@ void main() {
     (tester) async {
       final service = TestAuthService(authStream: Stream<User?>.value(null));
 
-      await tester.pumpWidget(_buildTestApp(authService: service));
+      await tester.pumpWidget(
+        _buildTestApp(authService: service, prefs: prefs),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Continue with Gmail'), findsOneWidget);
@@ -91,7 +108,9 @@ void main() {
         onGoogleSignIn: () async => null,
       );
 
-      await tester.pumpWidget(_buildTestApp(authService: service));
+      await tester.pumpWidget(
+        _buildTestApp(authService: service, prefs: prefs),
+      );
       await tester.pumpAndSettle();
 
       await tester.ensureVisible(find.text('Continue with Gmail'));
@@ -120,7 +139,9 @@ void main() {
         },
       );
 
-      await tester.pumpWidget(_buildTestApp(authService: service));
+      await tester.pumpWidget(
+        _buildTestApp(authService: service, prefs: prefs),
+      );
       await tester.pump(const Duration(milliseconds: 300));
 
       await tester.ensureVisible(find.text('Continue with Gmail'));

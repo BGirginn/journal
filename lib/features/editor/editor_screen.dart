@@ -27,9 +27,7 @@ import 'package:journal_app/core/observability/app_logger.dart';
 import 'package:journal_app/core/observability/telemetry_service.dart';
 import 'package:journal_app/features/preview/page_preview_screen.dart';
 import 'package:journal_app/features/export/services/pdf_export_service.dart';
-import 'package:journal_app/features/editor/widgets/drawing_canvas_screen.dart';
 import 'package:journal_app/features/editor/widgets/tag_editor_widget.dart';
-import 'package:journal_app/core/services/notification_service.dart';
 import 'package:journal_app/core/theme/tokens/brand_colors.dart';
 import 'package:journal_app/core/theme/tokens/brand_elevation.dart';
 import 'package:journal_app/core/theme/tokens/brand_radius.dart';
@@ -653,7 +651,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                     child: Column(
                       children: [
                         Expanded(child: _buildCanvas()),
-                        if (_mode == EditorMode.draw || _mode == EditorMode.erase)
+                        if (_mode == EditorMode.draw ||
+                            _mode == EditorMode.erase)
                           _buildPenOptions(),
                         const SizedBox(height: 98),
                       ],

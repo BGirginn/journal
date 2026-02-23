@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal_app/core/auth/auth_service.dart';
 import 'package:journal_app/core/errors/app_error.dart';
 import 'package:journal_app/core/navigation/app_router.dart';
+import 'package:journal_app/core/theme/theme_provider.dart';
+import 'package:journal_app/core/theme/theme_variant.dart';
 import 'package:journal_app/core/theme/tokens/brand_colors.dart';
 import 'package:journal_app/l10n/app_localizations.dart';
 
@@ -75,32 +77,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final semantic = theme.extension<JournalSemanticColors>();
+    final activeVariant = ref.watch(themeProvider).effectiveVariant;
+    final isVioletTheme =
+        activeVariant == AppThemeVariant.violetNebulaJournal ||
+        activeVariant == AppThemeVariant.testedTheme;
+    final isTestedTheme = activeVariant == AppThemeVariant.testedTheme;
     final reduceMotion =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     final isDark = theme.brightness == Brightness.dark;
 
-    final bgGradient = isDark
-        ? const [Color(0xFF17161D), Color(0xFF252330), Color(0xFF36445A)]
-        : const [Color(0xFFECE7DE), Color(0xFFD8D3C8), Color(0xFFC5CEDC)];
-
-    final titleColor = isDark
-        ? const Color(0xFFF4EFE5)
-        : BrandColors.primary900;
-    final subtitleColor = titleColor.withValues(alpha: isDark ? 0.88 : 0.78);
-
-    final orbPrimary = colorScheme.primary.withValues(
-      alpha: isDark ? 0.26 : 0.18,
+    final visual = _LoginVisualTokens.resolve(
+      isDark: isDark,
+      isVioletTheme: isVioletTheme,
+      isTestedTheme: isTestedTheme,
+      colorScheme: colorScheme,
     );
-    final orbWarm = BrandColors.warmAccent.withValues(
-      alpha: isDark ? 0.22 : 0.3,
+
+    final titleColor = isDark ? visual.titleColorDark : visual.titleColorLight;
+    final subtitleColor = titleColor.withValues(
+      alpha: isVioletTheme && isDark ? 0.72 : (isDark ? 0.88 : 0.78),
     );
-    final orbMint = BrandColors.softMint.withValues(alpha: isDark ? 0.2 : 0.26);
 
     return Scaffold(
       body: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: bgGradient,
+            colors: visual.backgroundGradient,
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             stops: const [0.0, 0.5, 1.0],
@@ -111,17 +114,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             Positioned(
               top: -120,
               right: -110,
-              child: _BackdropOrb(size: 320, color: orbPrimary),
+              child: _BackdropOrb(size: 320, color: visual.orbPrimary),
             ),
             Positioned(
               top: 170,
               left: -95,
-              child: _BackdropOrb(size: 250, color: orbWarm),
+              child: _BackdropOrb(size: 250, color: visual.orbWarm),
             ),
             Positioned(
               bottom: -130,
               right: -70,
-              child: _BackdropOrb(size: 290, color: orbMint),
+              child: _BackdropOrb(size: 290, color: visual.orbMint),
             ),
             SafeArea(
               child: LayoutBuilder(
@@ -132,12 +135,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     titleColor: titleColor,
                     subtitleColor: subtitleColor,
                     isDark: isDark,
+                    isVioletTheme: isVioletTheme,
+                    semantic: semantic,
                   );
 
                   final authPanel = _buildAuthPanel(
                     context: context,
                     l10n: l10n,
                     isDark: isDark,
+                    isVioletTheme: isVioletTheme,
+                    semantic: semantic,
                   );
 
                   return SingleChildScrollView(
@@ -191,6 +198,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     required Color titleColor,
     required Color subtitleColor,
     required bool isDark,
+    required bool isVioletTheme,
+    required JournalSemanticColors? semantic,
   }) {
     final textTheme = Theme.of(context).textTheme;
 
@@ -198,7 +207,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 8),
-        _HeroBadge(isDark: isDark),
+        _HeroBadge(
+          isDark: isDark,
+          isVioletTheme: isVioletTheme,
+          semantic: semantic,
+        ),
         const SizedBox(height: 28),
         Text(
           l10n.appTitle,
@@ -225,6 +238,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           secondDescription: l10n.onboardingDescShareTogether,
           thirdLabel: l10n.onboardingTitlePersonalize,
           thirdDescription: l10n.onboardingDescPersonalize,
+          isVioletTheme: isVioletTheme,
+          semantic: semantic,
         ),
       ],
     );
@@ -234,6 +249,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     required BuildContext context,
     required AppLocalizations l10n,
     required bool isDark,
+    required bool isVioletTheme,
+    required JournalSemanticColors? semantic,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
@@ -250,18 +267,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
       decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: isDark ? 0.88 : 0.9),
+        color: isVioletTheme
+            ? (semantic?.elevated ?? colorScheme.surface).withValues(
+                alpha: isDark ? 0.92 : 0.9,
+              )
+            : colorScheme.surface.withValues(alpha: isDark ? 0.88 : 0.9),
         borderRadius: BorderRadius.circular(30),
         border: Border.all(
-          color: colorScheme.outlineVariant.withValues(
-            alpha: isDark ? 0.78 : 0.9,
-          ),
+          color: isVioletTheme
+              ? (semantic?.divider ?? colorScheme.outlineVariant).withValues(
+                  alpha: isDark ? 0.95 : 0.82,
+                )
+              : colorScheme.outlineVariant.withValues(
+                  alpha: isDark ? 0.78 : 0.9,
+                ),
         ),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.shadow.withValues(alpha: isDark ? 0.32 : 0.16),
-            blurRadius: 34,
-            offset: const Offset(0, 16),
+            color: colorScheme.shadow.withValues(
+              alpha: isVioletTheme
+                  ? (isDark ? 0.42 : 0.2)
+                  : (isDark ? 0.32 : 0.16),
+            ),
+            blurRadius: isVioletTheme ? (isDark ? 28 : 24) : 34,
+            offset: const Offset(0, 14),
           ),
         ],
       ),
@@ -380,9 +409,15 @@ class _BackdropOrb extends StatelessWidget {
 }
 
 class _HeroBadge extends StatelessWidget {
-  const _HeroBadge({required this.isDark});
+  const _HeroBadge({
+    required this.isDark,
+    required this.isVioletTheme,
+    required this.semantic,
+  });
 
   final bool isDark;
+  final bool isVioletTheme;
+  final JournalSemanticColors? semantic;
 
   @override
   Widget build(BuildContext context) {
@@ -395,7 +430,16 @@ class _HeroBadge extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(30),
         gradient: LinearGradient(
-          colors: isDark
+          colors: isVioletTheme
+              ? [
+                  (semantic?.card ?? colorScheme.surface).withValues(
+                    alpha: isDark ? 1 : 0.96,
+                  ),
+                  (semantic?.elevated ?? colorScheme.surface).withValues(
+                    alpha: isDark ? 1 : 0.96,
+                  ),
+                ]
+              : isDark
               ? const [Color(0xFF2B3042), Color(0xFF3F4C66)]
               : const [Color(0xFFF8F4EC), Color(0xFFE4DDD2)],
           begin: Alignment.topLeft,
@@ -408,8 +452,12 @@ class _HeroBadge extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.shadow.withValues(alpha: isDark ? 0.36 : 0.14),
-            blurRadius: 28,
+            color: colorScheme.shadow.withValues(
+              alpha: isVioletTheme
+                  ? (isDark ? 0.4 : 0.18)
+                  : (isDark ? 0.36 : 0.14),
+            ),
+            blurRadius: isVioletTheme ? (isDark ? 26 : 22) : 28,
             offset: const Offset(0, 12),
           ),
         ],
@@ -417,7 +465,11 @@ class _HeroBadge extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          color: colorScheme.surface.withValues(alpha: isDark ? 0.26 : 0.74),
+          color: isVioletTheme
+              ? (semantic?.background ?? colorScheme.surface).withValues(
+                  alpha: isDark ? 0.34 : 0.36,
+                )
+              : colorScheme.surface.withValues(alpha: isDark ? 0.26 : 0.74),
         ),
         child: Center(
           child: Icon(
@@ -439,6 +491,8 @@ class _HighlightsPanel extends StatelessWidget {
     required this.secondDescription,
     required this.thirdLabel,
     required this.thirdDescription,
+    required this.isVioletTheme,
+    required this.semantic,
   });
 
   final String firstLabel;
@@ -447,6 +501,8 @@ class _HighlightsPanel extends StatelessWidget {
   final String secondDescription;
   final String thirdLabel;
   final String thirdDescription;
+  final bool isVioletTheme;
+  final JournalSemanticColors? semantic;
 
   @override
   Widget build(BuildContext context) {
@@ -457,12 +513,20 @@ class _HighlightsPanel extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: isDark ? 0.18 : 0.5),
+        color: isVioletTheme
+            ? (semantic?.card ?? colorScheme.surface).withValues(
+                alpha: isDark ? 0.46 : 0.66,
+              )
+            : colorScheme.surface.withValues(alpha: isDark ? 0.18 : 0.5),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: colorScheme.outlineVariant.withValues(
-            alpha: isDark ? 0.72 : 0.88,
-          ),
+          color: isVioletTheme
+              ? (semantic?.divider ?? colorScheme.outlineVariant).withValues(
+                  alpha: isDark ? 0.95 : 0.82,
+                )
+              : colorScheme.outlineVariant.withValues(
+                  alpha: isDark ? 0.72 : 0.88,
+                ),
         ),
       ),
       child: Column(
@@ -471,21 +535,90 @@ class _HighlightsPanel extends StatelessWidget {
             icon: Icons.auto_stories_rounded,
             label: firstLabel,
             description: firstDescription,
+            isVioletTheme: isVioletTheme,
           ),
           const SizedBox(height: 10),
           _HighlightItem(
             icon: Icons.groups_rounded,
             label: secondLabel,
             description: secondDescription,
+            isVioletTheme: isVioletTheme,
           ),
           const SizedBox(height: 10),
           _HighlightItem(
             icon: Icons.palette_rounded,
             label: thirdLabel,
             description: thirdDescription,
+            isVioletTheme: isVioletTheme,
           ),
         ],
       ),
+    );
+  }
+}
+
+class _LoginVisualTokens {
+  final List<Color> backgroundGradient;
+  final Color titleColorDark;
+  final Color titleColorLight;
+  final Color orbPrimary;
+  final Color orbWarm;
+  final Color orbMint;
+
+  const _LoginVisualTokens({
+    required this.backgroundGradient,
+    required this.titleColorDark,
+    required this.titleColorLight,
+    required this.orbPrimary,
+    required this.orbWarm,
+    required this.orbMint,
+  });
+
+  static _LoginVisualTokens resolve({
+    required bool isDark,
+    required bool isVioletTheme,
+    required bool isTestedTheme,
+    required ColorScheme colorScheme,
+  }) {
+    if (isTestedTheme) {
+      return _LoginVisualTokens(
+        backgroundGradient: isDark
+            ? const [Color(0xFF070B16), Color(0xFF0F1124), Color(0xFF15102E)]
+            : const [Color(0xFFF1EEFF), Color(0xFFE5E2FF), Color(0xFFD9D7F8)],
+        titleColorDark: Colors.white,
+        titleColorLight: BrandColors.primary900,
+        orbPrimary: const Color(
+          0xFF7C3AED,
+        ).withValues(alpha: isDark ? 0.45 : 0.22),
+        orbWarm: Colors.transparent,
+        orbMint: const Color(
+          0xFF38BDF8,
+        ).withValues(alpha: isDark ? 0.12 : 0.08),
+      );
+    }
+
+    if (isVioletTheme) {
+      return _LoginVisualTokens(
+        backgroundGradient: isDark
+            ? const [Color(0xFF0B1020), Color(0xFF13112B), Color(0xFF2A145C)]
+            : const [Color(0xFFF2ECFF), Color(0xFFE9E1FF), Color(0xFFDAD0F5)],
+        titleColorDark: Colors.white,
+        titleColorLight: BrandColors.primary900,
+        orbPrimary: colorScheme.primary.withValues(alpha: isDark ? 0.3 : 0.2),
+        orbWarm: const Color(0xFFB794F4).withValues(alpha: isDark ? 0.24 : 0.2),
+        orbMint: const Color(0xFFA78BFA).withValues(alpha: isDark ? 0.2 : 0.16),
+      );
+    }
+
+    return _LoginVisualTokens(
+      backgroundGradient: isDark
+          ? const [Color(0xFF17161D), Color(0xFF252330), Color(0xFF36445A)]
+          : const [Color(0xFFECE7DE), Color(0xFFD8D3C8), Color(0xFFC5CEDC)],
+      titleColorDark: const Color(0xFFF4EFE5),
+      titleColorLight: BrandColors.primary900,
+      orbPrimary: colorScheme.primary.withValues(alpha: isDark ? 0.26 : 0.18),
+      orbWarm: BrandColors.warmAccent.withValues(alpha: isDark ? 0.22 : 0.3),
+      orbMint: BrandColors.softMint.withValues(alpha: isDark ? 0.2 : 0.26),
     );
   }
 }
@@ -495,11 +628,13 @@ class _HighlightItem extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.description,
+    required this.isVioletTheme,
   });
 
   final IconData icon;
   final String label;
   final String description;
+  final bool isVioletTheme;
 
   @override
   Widget build(BuildContext context) {
@@ -511,11 +646,15 @@ class _HighlightItem extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: isDark ? 0.2 : 0.78),
+        color: isVioletTheme
+            ? colorScheme.surface.withValues(alpha: isDark ? 0.34 : 0.86)
+            : colorScheme.surface.withValues(alpha: isDark ? 0.2 : 0.78),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(
-            alpha: isDark ? 0.5 : 0.65,
+            alpha: isVioletTheme
+                ? (isDark ? 0.74 : 0.6)
+                : (isDark ? 0.5 : 0.65),
           ),
         ),
       ),

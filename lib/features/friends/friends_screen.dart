@@ -25,20 +25,51 @@ class FriendsView extends ConsumerStatefulWidget {
   ConsumerState<FriendsView> createState() => _FriendsViewState();
 }
 
-class _FriendsViewState extends ConsumerState<FriendsView> {
+class _FriendsViewState extends ConsumerState<FriendsView>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
   UserProfile? _searchResult;
   bool _isSearching = false;
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(_onTabChanged);
+  }
+
+  @override
   void dispose() {
+    _tabController.removeListener(_onTabChanged);
+    _tabController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
+  void _onTabChanged() {
+    if (_tabController.index != 0 &&
+        (_searchResult != null ||
+            _error != null ||
+            _searchController.text.isNotEmpty)) {
+      setState(() {
+        _searchController.clear();
+        _searchResult = null;
+        _error = null;
+      });
+    }
+  }
+
   void _handleSearch() async {
-    final query = _searchController.text.trim();
+    if (_tabController.index != 0) {
+      return;
+    }
+
+    final query = _searchController.text.trim().replaceFirst(
+      RegExp(r'^@+'),
+      '',
+    );
     if (query.isEmpty) {
       setState(() => _error = 'Lütfen bir kullanıcı adı girin.');
       return;
@@ -218,38 +249,37 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
           );
         }
 
-        return DefaultTabController(
-          length: 3,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                child: _buildMyIdCard(profile),
-              ),
-              const SizedBox(height: 12),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _buildStatsSummary(profile),
-              ),
-              const SizedBox(height: 8),
-              const TabBar(
-                tabs: [
-                  Tab(text: 'Ekle'),
-                  Tab(text: 'İstekler'),
-                  Tab(text: 'Arkadaşlar'),
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: _buildMyIdCard(profile),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildStatsSummary(profile),
+            ),
+            const SizedBox(height: 8),
+            TabBar(
+              controller: _tabController,
+              tabs: const [
+                Tab(text: 'Ekle'),
+                Tab(text: 'İstekler'),
+                Tab(text: 'Arkadaşlar'),
+              ],
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildAddTab(profile),
+                  _buildRequestsTab(profile),
+                  _buildFriendsTab(profile),
                 ],
               ),
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    _buildAddTab(profile),
-                    _buildRequestsTab(profile),
-                    _buildFriendsTab(profile),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -290,6 +320,11 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
       padding: const EdgeInsets.all(16),
       children: [
         Text('Arkadaş Ekle', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 6),
+        Text(
+          'Kullanıcı adını yazarak ara ve çıkan sonuçtan arkadaş ekle.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
         const SizedBox(height: 12),
         _buildSearchBar(),
         if (_isSearching)
@@ -306,7 +341,15 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
             ),
           ),
         if (_searchResult != null)
-          _buildSearchResultCard(_searchResult!, profile),
+          _buildSearchResultCard(_searchResult!, profile)
+        else if (!_isSearching && _error == null)
+          const Padding(
+            padding: EdgeInsets.only(top: 16),
+            child: Text(
+              'Aramak için kullanıcı adını yazıp sağdaki oka bas.',
+              textAlign: TextAlign.center,
+            ),
+          ),
       ],
     );
   }
@@ -455,34 +498,46 @@ class _FriendsViewState extends ConsumerState<FriendsView> {
   }
 
   Widget _buildSearchBar() {
-    return Row(
-      children: [
-        Expanded(
-          child: TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Kullanıcı adı ile arkadaş ara...',
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(15),
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Kullanıcı adı ile arkadaş ara...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => _handleSearch(),
             ),
-            onSubmitted: (_) => _handleSearch(),
           ),
-        ),
-        const SizedBox(width: 12),
-        ElevatedButton(
-          onPressed: _handleSearch,
-          style: ElevatedButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
+          const SizedBox(width: 10),
+          FilledButton(
+            onPressed: _handleSearch,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(48, 48),
+              padding: EdgeInsets.zero,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-            padding: const EdgeInsets.all(16),
+            child: const Icon(Icons.arrow_forward),
           ),
-          child: const Icon(Icons.arrow_forward),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

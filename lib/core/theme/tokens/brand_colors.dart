@@ -343,6 +343,195 @@ class BrandColors {
     surfaceTint: Color(0xFF3B82F6),
   );
 
+  // Concept 5 - Midnight Teal Journal
+  static const ColorScheme midnightTealJournalLightScheme = ColorScheme(
+    brightness: Brightness.light,
+    primary: Color(0xFF0F766E),
+    onPrimary: Color(0xFFFFFFFF),
+    primaryContainer: Color(0xFFCCFBF1),
+    onPrimaryContainer: Color(0xFF134E4A),
+    secondary: Color(0xFF059669),
+    onSecondary: Color(0xFFFFFFFF),
+    secondaryContainer: Color(0xFFD1FAE5),
+    onSecondaryContainer: Color(0xFF065F46),
+    tertiary: Color(0xFF0891B2),
+    onTertiary: Color(0xFFFFFFFF),
+    tertiaryContainer: Color(0xFFCFFAFE),
+    onTertiaryContainer: Color(0xFF164E63),
+    error: Color(0xFFDC2626),
+    onError: Color(0xFFFFFFFF),
+    errorContainer: Color(0xFFFEE2E2),
+    onErrorContainer: Color(0xFF7F1D1D),
+    surface: Color(0xFFFFFFFF),
+    onSurface: Color(0xFF1F2937),
+    onSurfaceVariant: Color(0xFF6B7280),
+    outline: Color(0xFFD1D5DB),
+    outlineVariant: Color(0xFFD1D5DB),
+    shadow: Color(0xFF000000),
+    scrim: Color(0xFF000000),
+    inverseSurface: Color(0xFF1A1D24),
+    onInverseSurface: Color(0xFFF8FAFC),
+    inversePrimary: Color(0xFF2DD4BF),
+    surfaceTint: Color(0xFF0F766E),
+  );
+
+  static const ColorScheme midnightTealJournalDarkScheme = ColorScheme(
+    brightness: Brightness.dark,
+    primary: Color(0xFF2DD4BF),
+    onPrimary: Color(0xFF042F2E),
+    primaryContainer: Color(0xFF115E59),
+    onPrimaryContainer: Color(0xFFCCFBF1),
+    secondary: Color(0xFF34D399),
+    onSecondary: Color(0xFF03261D),
+    secondaryContainer: Color(0xFF065F46),
+    onSecondaryContainer: Color(0xFFD1FAE5),
+    tertiary: Color(0xFF67E8F9),
+    onTertiary: Color(0xFF083344),
+    tertiaryContainer: Color(0xFF155E75),
+    onTertiaryContainer: Color(0xFFCFFAFE),
+    error: Color(0xFFFB7185),
+    onError: Color(0xFF500724),
+    errorContainer: Color(0xFF881337),
+    onErrorContainer: Color(0xFFFFE4E6),
+    surface: Color(0xFF2A2E35),
+    onSurface: Color(0xFFF8FAFC),
+    onSurfaceVariant: Color(0xFF9CA3AF),
+    outline: Color(0xFF374151),
+    outlineVariant: Color(0xFF374151),
+    shadow: Color(0xFF000000),
+    scrim: Color(0xFF000000),
+    inverseSurface: Color(0xFFFFFFFF),
+    onInverseSurface: Color(0xFF1F2937),
+    inversePrimary: Color(0xFF0F766E),
+    surfaceTint: Color(0xFF2DD4BF),
+  );
+
+  // Concept 6 - Violet Nebula Journal
+  static const ColorScheme violetNebulaJournalLightScheme = ColorScheme(
+    brightness: Brightness.light,
+    primary: Color(0xFF6D28D9),
+    onPrimary: Color(0xFFFFFFFF),
+    primaryContainer: Color(0xFFEDE9FE),
+    onPrimaryContainer: Color(0xFF3B0764),
+    secondary: Color(0xFF8B5CF6),
+    onSecondary: Color(0xFFFFFFFF),
+    secondaryContainer: Color(0xFFF1E8FF),
+    onSecondaryContainer: Color(0xFF3C1D63),
+    tertiary: Color(0xFFB794F4),
+    onTertiary: Color(0xFF2B124B),
+    tertiaryContainer: Color(0xFFF3E8FF),
+    onTertiaryContainer: Color(0xFF3C1D63),
+    error: Color(0xFFDC2626),
+    onError: Color(0xFFFFFFFF),
+    errorContainer: Color(0xFFFEE2E2),
+    onErrorContainer: Color(0xFF7F1D1D),
+    surface: Color(0xFFFFFFFF),
+    onSurface: Color(0xFF1B1630),
+    onSurfaceVariant: Color(0xFF5E5A72),
+    outline: Color(0xFFD9D6E9),
+    outlineVariant: Color(0xFFDED9EE),
+    shadow: Color(0xFF000000),
+    scrim: Color(0xFF000000),
+    inverseSurface: Color(0xFF121826),
+    onInverseSurface: Color(0xFFF8FAFC),
+    inversePrimary: Color(0xFF8B5CF6),
+    surfaceTint: Color(0xFF6D28D9),
+  );
+
+  static const ColorScheme violetNebulaJournalDarkScheme = ColorScheme(
+    brightness: Brightness.dark,
+    primary: Color(0xFF8B5CF6),
+    onPrimary: Color(0xFF1B1033),
+    primaryContainer: Color(0xFF5A3AB4),
+    onPrimaryContainer: Color(0xFFEDE4FF),
+    secondary: Color(0xFFB794F4),
+    onSecondary: Color(0xFF24113D),
+    secondaryContainer: Color(0xFF5A3B7D),
+    onSecondaryContainer: Color(0xFFF3E9FF),
+    tertiary: Color(0xFFA78BFA),
+    onTertiary: Color(0xFF1B1033),
+    tertiaryContainer: Color(0xFF4B2A7E),
+    onTertiaryContainer: Color(0xFFEDE4FF),
+    error: Color(0xFFFB7185),
+    onError: Color(0xFF500724),
+    errorContainer: Color(0xFF881337),
+    onErrorContainer: Color(0xFFFFE4E6),
+    surface: Color(0xFF121826),
+    onSurface: Color(0xFFF8FAFC),
+    onSurfaceVariant: Color(0xFFACB4C8),
+    outline: Color(0xFF2A3346),
+    outlineVariant: Color(0xFF2A3346),
+    shadow: Color(0xFF000000),
+    scrim: Color(0xFF000000),
+    inverseSurface: Color(0xFFFFFFFF),
+    onInverseSurface: Color(0xFF121826),
+    inversePrimary: Color(0xFF6D28D9),
+    surfaceTint: Color(0xFF8B5CF6),
+  );
+
+  // Concept 7 - Tested Theme
+  static const ColorScheme testedThemeLightScheme = ColorScheme(
+    brightness: Brightness.light,
+    primary: Color(0xFF8B5CF6),
+    onPrimary: Color(0xFFFFFFFF),
+    primaryContainer: Color(0xFFEDE9FE),
+    onPrimaryContainer: Color(0xFF2E1065),
+    secondary: Color(0xFF38BDF8),
+    onSecondary: Color(0xFF082F49),
+    secondaryContainer: Color(0xFFE0F2FE),
+    onSecondaryContainer: Color(0xFF0C4A6E),
+    tertiary: Color(0xFFB794F4),
+    onTertiary: Color(0xFF2B124B),
+    tertiaryContainer: Color(0xFFF3E8FF),
+    onTertiaryContainer: Color(0xFF3C1D63),
+    error: Color(0xFFDC2626),
+    onError: Color(0xFFFFFFFF),
+    errorContainer: Color(0xFFFEE2E2),
+    onErrorContainer: Color(0xFF7F1D1D),
+    surface: Color(0xFFFFFFFF),
+    onSurface: Color(0xFF1B1630),
+    onSurfaceVariant: Color(0xFF5E5A72),
+    outline: Color(0xFFD9D6E9),
+    outlineVariant: Color(0xFFDED9EE),
+    shadow: Color(0xFF000000),
+    scrim: Color(0xFF000000),
+    inverseSurface: Color(0xFF121826),
+    onInverseSurface: Color(0xFFF8FAFC),
+    inversePrimary: Color(0xFF8B5CF6),
+    surfaceTint: Color(0xFF8B5CF6),
+  );
+
+  static const ColorScheme testedThemeDarkScheme = ColorScheme(
+    brightness: Brightness.dark,
+    primary: Color(0xFF8B5CF6),
+    onPrimary: Color(0xFF1B1033),
+    primaryContainer: Color(0xFF5A3AB4),
+    onPrimaryContainer: Color(0xFFEDE4FF),
+    secondary: Color(0xFF38BDF8),
+    onSecondary: Color(0xFF042F4B),
+    secondaryContainer: Color(0xFF0C4A6E),
+    onSecondaryContainer: Color(0xFFE0F2FE),
+    tertiary: Color(0xFFB794F4),
+    onTertiary: Color(0xFF24113D),
+    tertiaryContainer: Color(0xFF5A3B7D),
+    onTertiaryContainer: Color(0xFFF3E9FF),
+    error: Color(0xFFFB7185),
+    onError: Color(0xFF500724),
+    errorContainer: Color(0xFF881337),
+    onErrorContainer: Color(0xFFFFE4E6),
+    surface: Color(0xFF121826),
+    onSurface: Color(0xFFF8FAFC),
+    onSurfaceVariant: Color(0xFFACB4C8),
+    outline: Color(0xFF2A3346),
+    outlineVariant: Color(0xFF2A3346),
+    shadow: Color(0xFF000000),
+    scrim: Color(0xFF000000),
+    inverseSurface: Color(0xFFFFFFFF),
+    onInverseSurface: Color(0xFF121826),
+    inversePrimary: Color(0xFF7C3AED),
+    surfaceTint: Color(0xFF8B5CF6),
+  );
+
   // Backward-compatible aliases used by legacy tokens.
   static const ColorScheme lightScheme = calmEditorialLightScheme;
   static const ColorScheme darkScheme = calmEditorialDarkScheme;
@@ -400,6 +589,27 @@ class BrandPalettes {
     darkSemantic: JournalSemanticColors.darkMinimalProductivityPro,
   );
 
+  static const BrandPalette midnightTealJournal = BrandPalette(
+    lightScheme: BrandColors.midnightTealJournalLightScheme,
+    darkScheme: BrandColors.midnightTealJournalDarkScheme,
+    lightSemantic: JournalSemanticColors.lightMidnightTealJournal,
+    darkSemantic: JournalSemanticColors.darkMidnightTealJournal,
+  );
+
+  static const BrandPalette violetNebulaJournal = BrandPalette(
+    lightScheme: BrandColors.violetNebulaJournalLightScheme,
+    darkScheme: BrandColors.violetNebulaJournalDarkScheme,
+    lightSemantic: JournalSemanticColors.lightVioletNebulaJournal,
+    darkSemantic: JournalSemanticColors.darkVioletNebulaJournal,
+  );
+
+  static const BrandPalette testedTheme = BrandPalette(
+    lightScheme: BrandColors.testedThemeLightScheme,
+    darkScheme: BrandColors.testedThemeDarkScheme,
+    lightSemantic: JournalSemanticColors.lightTestedTheme,
+    darkSemantic: JournalSemanticColors.darkTestedTheme,
+  );
+
   static BrandPalette of(AppThemeVariant? variant) {
     if (variant == AppThemeVariant.inkPurple) {
       return inkPurple;
@@ -412,6 +622,15 @@ class BrandPalettes {
     }
     if (variant == AppThemeVariant.minimalProductivityPro) {
       return minimalProductivityPro;
+    }
+    if (variant == AppThemeVariant.midnightTealJournal) {
+      return midnightTealJournal;
+    }
+    if (variant == AppThemeVariant.violetNebulaJournal) {
+      return violetNebulaJournal;
+    }
+    if (variant == AppThemeVariant.testedTheme) {
+      return testedTheme;
     }
     // Includes null or stale hot-reload enum values.
     return calmEditorialPremium;
@@ -583,6 +802,90 @@ class JournalSemanticColors extends ThemeExtension<JournalSemanticColors> {
     divider: Color(0xFF374151),
     floatingToolbar: Color(0xEE1F2937),
     selectedGlow: Color(0x443B82F6),
+  );
+
+  static const lightMidnightTealJournal = JournalSemanticColors(
+    primaryStrong: Color(0xFF1F2937),
+    primaryHover: Color(0xFF0F766E),
+    warmAccent: Color(0xFF0EA5E9),
+    softMint: Color(0xFF10B981),
+    mutedRose: Color(0xFF64748B),
+    background: Color(0xFFF4FAFA),
+    card: Color(0xFFFFFFFF),
+    elevated: Color(0xFFF8FBFB),
+    divider: Color(0xFFDCE6E7),
+    floatingToolbar: Color(0xEEF8FBFB),
+    selectedGlow: Color(0x330F766E),
+  );
+
+  static const darkMidnightTealJournal = JournalSemanticColors(
+    primaryStrong: Color(0xFFF8FAFC),
+    primaryHover: Color(0xFF2DD4BF),
+    warmAccent: Color(0xFF67E8F9),
+    softMint: Color(0xFF34D399),
+    mutedRose: Color(0xFF9CA3AF),
+    background: Color(0xFF1A1D24),
+    card: Color(0xFF2A2E35),
+    elevated: Color(0xFF1F2937),
+    divider: Color(0xFF374151),
+    floatingToolbar: Color(0xEE2A2E35),
+    selectedGlow: Color(0x4434D399),
+  );
+
+  static const lightVioletNebulaJournal = JournalSemanticColors(
+    primaryStrong: Color(0xFF1E1A33),
+    primaryHover: Color(0xFF6D28D9),
+    warmAccent: Color(0xFF8B5CF6),
+    softMint: Color(0xFFB794F4),
+    mutedRose: Color(0xFF716A92),
+    background: Color(0xFFF6F3FF),
+    card: Color(0xFFFFFFFF),
+    elevated: Color(0xFFF9F7FF),
+    divider: Color(0xFFDDD8EE),
+    floatingToolbar: Color(0xEEF9F7FF),
+    selectedGlow: Color(0x336D28D9),
+  );
+
+  static const darkVioletNebulaJournal = JournalSemanticColors(
+    primaryStrong: Color(0xFFF8FAFC),
+    primaryHover: Color(0xFF8B5CF6),
+    warmAccent: Color(0xFFB794F4),
+    softMint: Color(0xFFA78BFA),
+    mutedRose: Color(0xFF7C66B1),
+    background: Color(0xFF0B1020),
+    card: Color(0xFF121826),
+    elevated: Color(0xFF0E1420),
+    divider: Color(0xFF2A3346),
+    floatingToolbar: Color(0xEE0E1420),
+    selectedGlow: Color(0x448B5CF6),
+  );
+
+  static const lightTestedTheme = JournalSemanticColors(
+    primaryStrong: Color(0xFF1E1A33),
+    primaryHover: Color(0xFF7C3AED),
+    warmAccent: Color(0xFF8B5CF6),
+    softMint: Color(0xFF38BDF8),
+    mutedRose: Color(0xFF716A92),
+    background: Color(0xFFF6F3FF),
+    card: Color(0xFFFFFFFF),
+    elevated: Color(0xFFF9F7FF),
+    divider: Color(0xFFDDD8EE),
+    floatingToolbar: Color(0xEEF9F7FF),
+    selectedGlow: Color(0x337C3AED),
+  );
+
+  static const darkTestedTheme = JournalSemanticColors(
+    primaryStrong: Color(0xFFF8FAFC),
+    primaryHover: Color(0xFF8B5CF6),
+    warmAccent: Color(0xFFB794F4),
+    softMint: Color(0xFF38BDF8),
+    mutedRose: Color(0xFF7C66B1),
+    background: Color(0xFF070B16),
+    card: Color(0xFF121826),
+    elevated: Color(0xFF0E1420),
+    divider: Color(0xFF2A3346),
+    floatingToolbar: Color(0xEE121826),
+    selectedGlow: Color(0x447C3AED),
   );
 
   // Backward compatible aliases for existing usages.

@@ -119,25 +119,45 @@ class StickerService {
     required StickerType type,
     required String content,
     String? localPath,
+    String category = 'custom',
+    bool bestEffortRemote = true,
   }) async {
     final uid = _currentUid;
     if (uid == null) throw Exception('Not logged in');
+    final normalizedContent = content.trim();
+    if (normalizedContent.isEmpty) {
+      throw Exception('Sticker içeriği boş olamaz');
+    }
+    final normalizedCategory = category.trim().isEmpty
+        ? 'custom'
+        : category.trim().toLowerCase();
 
     final sticker = UserSticker(
       userId: uid,
       type: type,
-      content: content,
+      content: normalizedContent,
       localPath: localPath,
+      category: normalizedCategory,
     );
 
     // 1. Local Save
     await _stickerDao.insertSticker(sticker);
 
     // 2. Remote Save
-    await _firestore
-        .collection(FirestorePaths.userStickers)
-        .doc(sticker.id)
-        .set(sticker.toJson());
+    try {
+      await _firestore
+          .collection(FirestorePaths.userStickers)
+          .doc(sticker.id)
+          .set(sticker.toJson());
+    } catch (error, stackTrace) {
+      _reportStickerIssue(
+        operation: 'create_remote',
+        error: error,
+        stackTrace: stackTrace,
+        extra: {'uid': uid, 'sticker_id': sticker.id, 'type': type.name},
+      );
+      if (!bestEffortRemote) rethrow;
+    }
 
     return sticker;
   }

@@ -98,42 +98,46 @@ class _DrawingCanvasScreenState extends State<DrawingCanvasScreen> {
         children: [
           // Canvas area
           Expanded(
-            child: RepaintBoundary(
-              key: _canvasKey,
-              child: Container(
-                color: colorScheme.surface,
-                child: GestureDetector(
-                  onPanStart: (details) {
-                    setState(() {
-                      _currentStroke = DrawingStroke(
-                        color: _isEraser ? colorScheme.surface : _selectedColor,
-                        width: _isEraser ? _strokeWidth * 3 : _strokeWidth,
-                        points: [details.localPosition],
-                      );
-                    });
-                  },
-                  onPanUpdate: (details) {
-                    if (_currentStroke != null) {
+            child: ColoredBox(
+              color: colorScheme.surface,
+              child: RepaintBoundary(
+                key: _canvasKey,
+                child: Container(
+                  color: Colors.transparent,
+                  child: GestureDetector(
+                    onPanStart: (details) {
                       setState(() {
-                        _currentStroke!.points.add(details.localPosition);
+                        _currentStroke = DrawingStroke(
+                          color: _selectedColor,
+                          width: _isEraser ? _strokeWidth * 3 : _strokeWidth,
+                          points: [details.localPosition],
+                          isEraser: _isEraser,
+                        );
                       });
-                    }
-                  },
-                  onPanEnd: (details) {
-                    if (_currentStroke != null) {
-                      setState(() {
-                        _strokes.add(_currentStroke!);
-                        _currentStroke = null;
-                        _undoneStrokes.clear();
-                      });
-                    }
-                  },
-                  child: CustomPaint(
-                    painter: _DrawingPainter(
-                      strokes: _strokes,
-                      currentStroke: _currentStroke,
+                    },
+                    onPanUpdate: (details) {
+                      if (_currentStroke != null) {
+                        setState(() {
+                          _currentStroke!.points.add(details.localPosition);
+                        });
+                      }
+                    },
+                    onPanEnd: (details) {
+                      if (_currentStroke != null) {
+                        setState(() {
+                          _strokes.add(_currentStroke!);
+                          _currentStroke = null;
+                          _undoneStrokes.clear();
+                        });
+                      }
+                    },
+                    child: CustomPaint(
+                      painter: _DrawingPainter(
+                        strokes: _strokes,
+                        currentStroke: _currentStroke,
+                      ),
+                      size: Size.infinite,
                     ),
-                    size: Size.infinite,
                   ),
                 ),
               ),
@@ -307,11 +311,13 @@ class DrawingStroke {
   final Color color;
   final double width;
   final List<Offset> points;
+  final bool isEraser;
 
   DrawingStroke({
     required this.color,
     required this.width,
     required this.points,
+    this.isEraser = false,
   });
 }
 
@@ -324,12 +330,14 @@ class _DrawingPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    canvas.saveLayer(Offset.zero & size, Paint());
     for (final stroke in strokes) {
       _paintStroke(canvas, stroke);
     }
     if (currentStroke != null) {
       _paintStroke(canvas, currentStroke!);
     }
+    canvas.restore();
   }
 
   void _paintStroke(Canvas canvas, DrawingStroke stroke) {
@@ -340,7 +348,8 @@ class _DrawingPainter extends CustomPainter {
       ..strokeWidth = stroke.width
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
-      ..style = PaintingStyle.stroke;
+      ..style = PaintingStyle.stroke
+      ..blendMode = stroke.isEraser ? BlendMode.clear : BlendMode.srcOver;
 
     if (stroke.points.length == 1) {
       canvas.drawCircle(stroke.points.first, stroke.width / 2, paint);

@@ -7,6 +7,7 @@ class FirestorePaths {
   static const String blocks = 'blocks';
   static const String teams = 'teams';
   static const String teamMembers = 'team_members';
+  static const String journalMembers = 'journal_members';
   static const String invites = 'invites';
   static const String userStickers = 'user_stickers';
   static const String oplogs = 'oplogs';

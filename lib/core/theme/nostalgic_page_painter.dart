@@ -14,6 +14,14 @@ class NostalgicPagePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final visuals = theme.visuals;
 
+    final hasImageTheme = visuals.assetPath != null;
+
+    // If an image asset is provided and preloaded, draw it and skip procedural textures.
+    if (hasImageTheme && preloadedImage != null) {
+      _drawImageBackground(canvas, size, preloadedImage!);
+      return;
+    }
+
     // Background Color
     if (visuals.pageColor != Colors.transparent) {
       canvas.drawRect(
@@ -22,10 +30,17 @@ class NostalgicPagePainter extends CustomPainter {
       );
     }
 
-    // If an image asset is provided and preloaded, draw it and skip procedural textures
-    if (visuals.assetPath != null && preloadedImage != null) {
-      _drawImageBackground(canvas, size, preloadedImage!);
-      return; // Skip drawing procedural lines/textures over the image
+    // Image theme fallback when asset loading fails.
+    if (hasImageTheme && preloadedImage == null) {
+      final fallbackColor = visuals.pageColor == Colors.transparent
+          ? const Color(0xFFF7EFE2)
+          : visuals.pageColor;
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, size.width, size.height),
+        Paint()..color = fallbackColor,
+      );
+      _drawFallbackLines(canvas, size);
+      return;
     }
 
     // Add texture overlay based on type
@@ -93,6 +108,17 @@ class NostalgicPagePainter extends CustomPainter {
       fit: BoxFit.cover,
       filterQuality: FilterQuality.high,
     );
+  }
+
+  void _drawFallbackLines(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFFD8C6B0)
+      ..strokeWidth = 0.8;
+    const spacing = 30.0;
+    const startY = 52.0;
+    for (double y = startY; y < size.height - 16; y += spacing) {
+      canvas.drawLine(Offset(18, y), Offset(size.width - 18, y), paint);
+    }
   }
 
   void _drawLines(Canvas canvas, Size size) {
@@ -228,5 +254,5 @@ class NostalgicPagePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant NostalgicPagePainter old) =>
-      old.theme.id != theme.id;
+      old.theme.id != theme.id || old.preloadedImage != preloadedImage;
 }

@@ -26,6 +26,12 @@ final onboardingCompletedProvider = StateProvider<bool>((ref) {
   return prefs.getBool('onboarding_complete') ?? false;
 });
 
+int parseRootTabFromUri(Uri uri, {int fallback = 2}) {
+  final raw = uri.queryParameters['tab'];
+  final parsed = int.tryParse(raw ?? '');
+  return parsed ?? fallback;
+}
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authNotifier = ValueNotifier<bool>(false);
   final profileNotifier = ValueNotifier<bool?>(null);
@@ -132,7 +138,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(path: '/', builder: (context, state) => const LibraryScreen()),
+      GoRoute(
+        path: '/',
+        builder: (context, state) =>
+            LibraryScreen(initialTab: parseRootTabFromUri(state.uri)),
+      ),
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => OnboardingScreen(

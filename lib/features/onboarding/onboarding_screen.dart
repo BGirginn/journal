@@ -1,25 +1,94 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:journal_app/core/theme/theme_provider.dart';
+import 'package:journal_app/core/theme/theme_variant.dart';
 import 'package:journal_app/core/theme/tokens/brand_colors.dart';
 import 'package:journal_app/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class OnboardingScreen extends StatefulWidget {
+class OnboardingScreen extends ConsumerStatefulWidget {
   final VoidCallback onComplete;
 
   const OnboardingScreen({super.key, required this.onComplete});
 
   @override
-  State<OnboardingScreen> createState() => _OnboardingScreenState();
+  ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen> {
+class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final PageController _controller = PageController();
   int _currentPage = 0;
 
   static const _kOnboardingCompleteKey = 'onboarding_complete';
 
-  List<_OnboardingPage> _buildPages(AppLocalizations l10n, bool isDark) {
+  List<_OnboardingPage> _buildPages(
+    AppLocalizations l10n,
+    bool isDark,
+    bool isVioletTheme,
+    bool isTestedTheme,
+    ColorScheme colorScheme,
+    JournalSemanticColors? semantic,
+  ) {
+    if (isTestedTheme) {
+      return [
+        _OnboardingPage(
+          icon: Icons.book_rounded,
+          title: l10n.onboardingTitleCaptureMemories,
+          description: l10n.onboardingDescCaptureMemories,
+          gradient: isDark
+              ? const [Color(0xFF070B16), Color(0xFF0F1124), Color(0xFF15102E)]
+              : const [Color(0xFFF1EEFF), Color(0xFFE5E2FF), Color(0xFFD9D7F8)],
+        ),
+        _OnboardingPage(
+          icon: Icons.group_rounded,
+          title: l10n.onboardingTitleShareTogether,
+          description: l10n.onboardingDescShareTogether,
+          gradient: isDark
+              ? const [Color(0xFF0A0F1E), Color(0xFF121530), Color(0xFF1A1740)]
+              : const [Color(0xFFEFEAFF), Color(0xFFE3DEFF), Color(0xFFD3D2F5)],
+        ),
+        _OnboardingPage(
+          icon: Icons.palette_rounded,
+          title: l10n.onboardingTitlePersonalize,
+          description: l10n.onboardingDescPersonalize,
+          gradient: isDark
+              ? const [Color(0xFF0D1122), Color(0xFF141536), Color(0xFF1B1A4A)]
+              : const [Color(0xFFECE9FF), Color(0xFFDFDCFF), Color(0xFFCFCEF2)],
+        ),
+      ];
+    }
+
+    if (isVioletTheme) {
+      final surface = semantic?.card ?? colorScheme.surface;
+      final elevated = semantic?.elevated ?? colorScheme.surface;
+      final background = semantic?.background ?? colorScheme.surface;
+      final accent = colorScheme.primary.withValues(alpha: isDark ? 0.42 : 0.3);
+      final accentStrong = colorScheme.secondary.withValues(
+        alpha: isDark ? 0.36 : 0.28,
+      );
+      return [
+        _OnboardingPage(
+          icon: Icons.book_rounded,
+          title: l10n.onboardingTitleCaptureMemories,
+          description: l10n.onboardingDescCaptureMemories,
+          gradient: [surface, elevated, accent],
+        ),
+        _OnboardingPage(
+          icon: Icons.group_rounded,
+          title: l10n.onboardingTitleShareTogether,
+          description: l10n.onboardingDescShareTogether,
+          gradient: [elevated, background, accentStrong],
+        ),
+        _OnboardingPage(
+          icon: Icons.palette_rounded,
+          title: l10n.onboardingTitlePersonalize,
+          description: l10n.onboardingDescPersonalize,
+          gradient: [surface, background, colorScheme.primary],
+        ),
+      ];
+    }
+
     return [
       _OnboardingPage(
         icon: Icons.book_rounded,
@@ -63,22 +132,50 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final pages = _buildPages(l10n, isDark);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final semantic = theme.extension<JournalSemanticColors>();
+    final isDark = theme.brightness == Brightness.dark;
+    final activeVariant = ref.watch(themeProvider).effectiveVariant;
+    final isTestedTheme = activeVariant == AppThemeVariant.testedTheme;
+    final isVioletTheme =
+        activeVariant == AppThemeVariant.violetNebulaJournal || isTestedTheme;
+    final pages = _buildPages(
+      l10n,
+      isDark,
+      isVioletTheme,
+      isTestedTheme,
+      colorScheme,
+      semantic,
+    );
     final isLastPage = _currentPage == pages.length - 1;
-    final foreground = isDark
+    final foreground = isVioletTheme
+        ? colorScheme.onSurface
+        : isDark
         ? const Color(0xFFF5F1E9)
         : BrandColors.primary900;
-    final descriptionColor = foreground.withValues(alpha: isDark ? 0.9 : 0.82);
-    final buttonBackground = isDark
+    final descriptionColor = isVioletTheme
+        ? colorScheme.onSurfaceVariant
+        : foreground.withValues(alpha: isDark ? 0.9 : 0.82);
+    final buttonBackground = isVioletTheme
+        ? colorScheme.primary
+        : isDark
         ? const Color(0xFFEAE5D9)
         : const Color(0xFFF5F1E8);
-    const buttonForeground = BrandColors.primary900;
-    final iconBubbleColor = isDark
+    final buttonForeground = isVioletTheme
+        ? colorScheme.onPrimary
+        : BrandColors.primary900;
+    final iconBubbleColor = isVioletTheme
+        ? colorScheme.primaryContainer.withValues(alpha: isDark ? 0.32 : 0.24)
+        : isDark
         ? Colors.white.withValues(alpha: 0.14)
         : Colors.white.withValues(alpha: 0.28);
-    final indicatorActive = foreground.withValues(alpha: 0.9);
-    final indicatorInactive = foreground.withValues(alpha: 0.32);
+    final indicatorActive = isVioletTheme
+        ? colorScheme.secondary
+        : foreground.withValues(alpha: 0.9);
+    final indicatorInactive = isVioletTheme
+        ? colorScheme.onSurface.withValues(alpha: 0.28)
+        : foreground.withValues(alpha: 0.32);
 
     return Scaffold(
       body: Stack(

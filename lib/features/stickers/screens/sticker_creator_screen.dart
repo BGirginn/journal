@@ -1,11 +1,15 @@
 import 'dart:io';
-import 'dart:ui' as import_ui; // Added for ImageByteFormat
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:journal_app/features/stickers/sticker_service.dart';
 import 'package:journal_app/core/models/user_sticker.dart';
+import 'package:journal_app/core/theme/tokens/brand_colors.dart';
+import 'package:journal_app/core/theme/tokens/brand_radius.dart';
 import 'package:journal_app/core/ui/drawing_board.dart';
+import 'package:journal_app/features/stickers/sticker_service.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
@@ -20,17 +24,22 @@ class StickerCreatorScreen extends ConsumerStatefulWidget {
 class _StickerCreatorScreenState extends ConsumerState<StickerCreatorScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final ImagePicker _picker = ImagePicker();
   final TextEditingController _emojiController = TextEditingController();
   final DrawingController _drawingController = DrawingController();
 
   File? _selectedImage;
-
+  Size _drawingCanvasSize = const Size(320, 320);
+  String _selectedCategory = _stickerCategories.first.id;
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -42,8 +51,10 @@ class _StickerCreatorScreenState extends ConsumerState<StickerCreatorScreen>
   }
 
   Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    final pickedFile = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 95,
+    );
     if (pickedFile != null) {
       setState(() {
         _selectedImage = File(pickedFile.path);
@@ -51,73 +62,120 @@ class _StickerCreatorScreenState extends ConsumerState<StickerCreatorScreen>
     }
   }
 
+  String get _emojiInput => _emojiController.text.trim();
+
+  bool get _canSave {
+    if (_isSaving) return false;
+    switch (_tabController.index) {
+      case 0:
+        return _selectedImage != null;
+      case 1:
+        return _emojiInput.isNotEmpty && _emojiInput.characters.length == 1;
+      case 2:
+        return !_drawingController.isEmpty;
+      default:
+        return false;
+    }
+  }
+
+  Future<String> _copyImageToLocalStorage(File sourceFile) async {
+    final docsDir = await getApplicationDocumentsDirectory();
+    final stickersDir = Directory('${docsDir.path}/stickers');
+    if (!await stickersDir.exists()) {
+      await stickersDir.create(recursive: true);
+    }
+    final sourcePath = sourceFile.path;
+    final dotIndex = sourcePath.lastIndexOf('.');
+    final ext = dotIndex > -1 && dotIndex < sourcePath.length - 1
+        ? sourcePath.substring(dotIndex)
+        : '.png';
+    final targetPath =
+        '${stickersDir.path}/sticker_image_${const Uuid().v4()}$ext';
+    final copied = await sourceFile.copy(targetPath);
+    return copied.path;
+  }
+
+  Future<String> _saveDrawingToLocalStorage() async {
+    final image = await _drawingController.toImage(_drawingCanvasSize);
+    if (image == null) {
+      throw Exception('Çizim kaydedilemedi');
+    }
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    if (byteData == null) {
+      throw Exception('Çizim verisi alınamadı');
+    }
+    final docsDir = await getApplicationDocumentsDirectory();
+    final stickersDir = Directory('${docsDir.path}/stickers');
+    if (!await stickersDir.exists()) {
+      await stickersDir.create(recursive: true);
+    }
+    final filePath =
+        '${stickersDir.path}/sticker_drawing_${const Uuid().v4()}.png';
+    final file = File(filePath);
+    await file.writeAsBytes(byteData.buffer.asUint8List(), flush: true);
+    return file.path;
+  }
+
   Future<void> _saveSticker() async {
+    final tab = _tabController.index;
+    if (tab == 0 && _selectedImage == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Önce bir görsel seç')));
+      return;
+    }
+    if (tab == 1 && _emojiInput.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Emoji gir')));
+      return;
+    }
+    if (tab == 1 && _emojiInput.characters.length != 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tek bir emoji ya da sembol gir')),
+      );
+      return;
+    }
+    if (tab == 2 && _drawingController.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kaydetmeden önce çizim yap')),
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
     try {
       final stickerService = ref.read(stickerServiceProvider);
-
-      StickerType type;
-      String content;
+      late StickerType type;
+      late String content;
       String? localPath;
 
-      switch (_tabController.index) {
-        case 0: // Image
-          if (_selectedImage == null) throw Exception('Resim seçilmedi');
-          type = StickerType.image;
-          localPath = _selectedImage!.path;
-          content =
-              'temp_path'; // Ideally upload to Firebase Storage and get URL
-          // For now, let's assume we use local path or handle upload inside service (not implemented there yet)
-          // We will store local path as content for now if offline, but service should ideally upload.
-          // Let's pass local path content and handle storage later or now?
-          // Phase 3 plan says: "Remote (Firestore): Sync... Storage (Firebase): Store valid image assets."
-          // I didn't implement Storage upload in Service yet.
-          content = _selectedImage!.path; // Temporary placeholders
-          break;
-        case 1: // Emoji
-          final text = _emojiController.text;
-          if (text.isEmpty) throw Exception('Emoji girilmedi');
-          type = StickerType.emoji;
-          content = text;
-          break;
-        case 2: // Drawing
-          if (_drawingController.isEmpty) throw Exception('Çizim yapılmadı');
-          type = StickerType.drawing;
-
-          // Save drawing to file
-          final image = await _drawingController.toImage(
-            const Size(300, 300),
-          ); // Fixed size for now or dynamic?
-          if (image == null) throw Exception('Çizim kaydedilemedi');
-
-          final byteData = await image.toByteData(
-            format: import_ui.ImageByteFormat.png,
-          );
-          if (byteData == null) throw Exception('Görüntü verisi alınamadı');
-
-          final directory = await getApplicationDocumentsDirectory();
-          final fileName = 'sticker_drawing_${const Uuid().v4()}.png';
-          final file = File('${directory.path}/$fileName');
-          await file.writeAsBytes(byteData.buffer.asUint8List());
-
-          localPath = file.path;
-          content = file.path;
-          break;
-        default:
-          throw Exception('Bilinmeyen mod');
+      if (tab == 0) {
+        type = StickerType.image;
+        localPath = await _copyImageToLocalStorage(_selectedImage!);
+        content = localPath;
+      } else if (tab == 1) {
+        type = StickerType.emoji;
+        content = _emojiInput;
+      } else {
+        type = StickerType.drawing;
+        localPath = await _saveDrawingToLocalStorage();
+        content = localPath;
       }
 
       await stickerService.createSticker(
         type: type,
         content: content,
         localPath: localPath,
+        category: _selectedCategory,
       );
 
       if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Çıkartma kaydedildi')));
+        final messenger = ScaffoldMessenger.of(context);
+        context.pop();
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Çıkartma kaydedildi')),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -132,93 +190,338 @@ class _StickerCreatorScreenState extends ConsumerState<StickerCreatorScreen>
 
   @override
   Widget build(BuildContext context) {
+    final semantic =
+        Theme.of(context).extension<JournalSemanticColors>() ??
+        (Theme.of(context).brightness == Brightness.dark
+            ? JournalSemanticColors.dark
+            : JournalSemanticColors.light);
+    final radius =
+        Theme.of(context).extension<JournalRadiusScale>() ??
+        JournalRadiusScale.standard;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Yeni Çıkartma'),
+        actions: [
+          if (_isSaving)
+            const Padding(
+              padding: EdgeInsets.only(right: 16),
+              child: Center(
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: 'Resim', icon: Icon(Icons.image)),
-            Tab(text: 'Emoji', icon: Icon(Icons.emoji_emotions)),
-            Tab(text: 'Çizim', icon: Icon(Icons.brush)),
+            Tab(text: 'Resim', icon: Icon(LucideIcons.image)),
+            Tab(text: 'Emoji', icon: Icon(LucideIcons.smile)),
+            Tab(text: 'Çizim', icon: Icon(LucideIcons.brush)),
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        physics:
-            const NeverScrollableScrollPhysics(), // Disable swipe to avoid gesture conflict with drawing
+      body: Column(
         children: [
-          // Image Tab
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (_selectedImage != null)
-                Image.file(_selectedImage!, height: 200)
-              else
-                const Icon(Icons.image, size: 100, color: Colors.grey),
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
-                onPressed: _pickImage,
-                icon: const Icon(Icons.add_photo_alternate),
-                label: const Text('Galeriden Seç'),
-              ),
-            ],
-          ),
-          // Emoji Tab
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32.0),
-              child: TextField(
-                controller: _emojiController,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 80),
-                decoration: const InputDecoration(
-                  hintText: '😀',
-                  border: InputBorder.none,
-                ),
-                maxLength: 1, // Only 1 emoji
-              ),
+          Container(
+            width: double.infinity,
+            color: semantic.background,
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _stickerCategories
+                  .map(
+                    (category) => ChoiceChip(
+                      label: Text(category.label),
+                      selected: _selectedCategory == category.id,
+                      onSelected: (_) {
+                        setState(() {
+                          _selectedCategory = category.id;
+                        });
+                      },
+                    ),
+                  )
+                  .toList(),
             ),
           ),
-          // Drawing Tab
-          Column(
-            children: [
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    color: Colors.white,
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                _ImageTab(
+                  selectedImage: _selectedImage,
+                  onPickImage: _pickImage,
+                  onClearImage: () {
+                    setState(() {
+                      _selectedImage = null;
+                    });
+                  },
+                ),
+                _EmojiTab(
+                  controller: _emojiController,
+                  onChanged: (_) => setState(() {}),
+                  onSelectEmoji: (emoji) {
+                    _emojiController.text = emoji;
+                    _emojiController.selection = TextSelection.collapsed(
+                      offset: emoji.length,
+                    );
+                    setState(() {});
+                  },
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            _drawingCanvasSize = Size(
+                              constraints.maxWidth,
+                              constraints.maxHeight,
+                            );
+                            return Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(
+                                  radius.medium,
+                                ),
+                                border: Border.all(
+                                  color: semantic.divider.withValues(
+                                    alpha: 0.8,
+                                  ),
+                                ),
+                                color: Colors.white,
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(
+                                  radius.medium,
+                                ),
+                                child: DrawingBoard(
+                                  controller: _drawingController,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            _drawingController.clear();
+                            setState(() {});
+                          },
+                          icon: const Icon(LucideIcons.trash2),
+                          label: const Text('Temizle'),
+                        ),
+                      ),
+                    ],
                   ),
-                  child: DrawingBoard(controller: _drawingController),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 80.0), // Space for FAB
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.delete),
-                      onPressed: _drawingController.clear,
-                      tooltip: 'Temizle',
-                    ),
-                    // Add simple color picker later if needed
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _isSaving ? null : _saveSticker,
-        label: _isSaving
-            ? const CircularProgressIndicator()
-            : const Text('Kaydet'),
-        icon: const Icon(Icons.check),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: FilledButton.icon(
+          onPressed: _canSave ? _saveSticker : null,
+          icon: _isSaving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(LucideIcons.check),
+          label: Text(_isSaving ? 'Kaydediliyor...' : 'Kaydet'),
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+          ),
+        ),
       ),
     );
   }
 }
+
+class _StickerCategory {
+  final String id;
+  final String label;
+
+  const _StickerCategory({required this.id, required this.label});
+}
+
+const List<_StickerCategory> _stickerCategories = [
+  _StickerCategory(id: 'duygular', label: 'Duygular'),
+  _StickerCategory(id: 'favoriler', label: 'Favoriler'),
+  _StickerCategory(id: 'ozel', label: 'Özel'),
+  _StickerCategory(id: 'gokyuzu', label: 'Gökyüzü'),
+  _StickerCategory(id: 'custom', label: 'Genel'),
+];
+
+class _ImageTab extends StatelessWidget {
+  final File? selectedImage;
+  final Future<void> Function() onPickImage;
+  final VoidCallback onClearImage;
+
+  const _ImageTab({
+    required this.selectedImage,
+    required this.onPickImage,
+    required this.onClearImage,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final semantic =
+        Theme.of(context).extension<JournalSemanticColors>() ??
+        (Theme.of(context).brightness == Brightness.dark
+            ? JournalSemanticColors.dark
+            : JournalSemanticColors.light);
+    final radius =
+        Theme.of(context).extension<JournalRadiusScale>() ??
+        JournalRadiusScale.standard;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Column(
+        children: [
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: semantic.card,
+                borderRadius: BorderRadius.circular(radius.large),
+                border: Border.all(
+                  color: semantic.divider.withValues(alpha: 0.8),
+                ),
+              ),
+              child: selectedImage == null
+                  ? Center(
+                      child: Icon(
+                        LucideIcons.image,
+                        size: 56,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    )
+                  : ClipRRect(
+                      borderRadius: BorderRadius.circular(radius.large),
+                      child: Image.file(selectedImage!, fit: BoxFit.contain),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onPickImage,
+                  icon: const Icon(LucideIcons.imagePlus),
+                  label: const Text('Galeriden Seç'),
+                ),
+              ),
+              if (selectedImage != null) ...[
+                const SizedBox(width: 10),
+                OutlinedButton.icon(
+                  onPressed: onClearImage,
+                  icon: const Icon(LucideIcons.x),
+                  label: const Text('Temizle'),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmojiTab extends StatelessWidget {
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSelectEmoji;
+
+  const _EmojiTab({
+    required this.controller,
+    required this.onChanged,
+    required this.onSelectEmoji,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final semantic =
+        Theme.of(context).extension<JournalSemanticColors>() ??
+        (Theme.of(context).brightness == Brightness.dark
+            ? JournalSemanticColors.dark
+            : JournalSemanticColors.light);
+    final radius =
+        Theme.of(context).extension<JournalRadiusScale>() ??
+        JournalRadiusScale.standard;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: semantic.card,
+              borderRadius: BorderRadius.circular(radius.large),
+              border: Border.all(
+                color: semantic.divider.withValues(alpha: 0.8),
+              ),
+            ),
+            child: TextField(
+              controller: controller,
+              onChanged: onChanged,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 64),
+              decoration: InputDecoration(
+                hintText: '😀',
+                counterText: '',
+                hintStyle: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                border: InputBorder.none,
+              ),
+              maxLines: 1,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _quickEmojis
+                .map(
+                  (emoji) => OutlinedButton(
+                    onPressed: () => onSelectEmoji(emoji),
+                    child: Text(emoji, style: const TextStyle(fontSize: 22)),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+const List<String> _quickEmojis = [
+  '😊',
+  '😃',
+  '😍',
+  '😔',
+  '🤔',
+  '😎',
+  '🥳',
+  '❤️',
+  '⭐',
+  '🎉',
+  '✨',
+  '📚',
+];

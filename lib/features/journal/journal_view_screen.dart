@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:journal_app/core/auth/user_service.dart';
+import 'package:journal_app/core/models/invite.dart';
 import 'package:journal_app/core/models/journal.dart';
 import 'package:journal_app/core/models/block.dart';
 import 'package:journal_app/core/models/page.dart' as model;
@@ -9,6 +11,8 @@ import 'package:journal_app/providers/database_providers.dart';
 import 'package:journal_app/providers/journal_providers.dart';
 import 'package:journal_app/features/editor/editor_screen.dart';
 import 'package:journal_app/features/editor/blocks/block_widget.dart';
+import 'package:journal_app/features/invite/components/invite_dialog.dart';
+import 'package:journal_app/features/journal/journal_member_service.dart';
 import 'package:journal_app/core/ui/book_page_view.dart';
 import 'package:journal_app/features/export/services/pdf_export_service.dart';
 import 'package:journal_app/features/search/journal_search_delegate.dart';
@@ -65,6 +69,16 @@ class _JournalViewScreenState extends ConsumerState<JournalViewScreen> {
             icon: const Icon(Icons.picture_as_pdf),
             tooltip: 'PDF Dışa Aktar',
             onPressed: () => _exportPdf(context, ref),
+          ),
+          IconButton(
+            icon: const Icon(Icons.group_outlined),
+            tooltip: 'Katılımcılar',
+            onPressed: _showMembersSheet,
+          ),
+          IconButton(
+            icon: const Icon(Icons.person_add_alt_1),
+            tooltip: 'Arkadaş Davet Et',
+            onPressed: _showInviteDialog,
           ),
           PopupMenuButton<String>(
             onSelected: (value) {
@@ -251,6 +265,178 @@ class _JournalViewScreenState extends ConsumerState<JournalViewScreen> {
       ),
     );
   }
+
+  void _showInviteDialog() {
+    showDialog(
+      context: context,
+      builder: (context) =>
+          InviteDialog(targetId: widget.journal.id, type: InviteType.journal),
+    );
+  }
+
+  void _showMembersSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => _JournalMembersSheet(journal: widget.journal),
+    );
+  }
+}
+
+class _JournalMembersSheet extends ConsumerWidget {
+  final Journal journal;
+
+  const _JournalMembersSheet({required this.journal});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final service = ref.watch(journalMemberServiceProvider);
+    final userService = ref.watch(userServiceProvider);
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: StreamBuilder<List<JournalCollaborator>>(
+          stream: service.watchMembers(journal.id),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final collaborators =
+                snapshot.data ?? const <JournalCollaborator>[];
+            final ownerId = journal.ownerId;
+            final memberIds = <String>{
+              if (ownerId != null && ownerId.isNotEmpty) ownerId,
+              ...collaborators.map((m) => m.userId),
+            }.toList();
+
+            return FutureBuilder<List<UserProfile>>(
+              future: userService.getProfiles(memberIds),
+              builder: (context, profilesSnapshot) {
+                if (profilesSnapshot.connectionState ==
+                    ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final profiles = profilesSnapshot.data ?? const <UserProfile>[];
+                final profilesById = <String, UserProfile>{
+                  for (final profile in profiles) profile.uid: profile,
+                };
+
+                final items = <_JournalMemberListItem>[];
+                if (ownerId != null && ownerId.isNotEmpty) {
+                  final ownerProfile = profilesById[ownerId];
+                  items.add(
+                    _JournalMemberListItem(
+                      title: ownerProfile?.displayName ?? ownerId,
+                      subtitle: ownerProfile?.username == null
+                          ? null
+                          : '@${ownerProfile!.username}',
+                      role: JournalRole.owner,
+                    ),
+                  );
+                }
+                for (final member in collaborators) {
+                  if (member.userId == ownerId) {
+                    continue;
+                  }
+                  final profile = profilesById[member.userId];
+                  items.add(
+                    _JournalMemberListItem(
+                      title: profile?.displayName ?? member.userId,
+                      subtitle: profile?.username == null
+                          ? null
+                          : '@${profile!.username}',
+                      role: member.role,
+                    ),
+                  );
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Katılımcılar',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${items.length} kişi',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 12),
+                    if (items.isEmpty)
+                      Expanded(
+                        child: Center(
+                          child: Text(
+                            'Henüz katılımcı yok.',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ),
+                      )
+                    else
+                      Expanded(
+                        child: ListView.separated(
+                          itemCount: items.length,
+                          separatorBuilder: (_, _) =>
+                              const Divider(height: 1, thickness: 0.6),
+                          itemBuilder: (context, index) {
+                            final item = items[index];
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: CircleAvatar(
+                                backgroundColor: colorScheme.primaryContainer,
+                                child: Text(
+                                  item.title.isEmpty
+                                      ? '?'
+                                      : item.title
+                                            .substring(0, 1)
+                                            .toUpperCase(),
+                                  style: TextStyle(
+                                    color: colorScheme.onPrimaryContainer,
+                                  ),
+                                ),
+                              ),
+                              title: Text(item.title),
+                              subtitle: item.subtitle == null
+                                  ? null
+                                  : Text(item.subtitle!),
+                              trailing: Text(
+                                item.role.displayName,
+                                style: Theme.of(context).textTheme.labelMedium
+                                    ?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _JournalMemberListItem {
+  final String title;
+  final String? subtitle;
+  final JournalRole role;
+
+  const _JournalMemberListItem({
+    required this.title,
+    required this.subtitle,
+    required this.role,
+  });
 }
 
 /// Page card with content preview
@@ -305,18 +491,7 @@ class _PageCard extends ConsumerWidget {
                 return Stack(
                   fit: StackFit.expand,
                   children: [
-                    if (theme.visuals.assetPath != null)
-                      Positioned.fill(
-                        child: Image.asset(
-                          theme.visuals.assetPath!,
-                          fit: BoxFit.cover,
-                        ),
-                      )
-                    else
-                      CustomPaint(
-                        painter: NostalgicPagePainter(theme: theme),
-                        size: Size.infinite,
-                      ),
+                    Positioned.fill(child: _buildPageBackground()),
                     _buildTapHint(context),
                   ],
                 );
@@ -336,18 +511,7 @@ class _PageCard extends ConsumerWidget {
                     clipBehavior: Clip.none,
                     children: [
                       // Background
-                      if (theme.visuals.assetPath != null)
-                        Positioned.fill(
-                          child: Image.asset(
-                            theme.visuals.assetPath!,
-                            fit: BoxFit.cover,
-                          ),
-                        )
-                      else
-                        CustomPaint(
-                          painter: NostalgicPagePainter(theme: theme),
-                          size: Size.infinite,
-                        ),
+                      Positioned.fill(child: _buildPageBackground()),
 
                       // Blocks
                       Stack(
@@ -387,6 +551,23 @@ class _PageCard extends ConsumerWidget {
   }
 
   // _buildContentPreview is removed/replaced by the visual preview above
+
+  Widget _buildPageBackground() {
+    if (theme.visuals.assetPath != null) {
+      return Image.asset(
+        theme.visuals.assetPath!,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => CustomPaint(
+          painter: NostalgicPagePainter(theme: theme),
+          size: Size.infinite,
+        ),
+      );
+    }
+    return CustomPaint(
+      painter: NostalgicPagePainter(theme: theme),
+      size: Size.infinite,
+    );
+  }
 
   Widget _buildTapHint(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;

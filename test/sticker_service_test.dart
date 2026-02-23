@@ -53,6 +53,45 @@ void main() {
     expect(doc.data()!['content'], equals('🙂'));
   });
 
+  test('createSticker normalizes content and category', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    final firestore = FakeFirebaseFirestore();
+    final logger = AppLogger();
+    final telemetry = TelemetryService(logger);
+    var uid = 'sticker_user_norm';
+    final service = StickerService(
+      db.stickerDao,
+      AuthService(isFirebaseAvailable: false),
+      logger,
+      telemetry,
+      firestore: firestore,
+      currentUidProvider: () => uid,
+    );
+    addTearDown(() async {
+      service.dispose();
+      await db.close();
+    });
+
+    final sticker = await service.createSticker(
+      type: StickerType.emoji,
+      content: '  🙂  ',
+      category: ' Favoriler ',
+    );
+
+    final local = await db.stickerDao.watchMyStickers(uid).first;
+    final saved = local.firstWhere((e) => e.id == sticker.id);
+    expect(saved.content, equals('🙂'));
+    expect(saved.category, equals('favoriler'));
+
+    final doc = await firestore
+        .collection(FirestorePaths.userStickers)
+        .doc(sticker.id)
+        .get();
+    expect(doc.exists, isTrue);
+    expect(doc.data()!['content'], equals('🙂'));
+    expect(doc.data()!['category'], equals('favoriler'));
+  });
+
   test('onAuthStateChanged syncs remote stickers to local', () async {
     final db = AppDatabase(NativeDatabase.memory());
     final firestore = FakeFirebaseFirestore();

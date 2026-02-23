@@ -134,7 +134,11 @@ class JournalPreviewCard extends ConsumerWidget {
         errorBuilder: (_, _, _) => _buildGradientCover(gradient),
       );
     } else if (theme.visuals.assetPath != null) {
-      cover = Image.asset(theme.visuals.assetPath!, fit: BoxFit.cover);
+      cover = Image.asset(
+        theme.visuals.assetPath!,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => _buildGradientCover(gradient),
+      );
     } else {
       cover = _buildGradientCover(gradient);
     }
@@ -166,9 +170,9 @@ class JournalPreviewCard extends ConsumerWidget {
             ),
             child: Text(
               theme.name,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: semantic.primaryStrong,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: semantic.primaryStrong),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -183,7 +187,9 @@ class JournalPreviewCard extends ConsumerWidget {
       decoration: BoxDecoration(gradient: gradient),
       child: Center(
         child: Text(
-          journal.title.isNotEmpty ? journal.title.substring(0, 1).toUpperCase() : '',
+          journal.title.isNotEmpty
+              ? journal.title.substring(0, 1).toUpperCase()
+              : '',
           style: const TextStyle(
             fontSize: 42,
             fontWeight: FontWeight.w700,
@@ -246,6 +252,10 @@ class JournalPreviewCard extends ConsumerWidget {
                     ? Image.asset(
                         notebookTheme.visuals.assetPath!,
                         fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => CustomPaint(
+                          painter: NostalgicPagePainter(theme: notebookTheme),
+                          size: Size.infinite,
+                        ),
                       )
                     : CustomPaint(
                         painter: NostalgicPagePainter(theme: notebookTheme),
@@ -301,7 +311,11 @@ class JournalPreviewCard extends ConsumerWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.auto_stories_rounded, size: 12, color: colorScheme.primary),
+          Icon(
+            Icons.auto_stories_rounded,
+            size: 12,
+            color: colorScheme.primary,
+          ),
           const SizedBox(width: 4),
           Text(
             label,

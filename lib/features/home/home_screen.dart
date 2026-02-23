@@ -1,459 +1,476 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
-import 'package:journal_app/core/ui/glass_card.dart';
+import 'package:intl/intl.dart';
+import 'package:journal_app/core/models/journal.dart';
+import 'package:journal_app/core/theme/tokens/brand_colors.dart';
+import 'package:journal_app/core/theme/tokens/brand_radius.dart';
+import 'package:journal_app/core/theme/tokens/brand_spacing.dart';
 import 'package:journal_app/core/auth/user_service.dart';
-import 'package:journal_app/core/theme/journal_theme.dart';
-import 'package:journal_app/providers/providers.dart';
-import 'package:journal_app/features/journal/journal_view_screen.dart';
+import 'package:journal_app/providers/journal_providers.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class HomeScreen extends ConsumerWidget {
-  const HomeScreen({super.key});
+  final bool isEmbeddedInLibrary;
 
-  String _getGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 6) return 'İyi Geceler';
-    if (hour < 12) return 'Günaydın';
-    if (hour < 18) return 'İyi Günler';
-    return 'İyi Akşamlar';
+  const HomeScreen({super.key, this.isEmbeddedInLibrary = false});
+
+  String _greeting(DateTime now) {
+    final hour = now.hour;
+    if (hour >= 5 && hour < 12) return 'Günaydın';
+    if (hour >= 12 && hour < 17) return 'İyi Günler';
+    if (hour >= 17 && hour < 22) return 'İyi Akşamlar';
+    return 'İyi Geceler';
   }
 
-  String _getMotivationalQuote() {
-    final quotes = [
-      '"Bugün yazdıkların, yarının hazineleridir."',
-      '"Her gün yeni bir sayfa, yeni bir başlangıç."',
-      '"Düşüncelerini yazıya dök, zihnini özgür bırak."',
-      '"Anılar geçicidir, yazdıkların kalıcı."',
-      '"Bir günlük, kendi kendine bir mektuptur."',
-    ];
-    final index = DateTime.now().day % quotes.length;
-    return quotes[index];
+  String _displayName(UserProfile? profile) {
+    final firstName = profile?.firstName;
+    if (firstName != null && firstName.isNotEmpty) {
+      return firstName.trim();
+    }
+    final displayName = profile?.displayName;
+    if (displayName != null && displayName.isNotEmpty) {
+      return displayName.trim();
+    }
+    return 'Kullanıcı';
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    final profileAsync = ref.watch(myProfileProvider);
-    final journalsAsync = ref.watch(journalsProvider);
-    final totalPageCountAsync = ref.watch(totalPageCountProvider);
+    final semantic =
+        Theme.of(context).extension<JournalSemanticColors>() ??
+        (Theme.of(context).brightness == Brightness.dark
+            ? JournalSemanticColors.dark
+            : JournalSemanticColors.light);
+    final spacing =
+        Theme.of(context).extension<JournalSpacingScale>() ??
+        JournalSpacingScale.standard;
+    final radius =
+        Theme.of(context).extension<JournalRadiusScale>() ??
+        JournalRadiusScale.standard;
 
-    return Container(
-      color: colorScheme.surface,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Hero Section - Greeting
-            _buildHeroSection(context, profileAsync),
-            const SizedBox(height: 24),
+    final profile = ref.watch(myProfileProvider).value;
+    final journals = ref.watch(journalsProvider).value ?? const <Journal>[];
+    final pageCount = ref.watch(totalPageCountProvider).value ?? 0;
+    final now = DateTime.now();
+    final dateString = DateFormat('EEEE d MMMM', 'tr_TR').format(now);
+    final greeting = _greeting(now);
+    final name = _displayName(profile);
+    final headerTopPadding = isEmbeddedInLibrary ? 20.0 : 56.0;
+    final contentTopPadding = isEmbeddedInLibrary ? 12.0 : 10.0;
 
-            // Quick Stats
-            journalsAsync.when(
-              data: (journals) => _buildStatsCard(
-                context,
-                journalCount: journals.length,
-                pageCount: totalPageCountAsync.value ?? 0,
-                friendCount: profileAsync.value?.friends.length ?? 0,
-              ),
-              loading: () => const SizedBox.shrink(),
-              error: (_, stackTrace) => const SizedBox.shrink(),
-            ),
-            const SizedBox(height: 24),
-
-            // Recent Journals
-            journalsAsync.when(
-              data: (journals) =>
-                  _buildRecentJournals(context, journals.take(4).toList()),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Text('Hata: $e'),
-            ),
-            const SizedBox(height: 24),
-
-            // Quick Actions
-            _buildQuickActions(context),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeroSection(
-    BuildContext context,
-    AsyncValue<UserProfile?> profileAsync,
-  ) {
-    final greeting = _getGreeting();
-    final quote = _getMotivationalQuote();
-    final colorScheme = Theme.of(context).colorScheme;
-
-    final displayName =
-        profileAsync.value?.firstName ??
-        profileAsync.value?.displayName ??
-        'Kullanıcı';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return ListView(
+      padding: EdgeInsets.zero,
       children: [
-        // Date
-        Row(
-          children: [
-            Text(
-              _formatDate(DateTime.now()),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ).animate().fadeIn(delay: 100.ms),
-          ],
-        ),
-
-        const SizedBox(height: 8),
-
-        // Greeting
-        Text(
-          '$greeting, $displayName 👋',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: colorScheme.onSurface,
+        Container(
+          padding: EdgeInsets.fromLTRB(20, headerTopPadding, 20, 28),
+          decoration: BoxDecoration(
+            color: semantic.elevated,
+            borderRadius: BorderRadius.vertical(
+              bottom: Radius.circular(radius.modal),
+            ),
           ),
-        ).animate().fadeIn(delay: 200.ms).moveX(begin: -20, end: 0),
-
-        const SizedBox(height: 16),
-
-        // Motivational Quote
-        GlassCard(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: colorScheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.format_quote_rounded,
-                  color: colorScheme.primary,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  quote,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontStyle: FontStyle.italic,
-                    color: colorScheme.onSurfaceVariant,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (!isEmbeddedInLibrary) ...[
+                  Row(
+                    children: [
+                      Text(
+                        'Anasayfa',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: colorScheme.onSurfaceVariant.withValues(
+                                alpha: 0.9,
+                              ),
+                            ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: () => context.push('/notifications'),
+                        icon: const Icon(LucideIcons.inbox),
+                        tooltip: 'Inbox',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                ],
+                Text(dateString, style: Theme.of(context).textTheme.bodySmall),
+                const SizedBox(height: 6),
+                Text(
+                  '$greeting, $name 👋',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ).animate().fadeIn(delay: 300.ms).moveY(begin: 20, end: 0),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(20, contentTopPadding, 20, 140),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Text(
+                    'Hızlı Erişim',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _QuickTile(
+                        title: 'Takımlar',
+                        icon: LucideIcons.users,
+                        tint: colorScheme.secondary,
+                        gradientA: colorScheme.secondary.withValues(
+                          alpha: 0.25,
+                        ),
+                        gradientB: colorScheme.primary.withValues(alpha: 0.2),
+                        onTap: () => context.push('/teams'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _QuickTile(
+                        title: 'Çıkartmalar',
+                        icon: LucideIcons.sticker,
+                        tint: colorScheme.tertiary,
+                        gradientA: colorScheme.tertiary.withValues(alpha: 0.24),
+                        gradientB: colorScheme.primary.withValues(alpha: 0.18),
+                        onTap: () => context.go('/?tab=1'),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: spacing.sm),
+                if (journals.isEmpty)
+                  const _EmptyStateCard()
+                else
+                  _RecentJournalsCard(journals: journals.take(3).toList()),
+                const SizedBox(height: 18),
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: semantic.card,
+                    borderRadius: BorderRadius.circular(radius.large),
+                    border: Border.all(
+                      color: semantic.divider.withValues(alpha: 0.85),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'İstatistikler',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _StatCard(
+                              icon: LucideIcons.bookMarked,
+                              value: journals.length,
+                              label: 'Günlük',
+                              tint: colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _StatCard(
+                              icon: LucideIcons.fileText,
+                              value: pageCount,
+                              label: 'Sayfa',
+                              tint: colorScheme.secondary,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _StatCard(
+                              icon: LucideIcons.users,
+                              value: profile?.friends.length ?? 0,
+                              label: 'Arkadaş',
+                              tint: colorScheme.tertiary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
+}
 
-  Widget _buildStatsCard(
-    BuildContext context, {
-    required int journalCount,
-    required int pageCount,
-    required int friendCount,
-  }) {
+class _StatCard extends StatelessWidget {
+  final IconData icon;
+  final int value;
+  final String label;
+  final Color tint;
+
+  const _StatCard({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.tint,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final semantic =
+        Theme.of(context).extension<JournalSemanticColors>() ??
+        (Theme.of(context).brightness == Brightness.dark
+            ? JournalSemanticColors.dark
+            : JournalSemanticColors.light);
+    final radius =
+        Theme.of(context).extension<JournalRadiusScale>() ??
+        JournalRadiusScale.standard;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: semantic.elevated,
+        borderRadius: BorderRadius.circular(radius.medium),
+        border: Border.all(color: semantic.divider.withValues(alpha: 0.8)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: tint.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(radius.small),
+            ),
+            child: Icon(icon, color: tint, size: 20),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '$value',
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 2),
+          Text(label, style: Theme.of(context).textTheme.labelMedium),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyStateCard extends StatelessWidget {
+  const _EmptyStateCard();
+
+  @override
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final semantic =
+        Theme.of(context).extension<JournalSemanticColors>() ??
+        (Theme.of(context).brightness == Brightness.dark
+            ? JournalSemanticColors.dark
+            : JournalSemanticColors.light);
+    final radius =
+        Theme.of(context).extension<JournalRadiusScale>() ??
+        JournalRadiusScale.standard;
 
-    return GlassCard(
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: semantic.card,
+        borderRadius: BorderRadius.circular(radius.large),
+        border: Border.all(color: semantic.divider.withValues(alpha: 0.85)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(radius.medium),
+              border: Border.all(
+                color: colorScheme.primary.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Icon(
+              LucideIcons.bookmark,
+              size: 34,
+              color: colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Henüz günlük yok',
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Henüz görüntülenecek günlük bulunmuyor.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecentJournalsCard extends StatelessWidget {
+  final List<Journal> journals;
+
+  const _RecentJournalsCard({required this.journals});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final semantic =
+        Theme.of(context).extension<JournalSemanticColors>() ??
+        (Theme.of(context).brightness == Brightness.dark
+            ? JournalSemanticColors.dark
+            : JournalSemanticColors.light);
+    final radius =
+        Theme.of(context).extension<JournalRadiusScale>() ??
+        JournalRadiusScale.standard;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: semantic.card,
+        borderRadius: BorderRadius.circular(radius.large),
+        border: Border.all(color: semantic.divider.withValues(alpha: 0.85)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'İstatistikler',
+            'Son Günlükler',
             style: Theme.of(
               context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
           ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildStatItem(
-                context,
-                icon: Icons.book_rounded,
-                value: journalCount.toString(),
-                label: 'Günlük',
-                color: colorScheme.primary,
+          const SizedBox(height: 12),
+          ...journals.map(
+            (journal) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  Icon(
+                    LucideIcons.bookMarked,
+                    size: 16,
+                    color: colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      journal.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                ],
               ),
-              _buildStatItem(
-                context,
-                icon: Icons.description_rounded,
-                value: pageCount.toString(),
-                label: 'Sayfa',
-                color: colorScheme.secondary,
-              ),
-              _buildStatItem(
-                context,
-                icon: Icons.people_alt_rounded,
-                value: friendCount.toString(),
-                label: 'Arkadaş',
-                color: colorScheme.tertiary,
-              ),
-            ],
+            ),
           ),
         ],
       ),
-    ).animate().fadeIn(delay: 400.ms).scale(begin: const Offset(0.95, 0.95));
-  }
-
-  Widget _buildStatItem(
-    BuildContext context, {
-    required IconData icon,
-    required String value,
-    required String label,
-    required Color color,
-  }) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Icon(icon, color: color, size: 28),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
     );
   }
+}
 
-  Widget _buildRecentJournals(
-    BuildContext context,
-    List<dynamic> recentJournals,
-  ) {
-    final colorScheme = Theme.of(context).colorScheme;
+class _QuickTile extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color tint;
+  final Color gradientA;
+  final Color gradientB;
+  final VoidCallback onTap;
 
-    if (recentJournals.isEmpty) {
-      return GlassCard(
-        child: Column(
-          children: [
-            Icon(
-              Icons.book_outlined,
-              size: 48,
-              color: colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Henüz günlük yok',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'İlk günlüğünü oluşturmak için aşağıdaki butona tıkla!',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      );
-    }
+  const _QuickTile({
+    required this.title,
+    required this.icon,
+    required this.tint,
+    required this.gradientA,
+    required this.gradientB,
+    required this.onTap,
+  });
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Son Günlükler',
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 140,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: recentJournals.length,
-            separatorBuilder: (context, index) => const SizedBox(width: 12),
-            itemBuilder: (context, index) {
-              final journal = recentJournals[index];
-              final theme = BuiltInThemes.getById(journal.coverStyle);
-              return _buildJournalCard(context, journal, theme);
-            },
-          ),
-        ),
-      ],
-    ).animate().fadeIn(delay: 500.ms);
-  }
+  @override
+  Widget build(BuildContext context) {
+    final semantic =
+        Theme.of(context).extension<JournalSemanticColors>() ??
+        (Theme.of(context).brightness == Brightness.dark
+            ? JournalSemanticColors.dark
+            : JournalSemanticColors.light);
+    final radius =
+        Theme.of(context).extension<JournalRadiusScale>() ??
+        JournalRadiusScale.standard;
 
-  Widget _buildJournalCard(
-    BuildContext context,
-    dynamic journal,
-    dynamic theme,
-  ) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => JournalViewScreen(journal: journal),
-          ),
-        );
-      },
-      child: Container(
-        width: 120,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: theme.coverGradient,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: (theme.coverGradient[0] as Color).withValues(alpha: 0.3),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(theme.coverIcon, color: Colors.white, size: 28),
-              const Spacer(),
-              Text(
-                journal.title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickActions(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Hızlı Erişim',
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildActionButton(
-                context,
-                icon: Icons.group_rounded,
-                label: 'Takımlar',
-                color: colorScheme.secondary,
-                onTap: () => context.push('/teams'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildActionButton(
-                context,
-                icon: Icons.sticky_note_2_rounded,
-                label: 'Çıkartmalar',
-                color: colorScheme.tertiary,
-                onTap: () => context.push('/stickers'),
-              ),
-            ),
-          ],
-        ),
-      ],
-    ).animate().fadeIn(delay: 600.ms).moveY(begin: 20, end: 0);
-  }
-
-  Widget _buildActionButton(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: GlassCard(
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+        borderRadius: BorderRadius.circular(radius.medium),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: semantic.card,
+            borderRadius: BorderRadius.circular(radius.medium),
+            border: Border.all(color: semantic.divider.withValues(alpha: 0.85)),
+          ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(radius.small),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [gradientA, gradientB],
+                  ),
+                  border: Border.all(
+                    color: semantic.divider.withValues(alpha: 0.8),
+                  ),
                 ),
-                child: Icon(icon, color: color, size: 22),
+                child: Center(child: Icon(icon, color: tint, size: 22)),
               ),
-              const SizedBox(width: 10),
-              Text(
-                label,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                ),
               ),
             ],
           ),
         ),
       ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    final months = [
-      'Ocak',
-      'Şubat',
-      'Mart',
-      'Nisan',
-      'Mayıs',
-      'Haziran',
-      'Temmuz',
-      'Ağustos',
-      'Eylül',
-      'Ekim',
-      'Kasım',
-      'Aralık',
-    ];
-    final days = [
-      'Pazartesi',
-      'Salı',
-      'Çarşamba',
-      'Perşembe',
-      'Cuma',
-      'Cumartesi',
-      'Pazar',
-    ];
-    return '${days[date.weekday - 1]}, ${date.day} ${months[date.month - 1]}';
   }
 }

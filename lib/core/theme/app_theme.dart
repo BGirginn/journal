@@ -9,10 +9,13 @@ import 'package:journal_app/core/theme/theme_variant.dart';
 class AppTheme {
   static ThemeData getTheme(
     Brightness brightness, {
-    AppThemeVariant variant = AppThemeVariant.calmEditorialPremium,
+    AppThemeVariant variant = AppThemeVariant.testedTheme,
   }) {
     final isDark = brightness == Brightness.dark;
     final isMinimal = variant == AppThemeVariant.minimalProductivityPro;
+    final isGlassTheme =
+        variant == AppThemeVariant.violetNebulaJournal ||
+        variant == AppThemeVariant.testedTheme;
     final palette = BrandPalettes.of(variant);
     final colorScheme = isDark ? palette.darkScheme : palette.lightScheme;
     final semantic = isDark ? palette.darkSemantic : palette.lightSemantic;
@@ -74,9 +77,11 @@ class AppTheme {
         shadowColor: colorScheme.shadow,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radius.large),
-          side: isMinimal
+          side: (isMinimal || isGlassTheme)
               ? BorderSide(
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.9),
+                  color: colorScheme.outlineVariant.withValues(
+                    alpha: isGlassTheme ? (isDark ? 0.95 : 0.88) : 0.9,
+                  ),
                 )
               : BorderSide.none,
         ),
@@ -281,6 +286,39 @@ class AppTheme {
           xxl: 32,
           xxxl: 40,
         );
+      case AppThemeVariant.midnightTealJournal:
+        return const JournalSpacingScale(
+          xxs: 4,
+          xs: 8,
+          sm: 12,
+          md: 16,
+          lg: 24,
+          xl: 32,
+          xxl: 40,
+          xxxl: 48,
+        );
+      case AppThemeVariant.violetNebulaJournal:
+        return const JournalSpacingScale(
+          xxs: 4,
+          xs: 8,
+          sm: 12,
+          md: 16,
+          lg: 24,
+          xl: 32,
+          xxl: 40,
+          xxxl: 48,
+        );
+      case AppThemeVariant.testedTheme:
+        return const JournalSpacingScale(
+          xxs: 4,
+          xs: 8,
+          sm: 12,
+          md: 16,
+          lg: 24,
+          xl: 32,
+          xxl: 40,
+          xxxl: 48,
+        );
     }
   }
 
@@ -310,6 +348,27 @@ class AppTheme {
           medium: 14,
           large: 16,
           modal: 16,
+        );
+      case AppThemeVariant.midnightTealJournal:
+        return const JournalRadiusScale(
+          small: 12,
+          medium: 18,
+          large: 24,
+          modal: 28,
+        );
+      case AppThemeVariant.violetNebulaJournal:
+        return const JournalRadiusScale(
+          small: 12,
+          medium: 16,
+          large: 20,
+          modal: 24,
+        );
+      case AppThemeVariant.testedTheme:
+        return const JournalRadiusScale(
+          small: 12,
+          medium: 16,
+          large: 24,
+          modal: 24,
         );
     }
   }
@@ -412,6 +471,108 @@ class AppTheme {
             ),
           ],
         );
+      case AppThemeVariant.midnightTealJournal:
+        return isDark
+            ? const JournalElevationScale(
+                cardShadow: [
+                  BoxShadow(
+                    color: Color(0x3F000000),
+                    blurRadius: 28,
+                    offset: Offset(0, 10),
+                  ),
+                ],
+                toolShadow: [
+                  BoxShadow(
+                    color: Color(0x54000000),
+                    blurRadius: 20,
+                    offset: Offset(0, 10),
+                  ),
+                ],
+              )
+            : const JournalElevationScale(
+                cardShadow: [
+                  BoxShadow(
+                    color: Color(0x12000000),
+                    blurRadius: 18,
+                    offset: Offset(0, 6),
+                  ),
+                ],
+                toolShadow: [
+                  BoxShadow(
+                    color: Color(0x1F000000),
+                    blurRadius: 16,
+                    offset: Offset(0, 6),
+                  ),
+                ],
+              );
+      case AppThemeVariant.violetNebulaJournal:
+        return isDark
+            ? const JournalElevationScale(
+                cardShadow: [
+                  BoxShadow(
+                    color: Color(0x52000000),
+                    blurRadius: 30,
+                    offset: Offset(0, 12),
+                  ),
+                ],
+                toolShadow: [
+                  BoxShadow(
+                    color: Color(0x5C000000),
+                    blurRadius: 22,
+                    offset: Offset(0, 12),
+                  ),
+                ],
+              )
+            : const JournalElevationScale(
+                cardShadow: [
+                  BoxShadow(
+                    color: Color(0x16000000),
+                    blurRadius: 20,
+                    offset: Offset(0, 8),
+                  ),
+                ],
+                toolShadow: [
+                  BoxShadow(
+                    color: Color(0x22000000),
+                    blurRadius: 18,
+                    offset: Offset(0, 8),
+                  ),
+                ],
+              );
+      case AppThemeVariant.testedTheme:
+        return isDark
+            ? const JournalElevationScale(
+                cardShadow: [
+                  BoxShadow(
+                    color: Color(0x80000000),
+                    blurRadius: 30,
+                    offset: Offset(0, 15),
+                  ),
+                ],
+                toolShadow: [
+                  BoxShadow(
+                    color: Color(0x70000000),
+                    blurRadius: 24,
+                    offset: Offset(0, 12),
+                  ),
+                ],
+              )
+            : const JournalElevationScale(
+                cardShadow: [
+                  BoxShadow(
+                    color: Color(0x16000000),
+                    blurRadius: 20,
+                    offset: Offset(0, 8),
+                  ),
+                ],
+                toolShadow: [
+                  BoxShadow(
+                    color: Color(0x22000000),
+                    blurRadius: 18,
+                    offset: Offset(0, 8),
+                  ),
+                ],
+              );
     }
   }
 }

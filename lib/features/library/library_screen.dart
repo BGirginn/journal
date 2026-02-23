@@ -4,25 +4,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:journal_app/core/auth/auth_service.dart';
-import 'package:journal_app/core/theme/nostalgic_themes.dart';
-import 'package:journal_app/providers/journal_providers.dart';
 import 'package:journal_app/core/ui/custom_bottom_navigation.dart';
+import 'package:journal_app/l10n/app_localizations.dart';
+import 'package:journal_app/providers/providers.dart';
 
 /// Library screen - displays list of journals
 import 'package:journal_app/features/home/home_screen.dart';
 import 'package:journal_app/features/friends/friends_screen.dart';
 import 'package:journal_app/features/library/journal_library_view.dart';
-import 'package:journal_app/features/library/theme_picker_dialog.dart';
 import 'package:journal_app/features/profile/profile_settings_screen.dart';
 import 'package:journal_app/features/stickers/screens/sticker_manager_screen.dart';
 
 import 'package:journal_app/core/services/deep_link_service.dart';
 import 'package:journal_app/core/services/notification_service.dart';
-import 'package:journal_app/core/theme/tokens/brand_colors.dart';
-import 'package:journal_app/l10n/app_localizations.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class LibraryScreen extends ConsumerStatefulWidget {
-  const LibraryScreen({super.key});
+  final int? initialTab;
+
+  const LibraryScreen({super.key, this.initialTab});
 
   @override
   ConsumerState<LibraryScreen> createState() => _LibraryScreenState();
@@ -31,8 +31,9 @@ class LibraryScreen extends ConsumerStatefulWidget {
 class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   static const int _tabCount = 5;
   static const int _homeTabIndex = 2;
+  static const double _fabGapFromBottomBar = 40;
 
-  int _selectedIndex = _homeTabIndex;
+  late int _selectedIndex;
   late final PageController _pageController;
   StreamSubscription<NotificationTapIntent>? _notificationTapSubscription;
   final Set<String> _handledTapIds = <String>{};
@@ -57,6 +58,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedIndex = (widget.initialTab ?? _homeTabIndex).clamp(
+      0,
+      _tabCount - 1,
+    );
     _pageController = PageController(initialPage: _selectedIndex);
     _deepLinkService = ref.read(deepLinkServiceProvider);
     _notificationService = ref.read(notificationServiceProvider);
@@ -72,6 +77,23 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       }
       _bindNotificationTapListener();
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant LibraryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final nextIndex = (widget.initialTab ?? _homeTabIndex).clamp(
+      0,
+      _tabCount - 1,
+    );
+    if (nextIndex == _selectedIndex) {
+      return;
+    }
+    _selectedIndex = nextIndex;
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(nextIndex);
+    }
+    setState(() {});
   }
 
   @override
@@ -152,14 +174,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     }
 
     final distance = (targetIndex - currentIndex).abs();
-    if (distance > 1) {
-      _pageController.jumpToPage(targetIndex);
-      return;
-    }
-
+    final durationMs = (150 + (distance * 50)).clamp(150, 350);
     _pageController.animateToPage(
       targetIndex,
-      duration: const Duration(milliseconds: 170),
+      duration: Duration(milliseconds: durationMs),
       curve: Curves.easeOutCubic,
     );
   }
@@ -174,6 +192,66 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     });
   }
 
+  Future<void> _showCreateJournalDialog() async {
+    final l10n = AppLocalizations.of(context)!;
+    final controller = TextEditingController();
+
+    final title = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.libraryCreateTitle),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) {
+            final value = controller.text.trim();
+            if (value.isNotEmpty) {
+              Navigator.pop(dialogContext, value);
+            }
+          },
+          decoration: InputDecoration(hintText: l10n.libraryCreateHint),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () {
+              final value = controller.text.trim();
+              if (value.isEmpty) {
+                return;
+              }
+              Navigator.pop(dialogContext, value);
+            },
+            child: Text(l10n.libraryCreateAction),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || title == null || title.trim().isEmpty) {
+      return;
+    }
+
+    try {
+      final createJournal = ref.read(createJournalProvider);
+      final journal = await createJournal(title: title.trim());
+      if (!mounted) {
+        return;
+      }
+      context.push('/journal/${journal.id}');
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Günlük oluşturulamadı: $e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -184,14 +262,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
-          if (_selectedIndex == 1)
-            IconButton(
-              icon: const Icon(Icons.add),
-              tooltip: 'Çıkartma Ekle',
-              onPressed: () => context.push('/stickers/create'),
-            ),
           IconButton(
-            icon: const Icon(Icons.inbox_rounded),
+            icon: const Icon(LucideIcons.inbox),
             tooltip: 'Inbox',
             onPressed: () => context.push('/notifications'),
           ),
@@ -203,8 +275,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         physics: const ClampingScrollPhysics(),
         children: const [
           JournalLibraryView(), // 0
-          StickerManagerView(), // 1
-          HomeScreen(), // 2
+          StickerManagerView(isEmbeddedInLibrary: true), // 1
+          HomeScreen(isEmbeddedInLibrary: true), // 2
           FriendsView(), // 3
           ProfileSettingsView(), // 4
         ],
@@ -213,164 +285,45 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         selectedIndex: _selectedIndex,
         onItemSelected: _onItemTapped,
       ),
-      floatingActionButton:
-          _selectedIndex ==
-              0 // Only show FAB on Journals tab (Index 0)
-          ? Padding(
-              padding: const EdgeInsets.only(bottom: 30),
-              child: FloatingActionButton(
-                onPressed: () => _showCreateDialog(context, ref),
-                shape: const CircleBorder(),
-                child: const Icon(Icons.add),
-              ),
+      floatingActionButtonLocation: _selectedIndex == 0
+          ? const _FabAboveBottomBarLocation(gap: _fabGapFromBottomBar)
+          : null,
+      floatingActionButton: _selectedIndex == 0
+          ? FloatingActionButton(
+              onPressed: _showCreateJournalDialog,
+              child: const Icon(Icons.add),
             )
           : null,
     );
   }
+}
 
-  // Removed _onItemTapped as it's replaced by onDestinationSelected inline
+class _FabAboveBottomBarLocation extends FloatingActionButtonLocation {
+  final double gap;
 
-  // --- Create Dialog Logic (Moved locally or duplicated) ---
-  // Ideally this should be in JournalLibraryView but FAB is usually on Scaffold.
-  // We can keep it here for now.
+  const _FabAboveBottomBarLocation({required this.gap});
 
-  void _showCreateDialog(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    final controller = TextEditingController();
-    String selectedThemeId = 'default';
+  @override
+  Offset getOffset(ScaffoldPrelayoutGeometry scaffoldGeometry) {
+    final fabSize = scaffoldGeometry.floatingActionButtonSize;
+    final bottomInset = scaffoldGeometry.minInsets.bottom;
+    final barTop =
+        scaffoldGeometry.scaffoldSize.height -
+        bottomInset -
+        CustomBottomNavigation.kBarBottomInset -
+        CustomBottomNavigation.kBarHeight;
+    final y = barTop - fabSize.height - gap;
+    const horizontalMargin = 16.0;
 
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          final selectedTheme = NostalgicThemes.getById(selectedThemeId);
-          final useDarkText =
-              selectedTheme.visuals.coverGradient.first.computeLuminance() >
-              0.56;
-          final coverTextColor = useDarkText
-              ? BrandColors.primary900
-              : Colors.white;
+    final x = switch (scaffoldGeometry.textDirection) {
+      TextDirection.rtl => scaffoldGeometry.minInsets.left + horizontalMargin,
+      TextDirection.ltr =>
+        scaffoldGeometry.scaffoldSize.width -
+            scaffoldGeometry.minInsets.right -
+            horizontalMargin -
+            fabSize.width,
+    };
 
-          return AlertDialog(
-            title: Text(l10n.libraryCreateTitle),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  controller: controller,
-                  autofocus: true,
-                  decoration: InputDecoration(
-                    labelText: l10n.libraryRenameHint,
-                    hintText: l10n.libraryCreateHint,
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  l10n.libraryThemePickerTitle,
-                  style: const TextStyle(fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(height: 8),
-                GestureDetector(
-                  onTap: () async {
-                    final theme = await showThemePicker(
-                      context,
-                      selectedThemeId: selectedThemeId,
-                    );
-                    if (theme != null) {
-                      setState(() => selectedThemeId = theme.id);
-                    }
-                  },
-                  child: Container(
-                    height: 60,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: selectedTheme.visuals.coverGradient,
-                      ),
-                      image: selectedTheme.visuals.assetPath != null
-                          ? DecorationImage(
-                              image: AssetImage(
-                                selectedTheme.visuals.assetPath!,
-                              ),
-                              fit: BoxFit.cover,
-                            )
-                          : null,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (selectedTheme.visuals.assetPath == null)
-                          Text(
-                            selectedTheme.name.substring(0, 1).toUpperCase(),
-                            style: TextStyle(
-                              color: coverTextColor,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        const SizedBox(width: 8),
-                        Text(
-                          selectedTheme.name,
-                          style: TextStyle(
-                            color: coverTextColor,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Icon(Icons.arrow_drop_down, color: coverTextColor),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(l10n.cancel),
-              ),
-              FilledButton(
-                onPressed: () {
-                  if (controller.text.trim().isNotEmpty) {
-                    _createJournal(
-                      context,
-                      ref,
-                      controller.text.trim(),
-                      selectedThemeId,
-                    );
-                  }
-                },
-                child: Text(l10n.libraryCreateAction),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  void _createJournal(
-    BuildContext context,
-    WidgetRef ref,
-    String title,
-    String themeId,
-  ) async {
-    final l10n = AppLocalizations.of(context);
-    Navigator.pop(context);
-
-    // Use the provider which handles ownerId and cloud sync
-    final createJournal = ref.read(createJournalProvider);
-
-    try {
-      await createJournal(title: title, coverStyle: themeId);
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${l10n?.errorPrefix ?? 'Error'}: $e')),
-        );
-      }
-    }
+    return Offset(x, y);
   }
 }

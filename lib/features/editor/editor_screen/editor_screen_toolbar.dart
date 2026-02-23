@@ -82,12 +82,6 @@ extension _EditorToolbarExtension on _EditorScreenState {
                       onTap: _recordAudio,
                     ),
                     _ToolBtn(
-                      icon: Icons.brush_rounded,
-                      tooltip: l10n.editorMediaDrawing,
-                      isSelected: false,
-                      onTap: _openDrawingCanvas,
-                    ),
-                    _ToolBtn(
                       icon: Icons.emoji_emotions_outlined,
                       tooltip: l10n.editorToolSticker,
                       isSelected: false,
@@ -103,7 +97,8 @@ extension _EditorToolbarExtension on _EditorScreenState {
                         _eraserPreviewPoint = null;
                         if (_penColor == Colors.black &&
                             (_theme.visuals.assetPath != null ||
-                                _theme.visuals.pageColor.computeLuminance() < 0.3)) {
+                                _theme.visuals.pageColor.computeLuminance() <
+                                    0.3)) {
                           _penColor = Colors.white;
                         }
                       }),
@@ -208,7 +203,12 @@ extension _EditorToolbarExtension on _EditorScreenState {
         : colorScheme.primary.withValues(alpha: 0.35);
 
     return Container(
-      padding: EdgeInsets.fromLTRB(spacing.md, spacing.xs, spacing.md, spacing.sm),
+      padding: EdgeInsets.fromLTRB(
+        spacing.md,
+        spacing.xs,
+        spacing.md,
+        spacing.sm,
+      ),
       decoration: BoxDecoration(
         color: panelColor,
         border: Border(top: BorderSide(color: dividerColor, width: 0.8)),

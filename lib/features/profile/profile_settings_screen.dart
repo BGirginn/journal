@@ -82,6 +82,12 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
         isTurkish ? 'Neo Analog Journal' : 'Neo Analog Journal',
       AppThemeVariant.minimalProductivityPro =>
         isTurkish ? 'Minimal Productivity Pro' : 'Minimal Productivity Pro',
+      AppThemeVariant.midnightTealJournal =>
+        isTurkish ? 'Midnight Teal Journal' : 'Midnight Teal Journal',
+      AppThemeVariant.violetNebulaJournal =>
+        isTurkish ? 'Violet Nebula Journal' : 'Violet Nebula Journal',
+      AppThemeVariant.testedTheme =>
+        isTurkish ? 'Tested Theme' : 'Tested Theme',
     };
   }
 
@@ -293,7 +299,11 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
           children: [
             // Profil Bölümü
-            _buildProfileCard(context, profile),
+            _buildProfileCard(
+              context,
+              profile,
+              variant: themeSettings.effectiveVariant,
+            ),
             const SizedBox(height: 24),
 
             // Ayarlar Başlığı
@@ -618,7 +628,11 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
     );
   }
 
-  Widget _buildProfileCard(BuildContext context, UserProfile? profile) {
+  Widget _buildProfileCard(
+    BuildContext context,
+    UserProfile? profile, {
+    required AppThemeVariant variant,
+  }) {
     final l10n = AppLocalizations.of(context)!;
     if (profile == null) {
       return const Card(
@@ -633,10 +647,28 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
     final displayName = profile.displayName.trim().isEmpty
         ? 'Kullanıcı'
         : profile.displayName.trim();
+    final gradient = _profileCardGradient(context, variant);
+    final avatarBorderColor = Colors.white.withValues(alpha: 0.24);
+    final cardBorderColor = Colors.white.withValues(alpha: 0.14);
+    final subtleText = Colors.white.withValues(alpha: 0.72);
 
-    return Card(
-      elevation: 0,
-      color: Theme.of(context).colorScheme.primaryContainer,
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: gradient,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: cardBorderColor),
+        boxShadow: [
+          BoxShadow(
+            color: gradient.first.withValues(alpha: 0.35),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Row(
@@ -648,16 +680,16 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
                 children: [
                   CircleAvatar(
                     radius: 40,
-                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    backgroundColor: Colors.white.withValues(alpha: 0.18),
                     backgroundImage: profile.photoUrl != null
                         ? NetworkImage(profile.photoUrl!)
                         : null,
                     child: profile.photoUrl == null
                         ? Text(
                             _avatarInitial(displayName),
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 32,
-                              color: Theme.of(context).colorScheme.onPrimary,
+                              color: Colors.white,
                             ),
                           )
                         : null,
@@ -669,12 +701,9 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary,
+                        color: Colors.white.withValues(alpha: 0.22),
                         shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Theme.of(context).colorScheme.primaryContainer,
-                          width: 2,
-                        ),
+                        border: Border.all(color: avatarBorderColor, width: 2),
                       ),
                       child: _isUploadingAvatar
                           ? const SizedBox(
@@ -685,10 +714,10 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
                                 color: Colors.white,
                               ),
                             )
-                          : Icon(
+                          : const Icon(
                               Icons.camera_alt,
                               size: 14,
-                              color: Theme.of(context).colorScheme.onPrimary,
+                              color: Colors.white,
                             ),
                     ),
                   ),
@@ -709,18 +738,14 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
                           child: Text(
                             displayName,
                             style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(fontWeight: FontWeight.bold),
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
                           ),
                         ),
                         const SizedBox(width: 4),
-                        Icon(
-                          Icons.edit,
-                          size: 16,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onPrimaryContainer
-                              .withValues(alpha: 0.5),
-                        ),
+                        Icon(Icons.edit, size: 16, color: subtleText),
                       ],
                     ),
                   ),
@@ -730,13 +755,9 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
                       children: [
                         Text(
                           '@${profile.username}',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onPrimaryContainer
-                                    .withValues(alpha: 0.7),
-                              ),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodyMedium?.copyWith(color: subtleText),
                         ),
                         const SizedBox(width: 4),
                         IconButton(
@@ -754,6 +775,10 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
                           constraints: const BoxConstraints(),
                           visualDensity: VisualDensity.compact,
                           style: IconButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            backgroundColor: Colors.white.withValues(
+                              alpha: 0.14,
+                            ),
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
                         ),
@@ -767,6 +792,39 @@ class _ProfileSettingsViewState extends ConsumerState<ProfileSettingsView> {
         ),
       ),
     );
+  }
+
+  List<Color> _profileCardGradient(
+    BuildContext context,
+    AppThemeVariant variant,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return switch (variant) {
+      AppThemeVariant.testedTheme => const [
+        Color(0xFF8B5CF6),
+        Color(0xFF2DD4BF),
+      ],
+      AppThemeVariant.violetNebulaJournal => const [
+        Color(0xFF8B5CF6),
+        Color(0xFFB794F4),
+      ],
+      AppThemeVariant.midnightTealJournal => const [
+        Color(0xFF2DD4BF),
+        Color(0xFF34D399),
+      ],
+      _ => [
+        isDark ? colorScheme.primary : _darken(colorScheme.primary, 0.16),
+        isDark ? colorScheme.secondary : _darken(colorScheme.secondary, 0.16),
+      ],
+    };
+  }
+
+  Color _darken(Color color, double amount) {
+    final hsl = HSLColor.fromColor(color);
+    final lightness = (hsl.lightness - amount).clamp(0.0, 1.0);
+    return hsl.withLightness(lightness).toColor();
   }
 
   Widget _buildSection(

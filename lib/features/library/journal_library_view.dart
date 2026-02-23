@@ -36,7 +36,7 @@ class JournalLibraryView extends ConsumerWidget {
         JournalSpacingScale.standard;
 
     if (journals.isEmpty) {
-      return _buildEmptyState(context, ref, spacing, l10n);
+      return _buildEmptyState(context, spacing, l10n);
     }
 
     return CustomScrollView(
@@ -149,7 +149,6 @@ class JournalLibraryView extends ConsumerWidget {
 
   Widget _buildEmptyState(
     BuildContext context,
-    WidgetRef ref,
     JournalSpacingScale spacing,
     AppLocalizations l10n,
   ) {
@@ -192,15 +191,6 @@ class JournalLibraryView extends ConsumerWidget {
               ),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: spacing.lg),
-            SizedBox(
-              width: 260,
-              child: FilledButton.icon(
-                onPressed: () => _showQuickCreateDialog(context, ref),
-                icon: const Icon(Icons.add),
-                label: Text(l10n.libraryEmptyCta),
-              ),
-            ),
           ],
         ),
       ),
@@ -213,45 +203,6 @@ class JournalLibraryView extends ConsumerWidget {
         builder: (context) => JournalViewScreen(journal: journal),
       ),
     );
-  }
-
-  Future<void> _showQuickCreateDialog(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
-    final l10n = AppLocalizations.of(context)!;
-    final controller = TextEditingController();
-
-    final submitted = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l10n.libraryCreateTitle),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: InputDecoration(hintText: l10n.libraryCreateHint),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(l10n.libraryCreateAction),
-          ),
-        ],
-      ),
-    );
-
-    if (submitted == true) {
-      final title = controller.text.trim();
-      if (title.isEmpty) {
-        return;
-      }
-      final createJournal = ref.read(createJournalProvider);
-      await createJournal(title: title, coverStyle: 'default');
-    }
   }
 
   void _showJournalOptions(

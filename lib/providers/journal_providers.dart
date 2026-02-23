@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:journal_app/core/models/journal.dart';
 import 'package:journal_app/core/models/page.dart' as model;
 import 'package:journal_app/core/database/firestore_service.dart';
@@ -74,6 +75,67 @@ final createJournalProvider = Provider((ref) {
     }
 
     return journal;
+  };
+});
+
+/// Quick-entry flow: creates journal + first page + first text block.
+final createQuickJournalEntryProvider = Provider((ref) {
+  final journalDao = ref.read(journalDaoProvider);
+  final pageDao = ref.read(pageDaoProvider);
+  final blockDao = ref.read(blockDaoProvider);
+  final authService = ref.read(authServiceProvider);
+  final firestoreService = ref.read(firestoreServiceProvider);
+
+  return (String entryText) async {
+    final normalizedText = entryText.trim();
+    if (normalizedText.isEmpty) {
+      throw ArgumentError('Entry text must not be empty.');
+    }
+
+    final now = DateTime.now();
+    final title = () {
+      try {
+        return DateFormat('d MMMM y', 'tr_TR').format(now);
+      } catch (_) {
+        return DateFormat('d MMMM y').format(now);
+      }
+    }();
+    final userId = authService.currentUser?.uid;
+
+    final journal = Journal(
+      title: title,
+      coverStyle: 'default',
+      ownerId: userId,
+    );
+    final firstPage = model.Page(journalId: journal.id, pageIndex: 0);
+    final firstBlock = Block(
+      pageId: firstPage.id,
+      type: BlockType.text,
+      x: 0.08,
+      y: 0.08,
+      width: 0.84,
+      height: 0.74,
+      zIndex: 0,
+      payloadJson: TextBlockPayload(
+        content: normalizedText,
+        fontSize: 18,
+        color: '#111827',
+      ).toJsonString(),
+    );
+
+    await journalDao.insertJournal(journal);
+    await pageDao.insertPage(firstPage);
+    await blockDao.insertBlock(firstBlock);
+
+    try {
+      await firestoreService.createJournal(journal);
+      await firestoreService.createPage(firstPage);
+      await firestoreService.createBlock(firstBlock, journalId: journal.id);
+    } catch (_) {
+      // Keep local entry creation resilient when cloud sync is unavailable.
+    }
+
+    return journal.id;
   };
 });
 

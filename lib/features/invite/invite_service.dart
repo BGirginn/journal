@@ -8,6 +8,7 @@ import 'package:journal_app/core/observability/app_logger.dart';
 import 'package:journal_app/core/observability/telemetry_service.dart';
 import 'package:journal_app/providers/database_providers.dart';
 import 'package:journal_app/core/database/daos/invite_dao.dart';
+import 'package:journal_app/features/journal/journal_member_service.dart';
 import 'package:journal_app/features/team/team_service.dart';
 import 'package:journal_app/core/models/invite.dart';
 
@@ -15,12 +16,14 @@ final inviteServiceProvider = Provider<InviteService>((ref) {
   final inviteDao = ref.watch(databaseProvider).inviteDao;
   final authService = ref.read(authServiceProvider);
   final teamService = ref.read(teamServiceProvider);
+  final journalMemberService = ref.read(journalMemberServiceProvider);
   final logger = ref.watch(appLoggerProvider);
   final telemetry = ref.watch(telemetryServiceProvider);
   final service = InviteService(
     inviteDao,
     authService,
     teamService,
+    journalMemberService,
     logger,
     telemetry,
   );
@@ -35,6 +38,7 @@ class InviteService {
   final InviteDao _inviteDao;
   final AuthService _authService;
   final TeamService _teamService;
+  final JournalMemberService _journalMemberService;
   final AppLogger _logger;
   final TelemetryService _telemetry;
   final FirebaseFirestore _firestore;
@@ -47,6 +51,7 @@ class InviteService {
     this._inviteDao,
     this._authService,
     this._teamService,
+    this._journalMemberService,
     this._logger,
     this._telemetry, {
     FirebaseFirestore? firestore,
@@ -190,9 +195,12 @@ class InviteService {
         userId: uid,
         role: invite.role,
       );
-    } else {
-      // Handle Journal invite
-      // For now mostly teams.
+    } else if (invite.type == InviteType.journal) {
+      await _journalMemberService.addMember(
+        journalId: invite.targetId,
+        userId: uid,
+        role: invite.role,
+      );
     }
 
     // Update Invite Status

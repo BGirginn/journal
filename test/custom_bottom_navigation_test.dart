@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:journal_app/core/ui/custom_bottom_navigation.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 void main() {
   testWidgets('shows selected label and reports taps', (tester) async {
@@ -19,10 +20,10 @@ void main() {
 
     expect(find.text('Günlükler'), findsOneWidget);
     expect(find.text('Anasayfa'), findsNothing);
-    expect(find.byIcon(Icons.sticky_note_2_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.person_rounded), findsOneWidget);
+    expect(find.byIcon(LucideIcons.sticker), findsOneWidget);
+    expect(find.byIcon(LucideIcons.user), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.person_rounded));
+    await tester.tap(find.byIcon(LucideIcons.user));
     await tester.pumpAndSettle();
 
     expect(tappedIndex, 4);

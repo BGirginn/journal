@@ -8,6 +8,7 @@ import 'package:journal_app/core/models/invite.dart';
 import 'package:journal_app/core/observability/app_logger.dart';
 import 'package:journal_app/core/observability/telemetry_service.dart';
 import 'package:journal_app/features/invite/invite_service.dart';
+import 'package:journal_app/features/journal/journal_member_service.dart';
 import 'package:journal_app/features/team/team_service.dart';
 
 Future<void> _waitUntil(Future<bool> Function() check) async {
@@ -37,6 +38,7 @@ void main() {
       db.inviteDao,
       AuthService(isFirebaseAvailable: false),
       teamService,
+      JournalMemberService(firestore: firestore),
       logger,
       telemetry,
       firestore: firestore,
@@ -82,6 +84,7 @@ void main() {
       db.inviteDao,
       AuthService(isFirebaseAvailable: false),
       teamService,
+      JournalMemberService(firestore: firestore),
       logger,
       telemetry,
       firestore: firestore,
@@ -131,6 +134,7 @@ void main() {
       db.inviteDao,
       AuthService(isFirebaseAvailable: false),
       teamService,
+      JournalMemberService(firestore: firestore),
       logger,
       telemetry,
       firestore: firestore,
@@ -172,5 +176,65 @@ void main() {
         .where('userId', isEqualTo: uid)
         .get();
     expect(remoteMembers.docs, hasLength(1));
+  });
+
+  test('acceptInvite updates invite and adds journal collaborator', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    final firestore = FakeFirebaseFirestore();
+    final logger = AppLogger();
+    final telemetry = TelemetryService(logger);
+    var uid = 'invitee_journal_1';
+    final teamService = TeamService(
+      db.teamDao,
+      AuthService(isFirebaseAvailable: false),
+      logger,
+      telemetry,
+      firestore: firestore,
+      currentUidProvider: () => uid,
+    );
+    final inviteService = InviteService(
+      db.inviteDao,
+      AuthService(isFirebaseAvailable: false),
+      teamService,
+      JournalMemberService(firestore: firestore),
+      logger,
+      telemetry,
+      firestore: firestore,
+      currentUidProvider: () => uid,
+    );
+    addTearDown(() async {
+      inviteService.dispose();
+      teamService.dispose();
+      await db.close();
+    });
+
+    final invite = Invite(
+      type: InviteType.journal,
+      targetId: 'journal_accept_1',
+      inviterId: 'owner_journal_1',
+      inviteeId: uid,
+      role: JournalRole.editor,
+      expiresAt: DateTime.now().add(const Duration(days: 1)),
+    );
+    await firestore
+        .collection(FirestorePaths.invites)
+        .doc(invite.id)
+        .set(invite.toJson());
+
+    await inviteService.acceptInvite(invite);
+
+    final inviteDoc = await firestore
+        .collection(FirestorePaths.invites)
+        .doc(invite.id)
+        .get();
+    expect(inviteDoc.data()!['status'], InviteStatus.accepted.name);
+
+    final memberDoc = await firestore
+        .collection(FirestorePaths.journalMembers)
+        .doc('${invite.targetId}_$uid')
+        .get();
+    expect(memberDoc.exists, isTrue);
+    expect(memberDoc.data()!['journalId'], invite.targetId);
+    expect(memberDoc.data()!['userId'], uid);
   });
 }
