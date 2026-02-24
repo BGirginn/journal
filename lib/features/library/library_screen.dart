@@ -41,6 +41,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   final Set<String> _handledTapIds = <String>{};
   DeepLinkService? _deepLinkService;
   NotificationService? _notificationService;
+  bool _isCreatingJournal = false;
 
   final _titles = [
     'Günlüklerim', // 0
@@ -195,6 +196,15 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   }
 
   Future<void> _showCreateJournalDialog() async {
+    if (_isCreatingJournal) {
+      return;
+    }
+    if (mounted) {
+      setState(() => _isCreatingJournal = true);
+    } else {
+      _isCreatingJournal = true;
+    }
+
     final l10n = AppLocalizations.of(context)!;
     final controller = TextEditingController();
     var selectedCoverStyle = 'default';
@@ -322,6 +332,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           context,
         ).showSnackBar(SnackBar(content: Text('Günlük oluşturulamadı: $e')));
       }
+    } finally {
+      if (mounted) {
+        setState(() => _isCreatingJournal = false);
+      } else {
+        _isCreatingJournal = false;
+      }
     }
   }
 
@@ -365,7 +381,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           : null,
       floatingActionButton: _selectedIndex == 0
           ? FloatingActionButton(
-              onPressed: _showCreateJournalDialog,
+              onPressed: _isCreatingJournal ? null : _showCreateJournalDialog,
               child: const Icon(Icons.add),
             )
           : null,

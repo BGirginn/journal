@@ -1,6 +1,28 @@
 part of '../editor_screen.dart';
 
 extension _EditorGesturesExtension on _EditorScreenState {
+  bool _isPointInsideAnyBlock(Offset scenePoint, Size pageSize) {
+    for (final block in _blocks) {
+      final hit = _isPointInsideBlock(
+        scenePoint: scenePoint,
+        block: block,
+        pageSize: pageSize,
+      );
+      if (hit) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void _onCanvasDoubleTap(TapDownDetails details, Size pageSize) {
+    final scenePoint = _toScene(details.localPosition);
+    final hitAnyBlock = _isPointInsideAnyBlock(scenePoint, pageSize);
+    if (!hitAnyBlock) {
+      _resetPageZoom();
+    }
+  }
+
   void _onTapDown(TapDownDetails details, Size pageSize) {
     final scenePoint = _toScene(details.localPosition);
     if (_mode == EditorMode.select) {

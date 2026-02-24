@@ -446,7 +446,7 @@ class SyncService implements SyncEngine {
       return true;
     }
 
-    await _pageDao.insertPage(incoming);
+    await _upsertPageWithIndexGuard(incoming);
     return true;
   }
 
@@ -560,33 +560,56 @@ class SyncService implements SyncEngine {
         .collection(FirestorePaths.pages)
         .get();
 
+    final latestByIndex = <int, Page>{};
     for (final doc in pageSnapshots.docs) {
       final data = doc.data();
+      final rawId = data['id']?.toString();
+      final pageId = (rawId != null && rawId.isNotEmpty) ? rawId : doc.id;
       final page = Page(
-        id: data['id'],
-        journalId: data['journalId'],
-        pageIndex: data['pageIndex'],
-        backgroundStyle: data['backgroundStyle'],
+        id: pageId,
+        journalId: data['journalId']?.toString() ?? journalId,
+        pageIndex: (data['pageIndex'] as num?)?.toInt() ?? 0,
+        backgroundStyle: data['backgroundStyle']?.toString() ?? 'plain_white',
         thumbnailAssetId: data['thumbnailAssetId'],
-        inkData: data['inkData'] ?? '',
-        createdAt: (data['createdAt'] as Timestamp).toDate(),
-        updatedAt: (data['updatedAt'] as Timestamp).toDate(),
+        inkData: data['inkData']?.toString() ?? '',
+        createdAt: _parseDate(data['createdAt']) ?? DateTime.now(),
+        updatedAt:
+            _parseDate(data['updatedAt']) ??
+            _parseDate(data['createdAt']) ??
+            DateTime.now(),
       );
+      final current = latestByIndex[page.pageIndex];
+      if (current == null || page.updatedAt.isAfter(current.updatedAt)) {
+        latestByIndex[page.pageIndex] = page;
+      }
+    }
 
-      await _pageDao.insertPage(page);
-
-      // 3. Sync Blocks for this Page
-      // Note: We changed schema in FirestoreService to hierarchy?
-      // Yes: journals/{jid}/pages/{pid}/blocks/{bid} was NOT implemented in service,
-      // instead we did users/{uid}/blocks (Wait, checking previous edit...)
-
-      // Reviewing FirestoreService edit:
-      // "await _firestore.collection('users').doc(uid).collection('blocks').doc(block.id).set(_blockToMap(block));"
-      // So blocks are TOP LEVEL.
-
-      // This means we should Query blocks by pageId
+    final pages = latestByIndex.values.toList()
+      ..sort((a, b) => a.pageIndex.compareTo(b.pageIndex));
+    for (final page in pages) {
+      await _upsertPageWithIndexGuard(page);
       await _syncBlocksForPage(uid, page.id);
     }
+  }
+
+  Future<void> _upsertPageWithIndexGuard(Page incoming) async {
+    final existing = await _pageDao.getPageById(incoming.id);
+    if (existing != null && existing.updatedAt.isAfter(incoming.updatedAt)) {
+      return;
+    }
+
+    final sameIndex = await _pageDao.getPageByJournalAndIndex(
+      incoming.journalId,
+      incoming.pageIndex,
+    );
+    if (sameIndex != null && sameIndex.id != incoming.id) {
+      if (sameIndex.updatedAt.isAfter(incoming.updatedAt)) {
+        return;
+      }
+      await _pageDao.softDelete(sameIndex.id);
+    }
+
+    await _pageDao.insertPage(incoming);
   }
 
   Future<void> _syncBlocksForPage(String uid, String pageId) async {

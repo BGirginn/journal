@@ -38,6 +38,24 @@ class PageDao extends DatabaseAccessor<AppDatabase> with _$PageDaoMixin {
     return row != null ? _rowToModel(row) : null;
   }
 
+  /// Get a single non-deleted page by journal and page index
+  Future<model.Page?> getPageByJournalAndIndex(
+    String journalId,
+    int pageIndex,
+  ) async {
+    final query = select(pages)
+      ..where(
+        (t) =>
+            t.journalId.equals(journalId) &
+            t.pageIndex.equals(pageIndex) &
+            t.deletedAt.isNull(),
+      )
+      ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)])
+      ..limit(1);
+    final row = await query.getSingleOrNull();
+    return row != null ? _rowToModel(row) : null;
+  }
+
   /// Get the maximum page index for a journal
   Future<int> getMaxPageIndex(String journalId) async {
     final query = selectOnly(pages)

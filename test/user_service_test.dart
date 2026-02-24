@@ -159,6 +159,43 @@ void main() {
     expect(otherDoc.data()!['friends'], isNot(contains(me)));
   });
 
+  test('sendFriendRequest blocks self request', () async {
+    await firestore.collection(FirestorePaths.users).doc(me).set({
+      'uid': me,
+      'displayName': 'Me',
+      'friends': const <String>[],
+      'receivedFriendRequests': const <String>[],
+      'sentFriendRequests': const <String>[],
+    });
+
+    await expectLater(
+      () => service.sendFriendRequest(me),
+      throwsA(isA<Exception>()),
+    );
+  });
+
+  test('sendFriendRequest blocks duplicate sent request', () async {
+    await firestore.collection(FirestorePaths.users).doc(me).set({
+      'uid': me,
+      'displayName': 'Me',
+      'friends': const <String>[],
+      'receivedFriendRequests': const <String>[],
+      'sentFriendRequests': <String>[other],
+    });
+    await firestore.collection(FirestorePaths.users).doc(other).set({
+      'uid': other,
+      'displayName': 'Other',
+      'friends': const <String>[],
+      'receivedFriendRequests': <String>[me],
+      'sentFriendRequests': const <String>[],
+    });
+
+    await expectLater(
+      () => service.sendFriendRequest(other),
+      throwsA(isA<Exception>()),
+    );
+  });
+
   test(
     'completeProfile reserves username and marks profile complete',
     () async {

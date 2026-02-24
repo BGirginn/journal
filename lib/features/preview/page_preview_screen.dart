@@ -33,6 +33,8 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
   List<Block> _blocks = [];
   List<InkStrokeData> _strokes = [];
   bool _isLoading = true;
+  final TransformationController _previewTransformController =
+      TransformationController();
 
   @override
   void initState() {
@@ -79,6 +81,12 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
   }
 
   @override
+  void dispose() {
+    _previewTransformController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -91,64 +99,83 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
           ? const Center(child: CircularProgressIndicator())
           : LayoutBuilder(
               builder: (context, constraints) {
-                final pageSize = Size(
-                  constraints.maxWidth,
-                  constraints.maxHeight,
-                );
+                final pageWidth = constraints.maxWidth > 24
+                    ? constraints.maxWidth - 24
+                    : constraints.maxWidth;
+                final pageHeight = constraints.maxHeight > 24
+                    ? constraints.maxHeight - 24
+                    : constraints.maxHeight;
+                final pageSize = Size(pageWidth, pageHeight);
                 final sortedBlocks = List<Block>.from(_blocks)
                   ..sort((a, b) => a.zIndex.compareTo(b.zIndex));
 
-                return Container(
-                  margin: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: _theme.visuals.pageColor,
-                    borderRadius: _theme.visuals.cornerRadius,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withAlpha(30),
-                        blurRadius: 15,
-                        offset: const Offset(0, 5),
+                return GestureDetector(
+                  onDoubleTap: () {
+                    _previewTransformController.value = Matrix4.identity();
+                  },
+                  child: InteractiveViewer(
+                    transformationController: _previewTransformController,
+                    minScale: 1.0,
+                    maxScale: 4.0,
+                    panEnabled: true,
+                    scaleEnabled: true,
+                    boundaryMargin: const EdgeInsets.all(120),
+                    clipBehavior: Clip.none,
+                    child: Container(
+                      margin: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _theme.visuals.pageColor,
+                        borderRadius: _theme.visuals.cornerRadius,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(30),
+                            blurRadius: 15,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: _theme.visuals.cornerRadius,
-                    child: Stack(
-                      children: [
-                        // Page background
-                        if (_theme.visuals.assetPath != null)
-                          Positioned.fill(
-                            child: Image.asset(
-                              _theme.visuals.assetPath!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => CustomPaint(
+                      child: ClipRRect(
+                        borderRadius: _theme.visuals.cornerRadius,
+                        child: Stack(
+                          children: [
+                            // Page background
+                            if (_theme.visuals.assetPath != null)
+                              Positioned.fill(
+                                child: Image.asset(
+                                  _theme.visuals.assetPath!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => CustomPaint(
+                                    painter: NostalgicPagePainter(
+                                      theme: _theme,
+                                    ),
+                                    size: Size.infinite,
+                                  ),
+                                ),
+                              )
+                            else
+                              CustomPaint(
                                 painter: NostalgicPagePainter(theme: _theme),
                                 size: Size.infinite,
                               ),
-                            ),
-                          )
-                        else
-                          CustomPaint(
-                            painter: NostalgicPagePainter(theme: _theme),
-                            size: Size.infinite,
-                          ),
 
-                        // Blocks
-                        ...sortedBlocks.map(
-                          (block) => _buildBlock(block, pageSize),
-                        ),
-
-                        // Ink on top so drawings are visible above image/background blocks
-                        IgnorePointer(
-                          child: CustomPaint(
-                            painter: OptimizedInkPainter(
-                              strokes: _strokes,
-                              currentStroke: null,
+                            // Blocks
+                            ...sortedBlocks.map(
+                              (block) => _buildBlock(block, pageSize),
                             ),
-                            size: Size.infinite,
-                          ),
+
+                            // Ink on top so drawings are visible above image/background blocks
+                            IgnorePointer(
+                              child: CustomPaint(
+                                painter: OptimizedInkPainter(
+                                  strokes: _strokes,
+                                  currentStroke: null,
+                                ),
+                                size: Size.infinite,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 );

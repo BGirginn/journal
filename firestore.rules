@@ -12,10 +12,57 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
 
+    // Friend-request updates touch only friend arrays and only by adding/removing caller uid.
+    function listValue(data, key) {
+      return key in data ? data[key] : [];
+    }
+
+    function isUidOnlyDelta(oldList, newList) {
+      return oldList == newList
+        || (
+          // Add exactly caller uid
+          newList.hasAll(oldList)
+          && newList.size() == oldList.size() + 1
+          && newList.hasAny([request.auth.uid])
+          && !oldList.hasAny([request.auth.uid])
+        )
+        || (
+          // Remove exactly caller uid
+          oldList.hasAll(newList)
+          && oldList.size() == newList.size() + 1
+          && oldList.hasAny([request.auth.uid])
+          && !newList.hasAny([request.auth.uid])
+        );
+    }
+
+    function isFriendArrayUpdateByCaller(userId) {
+      return isAuthenticated()
+        && !isOwner(userId)
+        && request.method == 'update'
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'friends',
+          'receivedFriendRequests',
+          'sentFriendRequests'
+        ])
+        && isUidOnlyDelta(
+          listValue(resource.data, 'friends'),
+          listValue(request.resource.data, 'friends')
+        )
+        && isUidOnlyDelta(
+          listValue(resource.data, 'receivedFriendRequests'),
+          listValue(request.resource.data, 'receivedFriendRequests')
+        )
+        && isUidOnlyDelta(
+          listValue(resource.data, 'sentFriendRequests'),
+          listValue(request.resource.data, 'sentFriendRequests')
+        );
+    }
+
     // User profiles
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow write: if isOwner(userId);
+      allow create, delete: if isOwner(userId);
+      allow update: if isOwner(userId) || isFriendArrayUpdateByCaller(userId);
 
       // Journals subcollection
       match /journals/{journalId} {

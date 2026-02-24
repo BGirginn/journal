@@ -32,6 +32,7 @@ class JournalViewScreen extends ConsumerStatefulWidget {
 class _JournalViewScreenState extends ConsumerState<JournalViewScreen> {
   late NotebookTheme _theme;
   int _currentPage = 0;
+  bool _isPageZoomed = false;
 
   @override
   void initState() {
@@ -134,7 +135,11 @@ class _JournalViewScreenState extends ConsumerState<JournalViewScreen> {
           child: BookPageView(
             itemCount: pages.length,
             initialPage: _currentPage,
-            onPageChanged: (index) => setState(() => _currentPage = index),
+            dragEnabled: !_isPageZoomed,
+            onPageChanged: (index) => setState(() {
+              _currentPage = index;
+              _isPageZoomed = false;
+            }),
             itemBuilder: (context, index) {
               return Padding(
                 padding: const EdgeInsets.symmetric(
@@ -142,9 +147,16 @@ class _JournalViewScreenState extends ConsumerState<JournalViewScreen> {
                   vertical: 24,
                 ),
                 child: _PageCard(
+                  key: ValueKey(pages[index].id),
                   page: pages[index],
                   theme: _theme,
                   onTap: () => _openEditor(pages[index]),
+                  onZoomChanged: (zoomed) {
+                    if (index != _currentPage || _isPageZoomed == zoomed) {
+                      return;
+                    }
+                    setState(() => _isPageZoomed = zoomed);
+                  },
                 ),
               );
             },
@@ -440,36 +452,75 @@ class _JournalMemberListItem {
 }
 
 /// Page card with content preview
-class _PageCard extends ConsumerWidget {
+class _PageCard extends ConsumerStatefulWidget {
   final model.Page page;
   final NotebookTheme theme;
   final VoidCallback onTap;
+  final ValueChanged<bool>? onZoomChanged;
 
   const _PageCard({
+    super.key,
     required this.page,
     required this.theme,
     required this.onTap,
+    this.onZoomChanged,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final blocksAsync = ref.watch(blocksProvider(page.id));
-    final colorScheme = Theme.of(context).colorScheme;
+  ConsumerState<_PageCard> createState() => _PageCardState();
+}
 
-    // Decode ink strokes if any
-    final strokes = page.inkData.isNotEmpty
-        ? InkStrokeData.decodeStrokes(page.inkData)
+class _PageCardState extends ConsumerState<_PageCard> {
+  static const Size _referenceSize = Size(360, 640);
+  final TransformationController _zoomController = TransformationController();
+  bool _isZoomed = false;
+
+  @override
+  void didUpdateWidget(covariant _PageCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.page.id != widget.page.id) {
+      _resetZoom();
+    }
+  }
+
+  @override
+  void dispose() {
+    _zoomController.dispose();
+    super.dispose();
+  }
+
+  void _notifyZoomState() {
+    final isZoomedNow = _zoomController.value.getMaxScaleOnAxis() > 1.01;
+    if (_isZoomed == isZoomedNow) {
+      return;
+    }
+    _isZoomed = isZoomedNow;
+    widget.onZoomChanged?.call(isZoomedNow);
+  }
+
+  void _resetZoom() {
+    _zoomController.value = Matrix4.identity();
+    if (_isZoomed) {
+      _isZoomed = false;
+      widget.onZoomChanged?.call(false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final blocksAsync = ref.watch(blocksProvider(widget.page.id));
+    final colorScheme = Theme.of(context).colorScheme;
+    final strokes = widget.page.inkData.isNotEmpty
+        ? InkStrokeData.decodeStrokes(widget.page.inkData)
         : <InkStrokeData>[];
 
-    // Check if page has any visual content (blocks or ink)
-    // We'll perform this check inside the async builder for blocks
-
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
+      onDoubleTap: _resetZoom,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
         decoration: BoxDecoration(
-          color: theme.visuals.pageColor,
+          color: widget.theme.visuals.pageColor,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
@@ -486,58 +537,55 @@ class _PageCard extends ConsumerWidget {
               final sortedBlocks = List<Block>.from(blocks)
                 ..sort((a, b) => a.zIndex.compareTo(b.zIndex));
               final hasContent = blocks.isNotEmpty || strokes.isNotEmpty;
-
-              if (!hasContent) {
-                return Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Positioned.fill(child: _buildPageBackground()),
-                    _buildTapHint(context),
-                  ],
-                );
-              }
-
-              // Use FittedBox to show the full page scaled down to fit the card
-              // This ensures the lines and content are proportional
-              const referenceSize = Size(360, 640);
-
-              return FittedBox(
-                fit: BoxFit.cover,
-                child: SizedBox(
-                  width: referenceSize.width,
-                  height: referenceSize.height,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    clipBehavior: Clip.none,
-                    children: [
-                      // Background
-                      Positioned.fill(child: _buildPageBackground()),
-
-                      // Blocks
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: sortedBlocks.map((block) {
-                          return BlockWidget(
-                            block: block,
-                            pageSize: referenceSize,
-                            isSelected: false,
-                            onDoubleTap: null, // Read-only
-                          );
-                        }).toList(),
-                      ),
-
-                      // Ink (top layer)
-                      if (strokes.isNotEmpty)
-                        IgnorePointer(
-                          child: CustomPaint(
-                            painter: OptimizedInkPainter(
-                              strokes: strokes,
-                              currentStroke: null,
-                            ),
-                            size: Size.infinite,
+              return InteractiveViewer(
+                transformationController: _zoomController,
+                minScale: 1.0,
+                maxScale: 4.0,
+                panEnabled: true,
+                scaleEnabled: true,
+                boundaryMargin: const EdgeInsets.all(120),
+                clipBehavior: Clip.none,
+                onInteractionStart: (_) => _notifyZoomState(),
+                onInteractionUpdate: (_) => _notifyZoomState(),
+                onInteractionEnd: (_) => _notifyZoomState(),
+                child: FittedBox(
+                  fit: BoxFit.cover,
+                  child: SizedBox(
+                    width: _referenceSize.width,
+                    height: _referenceSize.height,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      clipBehavior: Clip.none,
+                      children: [
+                        Positioned.fill(child: _buildPageBackground()),
+                        if (hasContent) ...[
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: sortedBlocks
+                                .map(
+                                  (block) => BlockWidget(
+                                    block: block,
+                                    pageSize: _referenceSize,
+                                    isSelected: false,
+                                    onDoubleTap: null,
+                                  ),
+                                )
+                                .toList(),
                           ),
-                        ),
-                    ],
+                          if (strokes.isNotEmpty)
+                            IgnorePointer(
+                              child: CustomPaint(
+                                painter: OptimizedInkPainter(
+                                  strokes: strokes,
+                                  currentStroke: null,
+                                ),
+                                size: Size.infinite,
+                              ),
+                            ),
+                        ] else
+                          _buildTapHint(context),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -553,18 +601,18 @@ class _PageCard extends ConsumerWidget {
   // _buildContentPreview is removed/replaced by the visual preview above
 
   Widget _buildPageBackground() {
-    if (theme.visuals.assetPath != null) {
+    if (widget.theme.visuals.assetPath != null) {
       return Image.asset(
-        theme.visuals.assetPath!,
+        widget.theme.visuals.assetPath!,
         fit: BoxFit.cover,
         errorBuilder: (_, _, _) => CustomPaint(
-          painter: NostalgicPagePainter(theme: theme),
+          painter: NostalgicPagePainter(theme: widget.theme),
           size: Size.infinite,
         ),
       );
     }
     return CustomPaint(
-      painter: NostalgicPagePainter(theme: theme),
+      painter: NostalgicPagePainter(theme: widget.theme),
       size: Size.infinite,
     );
   }

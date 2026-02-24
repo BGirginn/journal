@@ -266,17 +266,36 @@ class UserService {
 
     final uid = _currentUid;
     if (uid == null) return;
+    if (targetUid == uid) {
+      throw Exception('Kendinize arkadaş isteği gönderemezsiniz.');
+    }
+
+    final myRef = firestore.collection(FirestorePaths.users).doc(uid);
+    final targetRef = firestore.collection(FirestorePaths.users).doc(targetUid);
+    final snapshots = await Future.wait([myRef.get(), targetRef.get()]);
+    if (!snapshots[0].exists || !snapshots[1].exists) {
+      throw Exception('Profil bulunamadı.');
+    }
+
+    final myProfile = UserProfile.fromMap(snapshots[0].data()!);
+    if (myProfile.friends.contains(targetUid)) {
+      throw Exception('Bu kullanıcı zaten arkadaş listenizde.');
+    }
+    if (myProfile.sentFriendRequests.contains(targetUid)) {
+      throw Exception('Bu kullanıcıya zaten istek gönderildi.');
+    }
+    if (myProfile.receivedFriendRequests.contains(targetUid)) {
+      throw Exception('Bu kullanıcıdan zaten bir isteğiniz var.');
+    }
 
     final batch = firestore.batch();
 
     // Add to my sent requests
-    final myRef = firestore.collection(FirestorePaths.users).doc(uid);
     batch.update(myRef, {
       'sentFriendRequests': FieldValue.arrayUnion([targetUid]),
     });
 
     // Add to their received requests
-    final targetRef = firestore.collection(FirestorePaths.users).doc(targetUid);
     batch.update(targetRef, {
       'receivedFriendRequests': FieldValue.arrayUnion([uid]),
     });

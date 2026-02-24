@@ -35,6 +35,7 @@ class _FriendsViewState extends ConsumerState<FriendsView>
   bool _isSearching = false;
   String? _error;
   bool _edgeSwipeLocked = false;
+  final Set<String> _sendingRequestUids = <String>{};
 
   @override
   void initState() {
@@ -135,6 +136,12 @@ class _FriendsViewState extends ConsumerState<FriendsView>
   }
 
   void _handleSendRequest(UserProfile user) async {
+    if (_sendingRequestUids.contains(user.uid)) {
+      return;
+    }
+    setState(() {
+      _sendingRequestUids.add(user.uid);
+    });
     try {
       await ref.read(userServiceProvider).sendFriendRequest(user.uid);
       if (mounted) {
@@ -151,6 +158,14 @@ class _FriendsViewState extends ConsumerState<FriendsView>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Hata: $e'), backgroundColor: Colors.red),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _sendingRequestUids.remove(user.uid);
+        });
+      } else {
+        _sendingRequestUids.remove(user.uid);
       }
     }
   }
@@ -583,6 +598,7 @@ class _FriendsViewState extends ConsumerState<FriendsView>
     final isReceived = currentMe.receivedFriendRequests.contains(user.uid);
     final isSent = currentMe.sentFriendRequests.contains(user.uid);
     final isFriend = currentMe.friends.contains(user.uid);
+    final isSending = _sendingRequestUids.contains(user.uid);
 
     Widget trailing;
 
@@ -614,25 +630,58 @@ class _FriendsViewState extends ConsumerState<FriendsView>
       );
     } else {
       trailing = FilledButton.icon(
-        icon: const Icon(Icons.person_add, size: 18),
-        label: const Text('Ekle'),
-        onPressed: () => _handleSendRequest(user),
+        icon: isSending
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.person_add, size: 18),
+        label: Text(isSending ? 'Bekle...' : 'Ekle'),
+        onPressed: isSending ? null : () => _handleSendRequest(user),
       );
     }
 
     return Card(
       margin: const EdgeInsets.only(top: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundImage: user.photoUrl != null
-              ? NetworkImage(user.photoUrl!)
-              : null,
-          child: user.photoUrl == null ? const Icon(Icons.person) : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundImage: user.photoUrl != null
+                  ? NetworkImage(user.photoUrl!)
+                  : null,
+              child: user.photoUrl == null ? const Icon(Icons.person) : null,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    user.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    '@${user.username ?? '-'}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 96, maxWidth: 156),
+              child: Align(alignment: Alignment.centerRight, child: trailing),
+            ),
+          ],
         ),
-        title: Text(user.displayName),
-        subtitle: Text('@${user.username ?? '-'}'),
-        trailing: trailing,
       ),
     );
   }

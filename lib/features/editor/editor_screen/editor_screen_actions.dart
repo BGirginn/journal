@@ -561,27 +561,6 @@ extension _EditorActionsExtension on _EditorScreenState {
         newPayload.toJsonString(),
       );
 
-      // Sync update to Firestore
-      final firestoreService = ref.read(firestoreServiceProvider);
-      // We need to fetch the updated block logic or just construct a minimal update
-      // For MVP, simplistic:
-      try {
-        final updatedBlock = _blocks
-            .firstWhere((b) => b.id == _selectedBlockId)
-            .copyWith(payloadJson: newPayload.toJsonString());
-        await firestoreService.updateBlock(
-          updatedBlock,
-          journalId: widget.page.journalId,
-        );
-      } catch (e, st) {
-        _reportSyncIssue(
-          operation: 'update_image_frame',
-          error: e,
-          stackTrace: st,
-          extra: {'block_id': _selectedBlockId},
-        );
-      }
-
       _applyState(() => _isDirty = true);
     }
   }

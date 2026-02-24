@@ -62,9 +62,12 @@ final createJournalProvider = Provider((ref) {
     );
     await dao.insertJournal(journal);
 
-    // Create first page automatically
-    final firstPage = model.Page(journalId: journal.id, pageIndex: 0);
-    await pageDao.insertPage(firstPage);
+    // Create first page automatically (guard duplicate index-0 page rows)
+    var firstPage = await pageDao.getPageByJournalAndIndex(journal.id, 0);
+    if (firstPage == null) {
+      firstPage = model.Page(journalId: journal.id, pageIndex: 0);
+      await pageDao.insertPage(firstPage);
+    }
 
     // Sync to Firestore
     try {
@@ -175,7 +178,7 @@ final pagesProvider = StreamProvider.family<List<model.Page>, String>((
   journalId,
 ) {
   final dao = ref.watch(pageDaoProvider);
-  return dao.watchPagesForJournal(journalId);
+  return dao.watchPagesForJournal(journalId).map(_dedupePagesByIndex);
 });
 
 /// Stream of blocks for a specific page
@@ -203,7 +206,16 @@ final createPageProvider = Provider((ref) {
 
   return (String journalId) async {
     final maxIndex = await pageDao.getMaxPageIndex(journalId);
-    final newPage = model.Page(journalId: journalId, pageIndex: maxIndex + 1);
+    final nextIndex = maxIndex + 1;
+    final existing = await pageDao.getPageByJournalAndIndex(
+      journalId,
+      nextIndex,
+    );
+    if (existing != null) {
+      return existing;
+    }
+
+    final newPage = model.Page(journalId: journalId, pageIndex: nextIndex);
     await pageDao.insertPage(newPage);
     try {
       await firestoreService.createPage(newPage);
@@ -213,3 +225,21 @@ final createPageProvider = Provider((ref) {
     return newPage;
   };
 });
+
+List<model.Page> _dedupePagesByIndex(List<model.Page> pages) {
+  if (pages.length < 2) {
+    return pages;
+  }
+
+  final byIndex = <int, model.Page>{};
+  for (final page in pages) {
+    final current = byIndex[page.pageIndex];
+    if (current == null || page.updatedAt.isAfter(current.updatedAt)) {
+      byIndex[page.pageIndex] = page;
+    }
+  }
+
+  final normalized = byIndex.values.toList()
+    ..sort((a, b) => a.pageIndex.compareTo(b.pageIndex));
+  return normalized;
+}

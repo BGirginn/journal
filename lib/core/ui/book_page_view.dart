@@ -7,6 +7,7 @@ class BookPageView extends StatefulWidget {
   final IndexedWidgetBuilder itemBuilder;
   final ValueChanged<int>? onPageChanged;
   final int initialPage;
+  final bool dragEnabled;
 
   const BookPageView({
     super.key,
@@ -14,6 +15,7 @@ class BookPageView extends StatefulWidget {
     required this.itemBuilder,
     this.onPageChanged,
     this.initialPage = 0,
+    this.dragEnabled = true,
   });
 
   @override
@@ -112,9 +114,10 @@ class _BookPageViewState extends State<BookPageView>
     return LayoutBuilder(
       builder: (context, constraints) {
         return GestureDetector(
-          onHorizontalDragUpdate: (d) =>
-              _handleDragUpdate(d, constraints.maxWidth),
-          onHorizontalDragEnd: _handleDragEnd,
+          onHorizontalDragUpdate: widget.dragEnabled
+              ? (d) => _handleDragUpdate(d, constraints.maxWidth)
+              : null,
+          onHorizontalDragEnd: widget.dragEnabled ? _handleDragEnd : null,
           child: Stack(
             children: [
               // Bottom layer (Next or Previous page)

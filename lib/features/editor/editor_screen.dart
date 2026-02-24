@@ -307,14 +307,35 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     String blockId,
     String payloadJson,
   ) async {
-    await ref.read(blockDaoProvider).updatePayload(blockId, payloadJson);
+    final blockDao = ref.read(blockDaoProvider);
+    await blockDao.updatePayload(blockId, payloadJson);
+
+    Block? updatedBlock;
+    final localIndex = _blocks.indexWhere(
+      (candidate) => candidate.id == blockId,
+    );
+    if (localIndex != -1) {
+      final nextBlock = _blocks[localIndex].copyWith(payloadJson: payloadJson);
+      updatedBlock = nextBlock;
+      if (mounted) {
+        setState(() {
+          _blocks[localIndex] = nextBlock;
+        });
+      } else {
+        _blocks[localIndex] = nextBlock;
+      }
+    } else {
+      updatedBlock = await blockDao.getById(blockId);
+    }
+
+    if (updatedBlock == null) {
+      return;
+    }
+
     try {
-      final block = _blocks
-          .firstWhere((candidate) => candidate.id == blockId)
-          .copyWith(payloadJson: payloadJson);
       await ref
           .read(firestoreServiceProvider)
-          .updateBlock(block, journalId: widget.page.journalId);
+          .updateBlock(updatedBlock, journalId: widget.page.journalId);
     } catch (e, st) {
       _reportSyncIssue(
         operation: 'update_payload',
@@ -328,10 +349,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   double get _currentPageScale =>
       _pageTransformController.value.getMaxScaleOnAxis();
 
-  bool get _enablePagePinch =>
+  bool get _enablePagePan =>
       _mode == EditorMode.select &&
-      _activePointerCount >= 2 &&
-      _activeScaleTarget != _ScaleTarget.block;
+      _selectedBlockId == null &&
+      (_currentPageScale > 1.001 || _activeScaleTarget == _ScaleTarget.page);
+
+  bool get _enablePageScale => _mode == EditorMode.select;
 
   Offset _toScene(Offset viewportPoint) {
     return _pageTransformController.toScene(viewportPoint);
@@ -389,11 +412,24 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   }
 
   void _onScaleStart(ScaleStartDetails details) {
-    if (!_enablePagePinch || _canvasSize == null || _selectedBlockId == null) {
-      if (_mode == EditorMode.select && _activePointerCount >= 2) {
-        _activeScaleTarget = _ScaleTarget.page;
-        _scaleStartPageMatrix = Matrix4.copy(_pageTransformController.value);
-      }
+    final isMultiTouch = details.pointerCount >= 2;
+    final isZoomed = _currentPageScale > 1.001;
+    if (_mode != EditorMode.select || (!isMultiTouch && !isZoomed)) {
+      return;
+    }
+    if (!isMultiTouch && _selectedBlockId != null) {
+      return;
+    }
+
+    _scaleStartPageMatrix = Matrix4.copy(_pageTransformController.value);
+
+    if (_selectedBlockId == null) {
+      _activeScaleTarget = _ScaleTarget.page;
+      setState(() {});
+      return;
+    }
+
+    if (_canvasSize == null) {
       return;
     }
 
@@ -401,7 +437,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final selectedIndex = _blocks.indexWhere((b) => b.id == _selectedBlockId);
     if (selectedIndex == -1) {
       _activeScaleTarget = _ScaleTarget.page;
-      _scaleStartPageMatrix = Matrix4.copy(_pageTransformController.value);
+      _selectedBlockId = null;
+      setState(() {});
       return;
     }
 
@@ -413,14 +450,15 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       pageSize: pageSize,
     );
 
-    if (startsOnSelectedBlock) {
-      _scaleStartPageMatrix = Matrix4.copy(_pageTransformController.value);
+    if (startsOnSelectedBlock && isMultiTouch) {
       _activeScaleTarget = _ScaleTarget.block;
       _activeScaleBlockId = selectedBlock.id;
       _scaleStartBlockSnapshot = _BlockScaleSnapshot.fromBlock(selectedBlock);
     } else {
       _activeScaleTarget = _ScaleTarget.page;
-      _scaleStartPageMatrix = Matrix4.copy(_pageTransformController.value);
+      _activeScaleBlockId = null;
+      _scaleStartBlockSnapshot = null;
+      _selectedBlockId = null;
     }
 
     setState(() {});
@@ -434,6 +472,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       if (_scaleStartPageMatrix != null) {
         _pageTransformController.value = Matrix4.copy(_scaleStartPageMatrix!);
       }
+      return;
+    }
+
+    if (_activeScaleTarget == _ScaleTarget.none &&
+        _scaleStartPageMatrix != null) {
+      _pageTransformController.value = Matrix4.copy(_scaleStartPageMatrix!);
       return;
     }
 

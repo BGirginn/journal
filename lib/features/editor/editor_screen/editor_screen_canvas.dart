@@ -21,8 +21,8 @@ extension _EditorCanvasExtension on _EditorScreenState {
             transformationController: _pageTransformController,
             minScale: 1.0,
             maxScale: 4.0,
-            panEnabled: _enablePagePinch,
-            scaleEnabled: _enablePagePinch,
+            panEnabled: _enablePagePan,
+            scaleEnabled: _enablePageScale,
             onInteractionStart: _onScaleStart,
             onInteractionUpdate: _onScaleUpdate,
             onInteractionEnd: _onScaleEnd,
@@ -34,6 +34,7 @@ extension _EditorCanvasExtension on _EditorScreenState {
               onPanEnd: (d) => _onPanEnd(),
               onPanCancel: _onPanEnd,
               onTapUp: (d) => _onTapUp(d, pageSize),
+              onDoubleTapDown: (d) => _onCanvasDoubleTap(d, pageSize),
               child: Container(
                 decoration: BoxDecoration(
                   color: _theme.visuals.pageColor,
@@ -157,7 +158,9 @@ extension _EditorCanvasExtension on _EditorScreenState {
       left: left,
       top: top,
       child: GestureDetector(
-        onTap: () => _applyState(() => _selectedBlockId = block.id),
+        onTap: () => _applyState(() {
+          _selectedBlockId = isSelected ? null : block.id;
+        }),
         onDoubleTap: () => _editBlock(block),
         child: Transform.rotate(
           angle: block.rotation * pi / 180,
