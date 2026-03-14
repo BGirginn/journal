@@ -177,11 +177,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     }
 
     final distance = (targetIndex - currentIndex).abs();
-    final durationMs = (150 + (distance * 50)).clamp(150, 350);
+    final durationMs = (120 + (distance * 30)).clamp(120, 250);
     _pageController.animateToPage(
       targetIndex,
       duration: Duration(milliseconds: durationMs),
-      curve: Curves.easeOutCubic,
+      curve: Curves.easeOut,
     );
   }
 

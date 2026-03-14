@@ -133,8 +133,8 @@ class _NavAction extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         onTap: onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
           height: 40,
           padding: EdgeInsets.symmetric(
             horizontal: isSelected ? 14 : 10,
@@ -160,8 +160,8 @@ class _NavAction extends StatelessWidget {
               ),
               ClipRect(
                 child: AnimatedAlign(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
+                  duration: const Duration(milliseconds: 150),
+                  curve: Curves.easeOut,
                   alignment: Alignment.centerLeft,
                   widthFactor: isSelected ? 1 : 0,
                   child: Padding(

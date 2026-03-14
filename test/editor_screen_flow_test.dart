@@ -121,10 +121,17 @@ void main() {
 
     expect(find.byIcon(Icons.text_fields_rounded), findsOneWidget);
 
+    // Tap text tool → block is created immediately and inline panel opens.
     await tester.tap(find.byIcon(Icons.text_fields_rounded));
     await tester.pumpAndSettle();
+
+    // The inline panel should now be visible with a TextField.
+    expect(find.byType(TextField), findsWidgets);
     await tester.enterText(find.byType(TextField).first, 'Test metni');
-    await tester.tap(find.text('Kaydet').last);
+    await tester.pumpAndSettle();
+
+    // Close the inline panel via check_circle icon.
+    await tester.tap(find.byIcon(Icons.check_circle));
     await tester.pumpAndSettle();
 
     var blocks = await db.blockDao.getBlocksForPage(page.id);

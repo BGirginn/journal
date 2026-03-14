@@ -10,13 +10,25 @@ import 'package:journal_app/providers/database_providers.dart';
 import 'package:journal_app/core/database/daos/team_dao.dart';
 import 'package:journal_app/core/models/team.dart' as model;
 import 'package:journal_app/core/models/team_member.dart' as member_model;
+import 'package:journal_app/core/models/journal.dart';
+import 'package:journal_app/core/database/daos/journal_dao.dart';
+import 'package:journal_app/features/journal/journal_member_service.dart';
 
 final teamServiceProvider = Provider<TeamService>((ref) {
   final teamDao = ref.watch(databaseProvider).teamDao;
+  final journalDao = ref.watch(databaseProvider).journalDao;
   final authService = ref.read(authServiceProvider);
   final logger = ref.watch(appLoggerProvider);
   final telemetry = ref.watch(telemetryServiceProvider);
-  final service = TeamService(teamDao, authService, logger, telemetry);
+  final memberService = ref.watch(journalMemberServiceProvider);
+  final service = TeamService(
+    teamDao,
+    authService,
+    logger,
+    telemetry,
+    journalDao: journalDao,
+    journalMemberService: memberService,
+  );
   ref.listen(authStateProvider, (_, next) {
     service.onAuthStateChanged(next.value?.uid);
   }, fireImmediately: true);
@@ -31,6 +43,8 @@ class TeamService {
   final TelemetryService _telemetry;
   final FirebaseFirestore _firestore;
   final String? Function()? _currentUidProvider;
+  final JournalDao? _journalDao;
+  final JournalMemberService? _journalMemberService;
 
   // Subscription cache to avoid multiple listeners
   StreamSubscription? _membersSubscription;
@@ -45,8 +59,12 @@ class TeamService {
     this._telemetry, {
     FirebaseFirestore? firestore,
     String? Function()? currentUidProvider,
+    JournalDao? journalDao,
+    JournalMemberService? journalMemberService,
   }) : _firestore = firestore ?? FirebaseFirestore.instance,
-       _currentUidProvider = currentUidProvider;
+       _currentUidProvider = currentUidProvider,
+       _journalDao = journalDao,
+       _journalMemberService = journalMemberService;
 
   String? get _currentUid =>
       _currentUidProvider?.call() ?? _authService.currentUser?.uid;
@@ -245,6 +263,8 @@ class TeamService {
     required String userId,
     required model.JournalRole role,
   }) async {
+    await _ensureLocalTeamAvailable(teamId);
+
     final member = member_model.TeamMember(
       teamId: teamId,
       userId: userId,
@@ -259,6 +279,97 @@ class TeamService {
         .collection(FirestorePaths.teamMembers)
         .doc(member.id)
         .set(member.toJson());
+
+    // Auto-propagate membership to all journals linked to this team.
+    await _syncJournalMembersForTeam(teamId);
+  }
+
+  /// Creates a journal linked to a team and auto-adds all current team members.
+  Future<Journal> createTeamJournal({
+    required String teamId,
+    required String title,
+    String coverStyle = 'default',
+  }) async {
+    final uid = _currentUid;
+    if (uid == null) throw Exception('User not logged in');
+
+    final journal = Journal(
+      title: title,
+      coverStyle: coverStyle,
+      teamId: teamId,
+      ownerId: uid,
+    );
+
+    // 1. Local save via JournalDao
+    if (_journalDao != null) {
+      await _journalDao.insertJournal(journal);
+    }
+
+    // 2. Remote save
+    try {
+      await _firestore
+          .collection(FirestorePaths.users)
+          .doc(uid)
+          .collection(FirestorePaths.journals)
+          .doc(journal.id)
+          .set(journal.toJson());
+    } catch (e, st) {
+      _reportTeamIssue(
+        operation: 'create_team_journal_remote',
+        error: e,
+        stackTrace: st,
+        extra: {'team_id': teamId, 'journal_id': journal.id},
+      );
+    }
+
+    // 3. Auto-add all team members as journal collaborators.
+    await _syncJournalMembersForTeam(teamId, singleJournalId: journal.id);
+
+    return journal;
+  }
+
+  /// Syncs team members → journal collaborators for all (or a single) team journal.
+  Future<void> _syncJournalMembersForTeam(
+    String teamId, {
+    String? singleJournalId,
+  }) async {
+    final memberService = _journalMemberService;
+    final journalDao = _journalDao;
+    if (memberService == null || journalDao == null) return;
+
+    // Fetch team members from local DB.
+    final members = await _teamDao.getTeamMembers(teamId);
+
+    // Find journals linked to this team.
+    List<Journal> journals;
+    if (singleJournalId != null) {
+      final j = await journalDao.getJournalById(singleJournalId);
+      journals = j != null ? [j] : [];
+    } else {
+      journals = await journalDao.getJournalsByTeamId(teamId);
+    }
+
+    for (final journal in journals) {
+      for (final m in members) {
+        try {
+          await memberService.addMember(
+            journalId: journal.id,
+            userId: m.userId,
+            role: m.role,
+          );
+        } catch (e, st) {
+          _reportTeamIssue(
+            operation: 'sync_journal_member',
+            error: e,
+            stackTrace: st,
+            extra: {
+              'journal_id': journal.id,
+              'user_id': m.userId,
+            },
+          );
+        }
+      }
+    }
   }
 
   // Expose Local Data Streams
@@ -272,7 +383,113 @@ class TeamService {
     return _teamDao.watchTeamMembers(teamId);
   }
 
+  Future<model.Team?> getTeamById(String teamId) {
+    return _teamDao.getTeamById(teamId);
+  }
+
+  Future<void> deleteTeam(String teamId) async {
+    final uid = _currentUid;
+    if (uid == null) {
+      throw Exception('User not logged in');
+    }
+
+    model.Team? team = await _teamDao.getTeamById(teamId);
+    if (team == null) {
+      final remoteTeamDoc = await _firestore
+          .collection(FirestorePaths.teams)
+          .doc(teamId)
+          .get();
+      if (!remoteTeamDoc.exists) {
+        return;
+      }
+      team = model.Team.fromJson(remoteTeamDoc.data()!);
+    }
+
+    if (team.ownerId != uid) {
+      throw Exception('Bu takımı silme yetkiniz yok.');
+    }
+
+    final now = DateTime.now();
+    final nowIso = now.toIso8601String();
+
+    await _teamDao.softDeleteTeam(teamId);
+    await _teamDao.softDeleteMembersByTeam(teamId);
+
+    try {
+      final batch = _firestore.batch();
+      final teamRef = _firestore.collection(FirestorePaths.teams).doc(teamId);
+      batch.set(teamRef, {
+        'deletedAt': nowIso,
+        'updatedAt': nowIso,
+      }, SetOptions(merge: true));
+
+      final membersSnapshot = await _firestore
+          .collection(FirestorePaths.teamMembers)
+          .where('teamId', isEqualTo: teamId)
+          .get();
+      for (final doc in membersSnapshot.docs) {
+        batch.set(doc.reference, {
+          'deletedAt': nowIso,
+          'updatedAt': nowIso,
+        }, SetOptions(merge: true));
+      }
+
+      await batch.commit();
+    } catch (error, stackTrace) {
+      _reportTeamIssue(
+        operation: 'delete_team_remote',
+        error: error,
+        stackTrace: stackTrace,
+        extra: {'team_id': teamId},
+      );
+      rethrow;
+    } finally {
+      await _teamSyncSubscriptions.remove(teamId)?.cancel();
+      await _memberSyncSubscriptions.remove(teamId)?.cancel();
+    }
+  }
+
   void dispose() {
     _stopSync();
+  }
+
+  Future<void> _ensureLocalTeamAvailable(String teamId) async {
+    final localTeam = await _teamDao.getTeamById(teamId);
+    if (localTeam != null) {
+      return;
+    }
+
+    try {
+      final remoteTeamDoc = await _firestore
+          .collection(FirestorePaths.teams)
+          .doc(teamId)
+          .get();
+      if (!remoteTeamDoc.exists) {
+        return;
+      }
+
+      final map = remoteTeamDoc.data() ?? const <String, dynamic>{};
+      if (!_isDocActive(map['deletedAt'])) {
+        return;
+      }
+      await _teamDao.insertTeam(model.Team.fromJson(map));
+    } catch (error, stackTrace) {
+      _reportTeamIssue(
+        operation: 'hydrate_team_for_member',
+        error: error,
+        stackTrace: stackTrace,
+        extra: {'team_id': teamId},
+      );
+    }
+  }
+
+  bool _isDocActive(Object? deletedAt) {
+    if (deletedAt == null) {
+      return true;
+    }
+    if (deletedAt is String) {
+      return deletedAt.trim().isEmpty;
+    }
+    return false;
   }
 }

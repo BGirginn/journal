@@ -68,6 +68,17 @@ class JournalDao extends DatabaseAccessor<AppDatabase> with _$JournalDaoMixin {
     );
   }
 
+  /// Get a single journal by ID (alias for getById).
+  Future<model.Journal?> getJournalById(String id) => getById(id);
+
+  /// Get all non-deleted journals linked to a specific team.
+  Future<List<model.Journal>> getJournalsByTeamId(String teamId) async {
+    final query = select(journals)
+      ..where((t) => t.teamId.equals(teamId) & t.deletedAt.isNull());
+    final rows = await query.get();
+    return rows.map(_rowToModel).toList();
+  }
+
   model.Journal _rowToModel(Journal row) {
     return model.Journal(
       id: row.id,

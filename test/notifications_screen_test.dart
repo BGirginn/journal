@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:journal_app/core/auth/auth_service.dart';
+import 'package:journal_app/core/models/invite.dart';
 import 'package:journal_app/core/services/notification_service.dart';
+import 'package:journal_app/features/invite/invite_service.dart';
 import 'package:journal_app/features/notifications/models/app_notification.dart';
 import 'package:journal_app/features/notifications/notifications_repository.dart';
 import 'package:journal_app/features/notifications/notifications_screen.dart';
@@ -58,6 +60,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          myPendingInvitesProvider.overrideWith((ref) => Stream.value([])),
           myNotificationsProvider.overrideWith(
             (ref) => Stream.value([notification]),
           ),
@@ -68,6 +71,37 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Yeni davet'), findsOneWidget);
+    expect(find.text('Kabul Et'), findsOneWidget);
+    expect(find.text('Reddet'), findsOneWidget);
+  });
+
+  testWidgets('shows pending invite fallback when inbox doc is missing', (
+    tester,
+  ) async {
+    final pendingInvite = Invite(
+      id: 'inv_pending_1',
+      type: InviteType.journal,
+      targetId: 'journal_1',
+      inviterId: 'owner_1',
+      inviteeId: 'user_1',
+      role: JournalRole.editor,
+      expiresAt: DateTime(2026, 3, 1),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          myNotificationsProvider.overrideWith((ref) => Stream.value([])),
+          myPendingInvitesProvider.overrideWith(
+            (ref) => Stream.value([pendingInvite]),
+          ),
+        ],
+        child: const MaterialApp(home: NotificationsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Yeni günlük daveti'), findsOneWidget);
     expect(find.text('Kabul Et'), findsOneWidget);
     expect(find.text('Reddet'), findsOneWidget);
   });
@@ -102,6 +136,7 @@ void main() {
           firebaseAvailableProvider.overrideWith((ref) => false),
           authStateProvider.overrideWith((ref) => Stream.value(user)),
           notificationServiceProvider.overrideWithValue(spyService),
+          myPendingInvitesProvider.overrideWith((ref) => Stream.value([])),
           myNotificationsProvider.overrideWith(
             (ref) => Stream.value([notification]),
           ),

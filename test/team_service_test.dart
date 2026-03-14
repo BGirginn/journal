@@ -141,4 +141,57 @@ void main() {
         .get();
     expect(remoteMembers.docs, hasLength(1));
   });
+
+  test('deleteTeam soft-deletes team and all team members', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    final firestore = FakeFirebaseFirestore();
+    final logger = AppLogger();
+    final telemetry = TelemetryService(logger);
+    var currentUid = 'owner_delete_1';
+    final service = TeamService(
+      db.teamDao,
+      AuthService(isFirebaseAvailable: false),
+      logger,
+      telemetry,
+      firestore: firestore,
+      currentUidProvider: () => currentUid,
+    );
+    addTearDown(() async {
+      service.dispose();
+      await db.close();
+    });
+
+    final team = await service.createTeam(name: 'Delete Me');
+    await service.addMember(
+      teamId: team.id,
+      userId: 'member_delete_2',
+      role: JournalRole.viewer,
+    );
+
+    await service.deleteTeam(team.id);
+
+    final localTeam = await db.teamDao.getTeamById(team.id);
+    expect(localTeam, isNull);
+
+    final ownerMember = await db.teamDao.getMember(team.id, currentUid);
+    final otherMember = await db.teamDao.getMember(team.id, 'member_delete_2');
+    expect(ownerMember, isNull);
+    expect(otherMember, isNull);
+
+    final remoteTeam = await firestore
+        .collection(FirestorePaths.teams)
+        .doc(team.id)
+        .get();
+    expect(remoteTeam.exists, isTrue);
+    expect(remoteTeam.data()!['deletedAt'], isNotNull);
+
+    final remoteMembers = await firestore
+        .collection(FirestorePaths.teamMembers)
+        .where('teamId', isEqualTo: team.id)
+        .get();
+    expect(remoteMembers.docs, isNotEmpty);
+    for (final doc in remoteMembers.docs) {
+      expect(doc.data()['deletedAt'], isNotNull);
+    }
+  });
 }

@@ -1,13 +1,17 @@
 import 'dart:io';
+import 'dart:async';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_background_remover/image_background_remover.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:journal_app/core/models/user_sticker.dart';
 import 'package:journal_app/core/theme/tokens/brand_colors.dart';
 import 'package:journal_app/core/theme/tokens/brand_radius.dart';
-import 'package:journal_app/core/ui/drawing_board.dart';
 import 'package:journal_app/features/stickers/sticker_service.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:path_provider/path_provider.dart';
@@ -21,170 +25,216 @@ class StickerCreatorScreen extends ConsumerStatefulWidget {
       _StickerCreatorScreenState();
 }
 
-class _StickerCreatorScreenState extends ConsumerState<StickerCreatorScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _StickerCreatorScreenState extends ConsumerState<StickerCreatorScreen> {
   final ImagePicker _picker = ImagePicker();
-  final TextEditingController _emojiController = TextEditingController();
-  final DrawingController _drawingController = DrawingController();
+  final TransformationController _cropController = TransformationController();
+  final GlobalKey _cropBoundaryKey = GlobalKey();
 
   File? _selectedImage;
-  Size _drawingCanvasSize = const Size(320, 320);
+  Uint8List? _backgroundRemovedImageBytes;
   String _selectedCategory = _stickerCategories.first.id;
   bool _isSaving = false;
+  bool _isRemovingBackground = false;
+  bool _isBgEngineReady = false;
+  String? _bgInitError;
+
+  bool get _canSave => !_isSaving && _selectedImage != null;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _tabController.addListener(() {
-      if (mounted) setState(() {});
-    });
+    _initBackgroundRemover();
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
-    _emojiController.dispose();
-    _drawingController.dispose();
+    unawaited(BackgroundRemover.instance.dispose());
+    _cropController.dispose();
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
-    final pickedFile = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 95,
-    );
-    if (pickedFile != null) {
+  Future<void> _initBackgroundRemover() async {
+    try {
+      await BackgroundRemover.instance.initializeOrt();
+      if (!mounted) {
+        return;
+      }
       setState(() {
-        _selectedImage = File(pickedFile.path);
+        _isBgEngineReady = true;
+        _bgInitError = null;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isBgEngineReady = false;
+        _bgInitError = e.toString();
       });
     }
   }
 
-  String get _emojiInput => _emojiController.text.trim();
+  Future<void> _pickImage(ImageSource source) async {
+    final pickedFile = await _picker.pickImage(
+      source: source,
+      imageQuality: 95,
+    );
+    if (!mounted || pickedFile == null) {
+      return;
+    }
 
-  bool get _canSave {
-    if (_isSaving) return false;
-    switch (_tabController.index) {
-      case 0:
-        return _selectedImage != null;
-      case 1:
-        return _emojiInput.isNotEmpty && _emojiInput.characters.length == 1;
-      case 2:
-        return !_drawingController.isEmpty;
-      default:
-        return false;
+    setState(() {
+      _selectedImage = File(pickedFile.path);
+      _backgroundRemovedImageBytes = null;
+      _cropController.value = Matrix4.identity();
+    });
+  }
+
+  void _clearImage() {
+    setState(() {
+      _selectedImage = null;
+      _backgroundRemovedImageBytes = null;
+      _cropController.value = Matrix4.identity();
+    });
+  }
+
+  void _resetCrop() {
+    setState(() {
+      _cropController.value = Matrix4.identity();
+    });
+  }
+
+  Future<void> _removeBackground() async {
+    final imageFile = _selectedImage;
+    if (imageFile == null) {
+      return;
+    }
+    if (!_isBgEngineReady) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Arka plan kaldırma motoru hazır değil.')),
+      );
+      return;
+    }
+
+    setState(() => _isRemovingBackground = true);
+    try {
+      final imageBytes = await imageFile.readAsBytes();
+      final removedBytes = await BackgroundRemover.instance.removeBgBytes(
+        imageBytes,
+        threshold: 0.35,
+        smoothMask: true,
+        enhanceEdges: true,
+      );
+
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _backgroundRemovedImageBytes = removedBytes;
+        _cropController.value = Matrix4.identity();
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Arka plan kaldırılamadı: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _isRemovingBackground = false);
+      }
     }
   }
 
-  Future<String> _copyImageToLocalStorage(File sourceFile) async {
-    final docsDir = await getApplicationDocumentsDirectory();
-    final stickersDir = Directory('${docsDir.path}/stickers');
-    if (!await stickersDir.exists()) {
-      await stickersDir.create(recursive: true);
-    }
-    final sourcePath = sourceFile.path;
-    final dotIndex = sourcePath.lastIndexOf('.');
-    final ext = dotIndex > -1 && dotIndex < sourcePath.length - 1
-        ? sourcePath.substring(dotIndex)
-        : '.png';
-    final targetPath =
-        '${stickersDir.path}/sticker_image_${const Uuid().v4()}$ext';
-    final copied = await sourceFile.copy(targetPath);
-    return copied.path;
+  void _restoreOriginalImage() {
+    setState(() {
+      _backgroundRemovedImageBytes = null;
+      _cropController.value = Matrix4.identity();
+    });
   }
 
-  Future<String> _saveDrawingToLocalStorage() async {
-    final image = await _drawingController.toImage(_drawingCanvasSize);
-    if (image == null) {
-      throw Exception('Çizim kaydedilemedi');
+  ImageProvider<Object>? _activeImageProvider() {
+    final removed = _backgroundRemovedImageBytes;
+    if (removed != null) {
+      return MemoryImage(removed);
     }
+    final selected = _selectedImage;
+    if (selected != null) {
+      return FileImage(selected);
+    }
+    return null;
+  }
+
+  Future<String> _exportCroppedStickerToLocalStorage() async {
+    final boundaryContext = _cropBoundaryKey.currentContext;
+    final boundary =
+        boundaryContext?.findRenderObject() as RenderRepaintBoundary?;
+    if (boundary == null) {
+      throw Exception('Sticker önizlemesi hazır değil.');
+    }
+
+    final dpr = MediaQuery.of(context).devicePixelRatio;
+    final pixelRatio = dpr.clamp(1.0, 3.0);
+    final image = await boundary.toImage(pixelRatio: pixelRatio);
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     if (byteData == null) {
-      throw Exception('Çizim verisi alınamadı');
+      throw Exception('Sticker görseli oluşturulamadı.');
     }
+
     final docsDir = await getApplicationDocumentsDirectory();
     final stickersDir = Directory('${docsDir.path}/stickers');
     if (!await stickersDir.exists()) {
       await stickersDir.create(recursive: true);
     }
+
     final filePath =
-        '${stickersDir.path}/sticker_drawing_${const Uuid().v4()}.png';
+        '${stickersDir.path}/sticker_image_${const Uuid().v4()}.png';
     final file = File(filePath);
     await file.writeAsBytes(byteData.buffer.asUint8List(), flush: true);
     return file.path;
   }
 
   Future<void> _saveSticker() async {
-    final tab = _tabController.index;
-    if (tab == 0 && _selectedImage == null) {
+    if (_selectedImage == null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Önce bir görsel seç')));
-      return;
-    }
-    if (tab == 1 && _emojiInput.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Emoji gir')));
-      return;
-    }
-    if (tab == 1 && _emojiInput.characters.length != 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tek bir emoji ya da sembol gir')),
-      );
-      return;
-    }
-    if (tab == 2 && _drawingController.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kaydetmeden önce çizim yap')),
-      );
+      ).showSnackBar(const SnackBar(content: Text('Önce bir görsel seçin.')));
       return;
     }
 
     setState(() => _isSaving = true);
     try {
-      final stickerService = ref.read(stickerServiceProvider);
-      late StickerType type;
-      late String content;
-      String? localPath;
+      final localPath = await _exportCroppedStickerToLocalStorage();
 
-      if (tab == 0) {
-        type = StickerType.image;
-        localPath = await _copyImageToLocalStorage(_selectedImage!);
-        content = localPath;
-      } else if (tab == 1) {
-        type = StickerType.emoji;
-        content = _emojiInput;
-      } else {
-        type = StickerType.drawing;
-        localPath = await _saveDrawingToLocalStorage();
-        content = localPath;
+      await ref
+          .read(stickerServiceProvider)
+          .createSticker(
+            type: StickerType.image,
+            content: localPath,
+            localPath: localPath,
+            category: _selectedCategory,
+          );
+
+      if (!mounted) {
+        return;
       }
-
-      await stickerService.createSticker(
-        type: type,
-        content: content,
-        localPath: localPath,
-        category: _selectedCategory,
+      final messenger = ScaffoldMessenger.of(context);
+      context.pop();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Çıkartma kaydedildi.')),
       );
-
-      if (mounted) {
-        final messenger = ScaffoldMessenger.of(context);
-        context.pop();
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Çıkartma kaydedildi')),
-        );
-      }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Hata: $e')));
+      if (!mounted) {
+        return;
       }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Sticker kaydedilemedi: $e')));
     } finally {
-      if (mounted) setState(() => _isSaving = false);
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
@@ -195,9 +245,6 @@ class _StickerCreatorScreenState extends ConsumerState<StickerCreatorScreen>
         (Theme.of(context).brightness == Brightness.dark
             ? JournalSemanticColors.dark
             : JournalSemanticColors.light);
-    final radius =
-        Theme.of(context).extension<JournalRadiusScale>() ??
-        JournalRadiusScale.standard;
 
     return Scaffold(
       appBar: AppBar(
@@ -215,118 +262,142 @@ class _StickerCreatorScreenState extends ConsumerState<StickerCreatorScreen>
               ),
             ),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Resim', icon: Icon(LucideIcons.image)),
-            Tab(text: 'Emoji', icon: Icon(LucideIcons.smile)),
-            Tab(text: 'Çizim', icon: Icon(LucideIcons.brush)),
-          ],
-        ),
       ),
-      body: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            color: semantic.background,
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _stickerCategories
-                  .map(
-                    (category) => ChoiceChip(
-                      label: Text(category.label),
-                      selected: _selectedCategory == category.id,
-                      onSelected: (_) {
-                        setState(() {
-                          _selectedCategory = category.id;
-                        });
-                      },
-                    ),
-                  )
-                  .toList(),
-            ),
-          ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              physics: const NeverScrollableScrollPhysics(),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final stageSide = (constraints.maxWidth - 32)
+              .clamp(220.0, 460.0)
+              .toDouble();
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _ImageTab(
-                  selectedImage: _selectedImage,
-                  onPickImage: _pickImage,
-                  onClearImage: () {
-                    setState(() {
-                      _selectedImage = null;
-                    });
-                  },
+                Container(
+                  width: double.infinity,
+                  color: semantic.background,
+                  padding: const EdgeInsets.fromLTRB(0, 0, 0, 10),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _stickerCategories
+                        .map(
+                          (category) => ChoiceChip(
+                            label: Text(category.label),
+                            selected: _selectedCategory == category.id,
+                            onSelected: (_) {
+                              setState(() {
+                                _selectedCategory = category.id;
+                              });
+                            },
+                          ),
+                        )
+                        .toList(),
+                  ),
                 ),
-                _EmojiTab(
-                  controller: _emojiController,
-                  onChanged: (_) => setState(() {}),
-                  onSelectEmoji: (emoji) {
-                    _emojiController.text = emoji;
-                    _emojiController.selection = TextSelection.collapsed(
-                      offset: emoji.length,
-                    );
-                    setState(() {});
-                  },
+                const SizedBox(height: 12),
+                Center(
+                  child: _ImageCropStage(
+                    side: stageSide,
+                    imageProvider: _activeImageProvider(),
+                    transformationController: _cropController,
+                    repaintBoundaryKey: _cropBoundaryKey,
+                  ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Column(
+                const SizedBox(height: 12),
+                Text(
+                  'WhatsApp benzeri kullanım: görseli seç, iki parmakla yakınlaştır/uzaklaştır ve sürükleyerek konumlandır.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _pickImage(ImageSource.gallery),
+                        icon: const Icon(LucideIcons.imagePlus),
+                        label: const Text('Galeri'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _pickImage(ImageSource.camera),
+                        icon: const Icon(LucideIcons.camera),
+                        label: const Text('Kamera'),
+                      ),
+                    ),
+                  ],
+                ),
+                if (_selectedImage != null) ...[
+                  const SizedBox(height: 10),
+                  Row(
                     children: [
                       Expanded(
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            _drawingCanvasSize = Size(
-                              constraints.maxWidth,
-                              constraints.maxHeight,
-                            );
-                            return Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(
-                                  radius.medium,
-                                ),
-                                border: Border.all(
-                                  color: semantic.divider.withValues(
-                                    alpha: 0.8,
+                        child: FilledButton.icon(
+                          onPressed: _isRemovingBackground
+                              ? null
+                              : (_isBgEngineReady ? _removeBackground : null),
+                          icon: _isRemovingBackground
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
                                   ),
-                                ),
-                                color: Colors.white,
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(
-                                  radius.medium,
-                                ),
-                                child: DrawingBoard(
-                                  controller: _drawingController,
-                                ),
-                              ),
-                            );
-                          },
+                                )
+                              : const Icon(LucideIcons.scissors),
+                          label: Text(
+                            _isRemovingBackground
+                                ? 'Arka Plan Kaldırılıyor...'
+                                : 'Arka Planı Kaldır',
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            _drawingController.clear();
-                            setState(() {});
-                          },
-                          icon: const Icon(LucideIcons.trash2),
-                          label: const Text('Temizle'),
+                      if (_backgroundRemovedImageBytes != null) ...[
+                        const SizedBox(width: 10),
+                        OutlinedButton(
+                          onPressed: _restoreOriginalImage,
+                          child: const Text('Orijinale Dön'),
                         ),
+                      ],
+                    ],
+                  ),
+                ],
+                if (_bgInitError != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Arka plan kaldırma şu anda devre dışı: $_bgInitError',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+                if (_selectedImage != null) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: _resetCrop,
+                        icon: const Icon(LucideIcons.rotateCcw),
+                        label: const Text('Kırpmayı Sıfırla'),
+                      ),
+                      const Spacer(),
+                      TextButton.icon(
+                        onPressed: _clearImage,
+                        icon: const Icon(LucideIcons.trash2),
+                        label: const Text('Temizle'),
                       ),
                     ],
                   ),
-                ),
+                ],
               ],
             ),
-          ),
-        ],
+          );
+        },
       ),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -339,13 +410,139 @@ class _StickerCreatorScreenState extends ConsumerState<StickerCreatorScreen>
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(LucideIcons.check),
-          label: Text(_isSaving ? 'Kaydediliyor...' : 'Kaydet'),
+          label: Text(_isSaving ? 'Kaydediliyor...' : 'Sticker Olarak Kaydet'),
           style: FilledButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 14),
           ),
         ),
       ),
     );
+  }
+}
+
+class _ImageCropStage extends StatelessWidget {
+  final double side;
+  final ImageProvider<Object>? imageProvider;
+  final TransformationController transformationController;
+  final GlobalKey repaintBoundaryKey;
+
+  const _ImageCropStage({
+    required this.side,
+    required this.imageProvider,
+    required this.transformationController,
+    required this.repaintBoundaryKey,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final semantic =
+        Theme.of(context).extension<JournalSemanticColors>() ??
+        (Theme.of(context).brightness == Brightness.dark
+            ? JournalSemanticColors.dark
+            : JournalSemanticColors.light);
+    final radius =
+        Theme.of(context).extension<JournalRadiusScale>() ??
+        JournalRadiusScale.standard;
+
+    return Container(
+      width: side,
+      height: side,
+      decoration: BoxDecoration(
+        color: semantic.card,
+        borderRadius: BorderRadius.circular(radius.large),
+        border: Border.all(color: semantic.divider.withValues(alpha: 0.8)),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius.large),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            const ColoredBox(color: Colors.black),
+            if (imageProvider != null)
+              RepaintBoundary(
+                key: repaintBoundaryKey,
+                child: InteractiveViewer(
+                  transformationController: transformationController,
+                  minScale: 1,
+                  maxScale: 4,
+                  boundaryMargin: const EdgeInsets.all(120),
+                  child: SizedBox(
+                    width: side,
+                    height: side,
+                    child: Image(image: imageProvider!, fit: BoxFit.cover),
+                  ),
+                ),
+              )
+            else
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      LucideIcons.image,
+                      size: 56,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Sticker için görsel seç',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            if (imageProvider != null)
+              const IgnorePointer(child: _CropGridOverlay()),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CropGridOverlay extends StatelessWidget {
+  const _CropGridOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _GridPainter(color: Colors.white.withValues(alpha: 0.35)),
+      child: const SizedBox.expand(),
+    );
+  }
+}
+
+class _GridPainter extends CustomPainter {
+  final Color color;
+
+  _GridPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+
+    final hThird = size.height / 3;
+    final wThird = size.width / 3;
+
+    canvas.drawLine(Offset(wThird, 0), Offset(wThird, size.height), paint);
+    canvas.drawLine(
+      Offset(wThird * 2, 0),
+      Offset(wThird * 2, size.height),
+      paint,
+    );
+    canvas.drawLine(Offset(0, hThird), Offset(size.width, hThird), paint);
+    canvas.drawLine(
+      Offset(0, hThird * 2),
+      Offset(size.width, hThird * 2),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _GridPainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }
 
@@ -362,166 +559,4 @@ const List<_StickerCategory> _stickerCategories = [
   _StickerCategory(id: 'ozel', label: 'Özel'),
   _StickerCategory(id: 'gokyuzu', label: 'Gökyüzü'),
   _StickerCategory(id: 'custom', label: 'Genel'),
-];
-
-class _ImageTab extends StatelessWidget {
-  final File? selectedImage;
-  final Future<void> Function() onPickImage;
-  final VoidCallback onClearImage;
-
-  const _ImageTab({
-    required this.selectedImage,
-    required this.onPickImage,
-    required this.onClearImage,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final semantic =
-        Theme.of(context).extension<JournalSemanticColors>() ??
-        (Theme.of(context).brightness == Brightness.dark
-            ? JournalSemanticColors.dark
-            : JournalSemanticColors.light);
-    final radius =
-        Theme.of(context).extension<JournalRadiusScale>() ??
-        JournalRadiusScale.standard;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Column(
-        children: [
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: semantic.card,
-                borderRadius: BorderRadius.circular(radius.large),
-                border: Border.all(
-                  color: semantic.divider.withValues(alpha: 0.8),
-                ),
-              ),
-              child: selectedImage == null
-                  ? Center(
-                      child: Icon(
-                        LucideIcons.image,
-                        size: 56,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    )
-                  : ClipRRect(
-                      borderRadius: BorderRadius.circular(radius.large),
-                      child: Image.file(selectedImage!, fit: BoxFit.contain),
-                    ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: onPickImage,
-                  icon: const Icon(LucideIcons.imagePlus),
-                  label: const Text('Galeriden Seç'),
-                ),
-              ),
-              if (selectedImage != null) ...[
-                const SizedBox(width: 10),
-                OutlinedButton.icon(
-                  onPressed: onClearImage,
-                  icon: const Icon(LucideIcons.x),
-                  label: const Text('Temizle'),
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmojiTab extends StatelessWidget {
-  final TextEditingController controller;
-  final ValueChanged<String> onChanged;
-  final ValueChanged<String> onSelectEmoji;
-
-  const _EmojiTab({
-    required this.controller,
-    required this.onChanged,
-    required this.onSelectEmoji,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final semantic =
-        Theme.of(context).extension<JournalSemanticColors>() ??
-        (Theme.of(context).brightness == Brightness.dark
-            ? JournalSemanticColors.dark
-            : JournalSemanticColors.light);
-    final radius =
-        Theme.of(context).extension<JournalRadiusScale>() ??
-        JournalRadiusScale.standard;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: semantic.card,
-              borderRadius: BorderRadius.circular(radius.large),
-              border: Border.all(
-                color: semantic.divider.withValues(alpha: 0.8),
-              ),
-            ),
-            child: TextField(
-              controller: controller,
-              onChanged: onChanged,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 64),
-              decoration: InputDecoration(
-                hintText: '😀',
-                counterText: '',
-                hintStyle: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                border: InputBorder.none,
-              ),
-              maxLines: 1,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _quickEmojis
-                .map(
-                  (emoji) => OutlinedButton(
-                    onPressed: () => onSelectEmoji(emoji),
-                    child: Text(emoji, style: const TextStyle(fontSize: 22)),
-                  ),
-                )
-                .toList(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-const List<String> _quickEmojis = [
-  '😊',
-  '😃',
-  '😍',
-  '😔',
-  '🤔',
-  '😎',
-  '🥳',
-  '❤️',
-  '⭐',
-  '🎉',
-  '✨',
-  '📚',
 ];

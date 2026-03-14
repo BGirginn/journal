@@ -175,10 +175,9 @@ extension _EditorActionsExtension on _EditorScreenState {
 
   void _insertVideoBlock(File file) {
     if (!mounted) return;
-    final placement = _computeInsertPlacement(baseWidth: 0.8, baseHeight: 0.3);
+    // Videos default to a wider 16:9-ish aspect ratio.
+    final placement = _computeInsertPlacement(baseWidth: 0.7, baseHeight: 0.4);
 
-    // Create audio/video block
-    // We reuse logic similar to Image but for Video
     final id = const Uuid().v4();
     final block = Block(
       id: id,
@@ -204,7 +203,7 @@ extension _EditorActionsExtension on _EditorScreenState {
     _insertBlockWithSync(block);
   }
 
-  void _addTextBlock() async {
+  void _addTextBlock() {
     final pageLooksDark =
         _theme.visuals.assetPath != null ||
         _theme.visuals.pageColor.computeLuminance() < 0.35;
@@ -212,18 +211,6 @@ extension _EditorActionsExtension on _EditorScreenState {
       content: '',
       color: pageLooksDark ? '#FFFFFF' : '#111827',
     );
-    final textPayload = await showDialog<TextBlockPayload>(
-      context: context,
-      builder: (context) => TextEditDialog(initialPayload: initialPayload),
-    );
-    if (!mounted || textPayload == null) {
-      return;
-    }
-
-    final normalizedContent = textPayload.content.trim();
-    if (normalizedContent.isEmpty) {
-      return;
-    }
 
     final placement = _computeInsertPlacement(baseWidth: 0.4, baseHeight: 0.08);
     final block = Block(
@@ -234,25 +221,56 @@ extension _EditorActionsExtension on _EditorScreenState {
       width: placement.width,
       height: placement.height,
       zIndex: _blocks.length,
-      payloadJson: TextBlockPayload(
-        content: normalizedContent,
-        fontSize: textPayload.fontSize,
-        color: textPayload.color,
-        fontFamily: textPayload.fontFamily,
-        textAlign: textPayload.textAlign,
-      ).toJsonString(),
+      payloadJson: initialPayload.toJsonString(),
     );
 
-    await _insertBlockWithSync(block);
-    _applyState(() => _isDirty = true);
+    _applyState(() {
+      _blocks.add(block);
+      _isDirty = true;
+    });
+
+    _insertBlockWithSync(block);
+    _openInlineTextPanel(block.id);
   }
 
   void _addImage() async {
     final file = await showImageSourcePicker(context);
     if (file == null) return;
+
+    // Read real image dimensions for aspect-ratio-aware placement.
+    int? imgW;
+    int? imgH;
+    try {
+      final bytes = await file.readAsBytes();
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      imgW = frame.image.width;
+      imgH = frame.image.height;
+      frame.image.dispose();
+      codec.dispose();
+    } catch (_) {
+      // Fall back to default sizing.
+    }
+
+    // Compute aspect-aware base dimensions (normalised 0..1).
+    double baseW = 0.35;
+    double baseH = 0.25;
+    if (imgW != null && imgH != null && imgW > 0 && imgH > 0) {
+      final aspect = imgW / imgH;
+      if (aspect >= 1.0) {
+        // Landscape: fix width, derive height.
+        baseW = 0.5;
+        baseH = baseW / aspect;
+      } else {
+        // Portrait: fix height, derive width.
+        baseH = 0.45;
+        baseW = baseH * aspect;
+      }
+    }
+
     final placement = _computeInsertPlacement(
-      baseWidth: 0.35,
-      baseHeight: 0.25,
+      baseWidth: baseW,
+      baseHeight: baseH,
     );
 
     final block = Block(
@@ -266,6 +284,8 @@ extension _EditorActionsExtension on _EditorScreenState {
       payloadJson: ImageBlockPayload(
         assetId: null,
         path: file.path,
+        originalWidth: imgW,
+        originalHeight: imgH,
       ).toJsonString(),
     );
 

@@ -4,6 +4,8 @@ enum AppNotificationType {
   inviteReceived,
   inviteAccepted,
   inviteRejected,
+  friendRequestReceived,
+  friendRequestAccepted,
   unknown;
 
   static AppNotificationType fromRaw(String? raw) {
@@ -14,6 +16,10 @@ enum AppNotificationType {
         return AppNotificationType.inviteAccepted;
       case 'invite_rejected':
         return AppNotificationType.inviteRejected;
+      case 'friend_request_received':
+        return AppNotificationType.friendRequestReceived;
+      case 'friend_request_accepted':
+        return AppNotificationType.friendRequestAccepted;
       default:
         return AppNotificationType.unknown;
     }

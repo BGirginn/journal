@@ -71,6 +71,7 @@ dependencies:
   package_info_plus: ^9.0.0
   go_router: ^17.1.0
   lucide_icons: ^0.257.0
+  image_background_remover: ^2.0.0
 
 
 dev_dependencies:

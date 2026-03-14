@@ -509,7 +509,7 @@ class SyncService implements SyncEngine {
     try {
       _logger.info('sync_down_started');
 
-      // 1. Sync Journals
+      // 1. Sync personal journals.
       final journalSnapshots = await _firestore
           .collection(FirestorePaths.users)
           .doc(uid)
@@ -522,6 +522,8 @@ class SyncService implements SyncEngine {
           id: data['id'],
           title: data['title'],
           coverStyle: data['coverStyle'],
+          teamId: data['teamId']?.toString(),
+          ownerId: data['ownerId']?.toString(),
           createdAt: (data['createdAt'] as Timestamp).toDate(),
           updatedAt: (data['updatedAt'] as Timestamp).toDate(),
           deletedAt: data['deletedAt'] != null
@@ -529,14 +531,12 @@ class SyncService implements SyncEngine {
               : null,
         );
 
-        // Upsert Journal
-        await _journalDao.insertJournal(
-          journal,
-        ); // DAO should handle conflict usually via INSERT OR REPLACE
-
-        // 2. Sync Pages for this Journal
+        await _journalDao.insertJournal(journal);
         await _syncPages(uid, journal.id);
       }
+
+      // 2. Sync shared journals (via journal_members).
+      await _syncSharedJournals(uid);
 
       _logger.info('sync_down_completed');
     } catch (e, st) {
@@ -547,6 +547,58 @@ class SyncService implements SyncEngine {
           'operation': 'legacy_sync_down',
           'error_code': 'sync_down_failed',
         },
+      );
+    }
+  }
+
+  /// Pulls journals the user has access to via the `journal_members` collection.
+  Future<void> _syncSharedJournals(String uid) async {
+    try {
+      final memberSnapshot = await _firestore
+          .collection(FirestorePaths.journalMembers)
+          .where('userId', isEqualTo: uid)
+          .where('deletedAt', isNull: true)
+          .get();
+
+      for (final doc in memberSnapshot.docs) {
+        final data = doc.data();
+        final journalId = data['journalId']?.toString();
+        if (journalId == null || journalId.isEmpty) continue;
+
+        // The journal may live under any user's subcollection.
+        // Try to find the journal owner from the membership record or
+        // look up directly from the journal doc.
+        final ownerUid = data['ownerId']?.toString();
+        if (ownerUid == null || ownerUid.isEmpty) continue;
+
+        final journalDoc = await _firestore
+            .collection(FirestorePaths.users)
+            .doc(ownerUid)
+            .collection(FirestorePaths.journals)
+            .doc(journalId)
+            .get();
+
+        if (!journalDoc.exists) continue;
+        final jData = journalDoc.data()!;
+        final journal = Journal(
+          id: jData['id']?.toString() ?? journalId,
+          title: jData['title']?.toString() ?? '',
+          coverStyle: jData['coverStyle']?.toString() ?? 'default',
+          teamId: jData['teamId']?.toString(),
+          ownerId: jData['ownerId']?.toString(),
+          createdAt: _parseDate(jData['createdAt']) ?? DateTime.now(),
+          updatedAt: _parseDate(jData['updatedAt']) ?? DateTime.now(),
+          deletedAt: _parseDate(jData['deletedAt']),
+        );
+
+        await _journalDao.insertJournal(journal);
+        await _syncPages(ownerUid, journal.id);
+      }
+    } catch (e, st) {
+      _reportSyncIssue(
+        operation: 'sync_shared_journals',
+        error: e,
+        stackTrace: st,
       );
     }
   }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:journal_app/core/auth/auth_service.dart';
 import 'package:journal_app/features/team/team_service.dart';
 import 'package:journal_app/core/models/team.dart';
 import 'package:journal_app/core/models/team_member.dart';
@@ -23,19 +25,36 @@ class _TeamManagementScreenState extends ConsumerState<TeamManagementScreen> {
   @override
   Widget build(BuildContext context) {
     final teamService = ref.watch(teamServiceProvider);
-
-    // We need to fetch the team details first.
-    // Since we don't have a single team stream exposed yet, let's just use watchMyTeams and find it.
-    // Ideally, we should have a `watchTeam(id)` method. But for now, let's find it in the list.
+    final currentUid = ref.watch(authStateProvider).asData?.value?.uid;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Takım Yönetimi'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              // Edit Team Settings
+          StreamBuilder<List<Team>>(
+            stream: teamService.watchMyTeams(),
+            builder: (context, snapshot) {
+              final team = _findCurrentTeam(snapshot.data);
+              final isOwner = team != null && team.ownerId == currentUid;
+              if (!isOwner) {
+                return const SizedBox.shrink();
+              }
+              return PopupMenuButton<String>(
+                onSelected: (value) async {
+                  if (value == 'delete') {
+                    await _confirmAndDeleteTeam();
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem<String>(
+                    value: 'delete',
+                    child: Text(
+                      'Takımı Sil',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ),
+                ],
+              );
             },
           ),
         ],
@@ -47,36 +66,185 @@ class _TeamManagementScreenState extends ConsumerState<TeamManagementScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final team = snapshot.data!.cast<Team?>().firstWhere(
-            (t) => t?.id == widget.teamId,
-            orElse: () => null,
-          );
+          final team = _findCurrentTeam(snapshot.data);
 
           if (team == null) {
             return const Center(child: Text('Takım bulunamadı veya silinmiş.'));
           }
+
+          final isOwner = currentUid != null && team.ownerId == currentUid;
 
           return Column(
             children: [
               _buildTeamHeader(context, team, ref),
               const Divider(),
               Expanded(child: _buildMemberList(context, teamService)),
+              if (isOwner) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () => _showCreateTeamJournalDialog(team),
+                      icon: const Icon(Icons.book_outlined),
+                      label: const Text('Ortak Journal Oluştur'),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _confirmAndDeleteTeam,
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      label: const Text(
+                        'Takımı Sil',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (context) =>
-                InviteDialog(targetId: widget.teamId, type: InviteType.team),
+      floatingActionButton: StreamBuilder<List<Team>>(
+        stream: teamService.watchMyTeams(),
+        builder: (context, snapshot) {
+          final team = _findCurrentTeam(snapshot.data);
+          final isOwner = team != null && team.ownerId == currentUid;
+          if (!isOwner) {
+            return const SizedBox.shrink();
+          }
+
+          return StreamBuilder<List<TeamMember>>(
+            stream: teamService.watchMembers(widget.teamId),
+            builder: (context, membersSnapshot) {
+              final memberIds =
+                  membersSnapshot.data
+                      ?.map((member) => member.userId)
+                      .toSet() ??
+                  const <String>{};
+              return FloatingActionButton.extended(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => InviteDialog(
+                      targetId: widget.teamId,
+                      type: InviteType.team,
+                      excludedUserIds: memberIds,
+                    ),
+                  );
+                },
+                label: const Text('Üye Davet Et'),
+                icon: const Icon(Icons.person_add),
+              );
+            },
           );
         },
-        label: const Text('Üye Davet Et'),
-        icon: const Icon(Icons.person_add),
       ),
     );
+  }
+
+  Future<void> _confirmAndDeleteTeam() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Takımı Sil'),
+        content: const Text(
+          'Bu işlem geri alınamaz. Takımı ve takım üyeliklerini silmek istiyor musunuz?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Sil'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await ref.read(teamServiceProvider).deleteTeam(widget.teamId);
+      if (!mounted) return;
+      if (context.canPop()) {
+        context.pop();
+      }
+      context.go('/teams');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Takım silindi.')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Takım silinemedi: $e')));
+    }
+  }
+
+  Future<void> _showCreateTeamJournalDialog(Team team) async {
+    final controller = TextEditingController();
+    final title = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Ortak Journal Oluştur'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Journal adı girin...',
+          ),
+          textInputAction: TextInputAction.done,
+          onSubmitted: (value) {
+            if (value.trim().isNotEmpty) {
+              Navigator.pop(dialogContext, value.trim());
+            }
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final value = controller.text.trim();
+              if (value.isNotEmpty) {
+                Navigator.pop(dialogContext, value);
+              }
+            },
+            child: const Text('Oluştur'),
+          ),
+        ],
+      ),
+    );
+
+    if (title == null || !mounted) return;
+
+    try {
+      final teamService = ref.read(teamServiceProvider);
+      final journal = await teamService.createTeamJournal(
+        teamId: team.id,
+        title: title,
+      );
+      if (mounted) {
+        context.push('/journal/${journal.id}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Journal oluşturulamadı: $e')),
+        );
+      }
+    }
   }
 
   Widget _buildTeamHeader(BuildContext context, Team team, WidgetRef ref) {
@@ -166,6 +334,16 @@ class _TeamManagementScreenState extends ConsumerState<TeamManagementScreen> {
       ],
     );
   }
+
+  Team? _findCurrentTeam(List<Team>? teams) {
+    if (teams == null) {
+      return null;
+    }
+    return teams.cast<Team?>().firstWhere(
+      (team) => team?.id == widget.teamId,
+      orElse: () => null,
+    );
+  }
 }
 
 class _MemberTile extends ConsumerWidget {
@@ -182,7 +360,10 @@ class _MemberTile extends ConsumerWidget {
       builder: (context, snapshot) {
         final user = snapshot.data;
         final name = user?.displayName ?? member.userId;
-        final email = user?.firstName != null ? '@${user?.username}' : '';
+        final username = user?.username?.trim();
+        final handle = (username == null || username.isEmpty)
+            ? ''
+            : '@$username';
 
         return ListTile(
           leading: CircleAvatar(
@@ -192,18 +373,7 @@ class _MemberTile extends ConsumerWidget {
             child: user?.photoUrl == null ? const Icon(Icons.person) : null,
           ),
           title: Text(name),
-          subtitle: Text('${member.role.displayName} $email'),
-          trailing: PopupMenuButton(
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'remove',
-                child: Text('Çıkar', style: TextStyle(color: Colors.red)),
-              ),
-            ],
-            onSelected: (value) {
-              // Handle removal
-            },
-          ),
+          subtitle: Text('${member.role.displayName} $handle'),
         );
       },
     );

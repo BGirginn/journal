@@ -1,4 +1,4 @@
-platform :ios, '15.0'
+platform :ios, '16.0'
 # Vendor pods (Firebase, gRPC, image_picker, etc.) emit many upstream deprecation warnings.
 # Keep CI/logs actionable by suppressing warnings for pod targets.
 inhibit_all_warnings!
@@ -33,7 +33,8 @@ fast_sim_build_enabled = ENV.fetch('JOURNAL_IOS_FAST_SIM_BUILD', '1') == '1'
 apple_silicon_host = `uname -m`.strip == 'arm64'
 
 target 'Runner' do
-  use_frameworks!
+  use_frameworks! :linkage => :static
+  use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
   target 'RunnerTests' do
@@ -45,7 +46,7 @@ post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
       config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
       config.build_settings['SWIFT_SUPPRESS_WARNINGS'] = 'YES'
       # CocoaPods can inject duplicate -lc++ flags through transitive specs.

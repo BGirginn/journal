@@ -109,6 +109,7 @@ class UserProfile {
 }
 
 class UserService {
+  static const int _searchRetryAttempts = 3;
   final AuthService _authService;
   final bool _isAvailable;
   final FirebaseFirestore? _firestore;
@@ -205,21 +206,23 @@ class UserService {
     final normalizedUsername = username.toLowerCase().trim();
     if (normalizedUsername.isEmpty) return null;
 
-    // Look up username in usernames collection
-    final doc = await firestore
-        .collection(FirestorePaths.usernames)
-        .doc(normalizedUsername)
-        .get();
-    if (!doc.exists) return null;
+    return _runWithTransientSearchRetry(() async {
+      // Look up username in usernames collection
+      final doc = await firestore
+          .collection(FirestorePaths.usernames)
+          .doc(normalizedUsername)
+          .get();
+      if (!doc.exists) return null;
 
-    final uid = doc.data()!['uid'];
-    final userDoc = await firestore
-        .collection(FirestorePaths.users)
-        .doc(uid)
-        .get();
-    if (!userDoc.exists) return null;
+      final uid = doc.data()!['uid'];
+      final userDoc = await firestore
+          .collection(FirestorePaths.users)
+          .doc(uid)
+          .get();
+      if (!userDoc.exists) return null;
 
-    return UserProfile.fromMap(userDoc.data()!);
+      return UserProfile.fromMap(userDoc.data()!);
+    });
   }
 
   /// Get user profile by UID
@@ -520,5 +523,28 @@ class UserService {
     final doc = await firestore.collection(FirestorePaths.users).doc(uid).get();
     if (!doc.exists) return null;
     return UserProfile.fromMap(doc.data()!);
+  }
+
+  Future<T> _runWithTransientSearchRetry<T>(Future<T> operation()) async {
+    for (var attempt = 1; attempt <= _searchRetryAttempts; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        final isLastAttempt = attempt == _searchRetryAttempts;
+        if (!_isTransientFirestoreError(error) || isLastAttempt) {
+          rethrow;
+        }
+        final delay = Duration(milliseconds: 200 * attempt * attempt);
+        await Future<void>.delayed(delay);
+      }
+    }
+    throw StateError('Search retry loop terminated unexpectedly.');
+  }
+
+  bool _isTransientFirestoreError(Object error) {
+    if (error is! FirebaseException) return false;
+    return error.code == 'unavailable' ||
+        error.code == 'deadline-exceeded' ||
+        error.code == 'aborted';
   }
 }

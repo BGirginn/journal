@@ -195,8 +195,6 @@ class StickerPicker extends ConsumerWidget {
                     },
                   ),
                   const SizedBox(height: 12),
-                  _buildSection(context, 'Emojiler', BuiltInStickers.emojis),
-                  const SizedBox(height: 12),
                   _buildSection(context, 'Dekoratif', BuiltInStickers.decoratives),
                   const SizedBox(height: 12),
                   _buildSection(context, 'Şekiller', BuiltInStickers.shapes),

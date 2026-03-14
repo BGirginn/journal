@@ -66,12 +66,12 @@ service cloud.firestore {
 
       // Journals subcollection
       match /journals/{journalId} {
-        allow read, write: if isOwner(userId);
+        allow read, write: if isOwner(userId) || isJournalMember(journalId);
       }
 
       // Pages subcollection (nested under journals)
       match /journals/{journalId}/pages/{pageId} {
-        allow read, write: if isOwner(userId);
+        allow read, write: if isOwner(userId) || isJournalMember(journalId);
       }
 
       // Blocks subcollection
@@ -124,6 +124,23 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid;
       allow update, delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+
+    // Helper: check if current user is a journal collaborator
+    function isJournalMember(journalId) {
+      return exists(/databases/$(database)/documents/journal_members/$(journalId + '_' + request.auth.uid))
+        && get(/databases/$(database)/documents/journal_members/$(journalId + '_' + request.auth.uid)).data.deletedAt == null;
+    }
+
+    // Journal Members
+    match /journal_members/{memberId} {
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.journalId in request.auth.token.keys()
+      );
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if false; // Use soft-delete only
     }
 
     // Teams

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:journal_app/core/auth/auth_service.dart';
 import 'package:journal_app/core/auth/user_service.dart';
+import 'package:journal_app/core/ui/constrained_content.dart';
 
 class FriendsScreen extends StatelessWidget {
   const FriendsScreen({super.key});
@@ -124,15 +125,29 @@ class _FriendsViewState extends ConsumerState<FriendsView>
           if (user == null) _error = 'Kullanıcı bulunamadı.';
         });
       }
-    } catch (e) {
+    } catch (error) {
       if (mounted) {
-        setState(() => _error = 'Arama hatası: $e');
+        setState(() => _error = _searchErrorMessage(error));
       }
     } finally {
       if (mounted) {
         setState(() => _isSearching = false);
       }
     }
+  }
+
+  String _searchErrorMessage(Object error) {
+    if (error is FirebaseException) {
+      switch (error.code) {
+        case 'unavailable':
+          return 'Arama servisi geçici olarak kullanılamıyor. Lütfen biraz sonra tekrar deneyin.';
+        case 'deadline-exceeded':
+          return 'Arama zaman aşımına uğradı. İnternetinizi kontrol edip tekrar deneyin.';
+        case 'permission-denied':
+          return 'Arama yetkisi alınamadı. Oturumu kapatıp tekrar açmayı deneyin.';
+      }
+    }
+    return 'Arama sırasında bir hata oluştu. Lütfen tekrar deneyin.';
   }
 
   void _handleSendRequest(UserProfile user) async {
@@ -298,40 +313,43 @@ class _FriendsViewState extends ConsumerState<FriendsView>
           );
         }
 
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: _buildMyIdCard(profile),
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildStatsSummary(profile),
-            ),
-            const SizedBox(height: 8),
-            TabBar(
-              controller: _tabController,
-              tabs: const [
-                Tab(text: 'Ekle'),
-                Tab(text: 'İstekler'),
-                Tab(text: 'Arkadaşlar'),
-              ],
-            ),
-            Expanded(
-              child: NotificationListener<ScrollNotification>(
-                onNotification: _handleTabScrollNotification,
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildAddTab(profile),
-                    _buildRequestsTab(profile),
-                    _buildFriendsTab(profile),
-                  ],
+        return ConstrainedContent.form(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: _buildMyIdCard(profile),
+              ),
+              const SizedBox(height: 8),
+              TabBar(
+                controller: _tabController,
+                tabs: [
+                  const Tab(text: 'Ekle'),
+                  Tab(
+                    text:
+                        'İstekler ${_formatRequestCount(profile.receivedFriendRequests.length)}',
+                  ),
+                  Tab(
+                    text:
+                        'Arkadaşlar ${_formatFriendCount(profile.friends.length)}',
+                  ),
+                ],
+              ),
+              Expanded(
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: _handleTabScrollNotification,
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildAddTab(profile),
+                      _buildRequestsTab(profile),
+                      _buildFriendsTab(profile),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -339,32 +357,12 @@ class _FriendsViewState extends ConsumerState<FriendsView>
     );
   }
 
-  Widget _buildStatsSummary(UserProfile profile) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        _buildCountChip('Arkadaş', profile.friends.length, Icons.people),
-        _buildCountChip(
-          'Gelen',
-          profile.receivedFriendRequests.length,
-          Icons.inbox,
-        ),
-        _buildCountChip(
-          'Gönderilen',
-          profile.sentFriendRequests.length,
-          Icons.outbox,
-        ),
-      ],
-    );
+  String _formatRequestCount(int count) {
+    return count > 9 ? '9+' : '$count';
   }
 
-  Widget _buildCountChip(String label, int count, IconData icon) {
-    return Chip(
-      avatar: Icon(icon, size: 16),
-      label: Text('$label: $count'),
-      visualDensity: VisualDensity.compact,
-    );
+  String _formatFriendCount(int count) {
+    return count > 99 ? '99+' : '$count';
   }
 
   Widget _buildAddTab(UserProfile profile) {
@@ -408,9 +406,8 @@ class _FriendsViewState extends ConsumerState<FriendsView>
 
   Widget _buildRequestsTab(UserProfile profile) {
     final hasReceived = profile.receivedFriendRequests.isNotEmpty;
-    final hasSent = profile.sentFriendRequests.isNotEmpty;
 
-    if (!hasReceived && !hasSent) {
+    if (!hasReceived) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(24),
@@ -422,23 +419,12 @@ class _FriendsViewState extends ConsumerState<FriendsView>
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        if (hasReceived) ...[
-          Text(
-            'Gelen İstekler (${profile.receivedFriendRequests.length})',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 12),
-          _buildRequestsList(profile.receivedFriendRequests),
-        ],
-        if (hasReceived && hasSent) const SizedBox(height: 20),
-        if (hasSent) ...[
-          Text(
-            'Gönderilen İstekler (${profile.sentFriendRequests.length})',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 12),
-          _buildSentRequestsList(profile.sentFriendRequests),
-        ],
+        Text(
+          'Gelen İstekler (${profile.receivedFriendRequests.length})',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 12),
+        _buildRequestsList(profile.receivedFriendRequests),
       ],
     );
   }
@@ -702,20 +688,6 @@ class _FriendsViewState extends ConsumerState<FriendsView>
     );
   }
 
-  Widget _buildSentRequestsList(List<String> requestUids) {
-    return ListView.separated(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: requestUids.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        return _SentRequestListTile(
-          uid: requestUids[index],
-          onCancel: (uid) => _handleCancelRequest(uid),
-        );
-      },
-    );
-  }
 
   Widget _buildFriendsList(List<String> friendUids) {
     return ListView.separated(
@@ -775,8 +747,16 @@ class _FriendRequestListTile extends StatelessWidget {
                   : null,
               child: user.photoUrl == null ? const Icon(Icons.person) : null,
             ),
-            title: Text(user.displayName),
-            subtitle: Text('@${user.username ?? '-'}'),
+            title: Text(
+              user.displayName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Text(
+              '@${user.username ?? '-'}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -799,47 +779,7 @@ class _FriendRequestListTile extends StatelessWidget {
   }
 }
 
-class _SentRequestListTile extends StatelessWidget {
-  const _SentRequestListTile({required this.uid, required this.onCancel});
 
-  final String uid;
-  final Function(String uid) onCancel;
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('users').doc(uid).get(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData ||
-            snapshot.data == null ||
-            !snapshot.data!.exists) {
-          return const SizedBox.shrink();
-        }
-        final data = snapshot.data!.data() as Map<String, dynamic>?;
-        if (data == null) return const SizedBox.shrink();
-
-        final user = UserProfile.fromMap(data);
-
-        return Card(
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundImage: user.photoUrl != null
-                  ? NetworkImage(user.photoUrl!)
-                  : null,
-              child: user.photoUrl == null ? const Icon(Icons.person) : null,
-            ),
-            title: Text(user.displayName),
-            subtitle: Text('@${user.username ?? '-'}'),
-            trailing: OutlinedButton(
-              onPressed: () => onCancel(user.uid),
-              child: const Text('İptal Et'),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
 
 class _FriendListTile extends ConsumerWidget {
   final String uid;

@@ -25,6 +25,8 @@ class Invite implements BaseEntity {
 
   final InviteType type;
   final String targetId;
+  final String? targetTitle;
+  final String? targetCoverStyle;
   final String inviterId;
   final String? inviteeId;
   final InviteStatus status;
@@ -44,6 +46,8 @@ class Invite implements BaseEntity {
     String? id,
     required this.type,
     required this.targetId,
+    this.targetTitle,
+    this.targetCoverStyle,
     required this.inviterId,
     this.inviteeId,
     this.status = InviteStatus.pending,
@@ -65,6 +69,8 @@ class Invite implements BaseEntity {
       id: json['id'],
       type: InviteType.values.firstWhere((e) => e.name == json['type']),
       targetId: json['targetId'],
+      targetTitle: json['targetTitle'],
+      targetCoverStyle: json['targetCoverStyle'],
       inviterId: json['inviterId'],
       inviteeId: json['inviteeId'],
       status: InviteStatus.values.firstWhere((e) => e.name == json['status']),
@@ -84,6 +90,8 @@ class Invite implements BaseEntity {
       'id': id,
       'type': type.name,
       'targetId': targetId,
+      'targetTitle': targetTitle,
+      'targetCoverStyle': targetCoverStyle,
       'inviterId': inviterId,
       'inviteeId': inviteeId,
       'status': status.name,

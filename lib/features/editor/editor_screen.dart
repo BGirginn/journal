@@ -17,6 +17,7 @@ import 'package:journal_app/features/editor/widgets/image_picker_service.dart';
 import 'package:journal_app/features/editor/widgets/image_frame_widget.dart';
 import 'package:journal_app/features/editor/widgets/video_block_widget.dart';
 import 'package:journal_app/features/editor/widgets/text_edit_dialog.dart';
+import 'package:journal_app/features/editor/widgets/inline_text_panel.dart';
 import 'package:journal_app/features/editor/widgets/audio_block_widget.dart';
 import 'package:journal_app/features/editor/services/audio_recorder_service.dart';
 import 'package:journal_app/features/editor/widgets/audio_recording_dialog.dart';
@@ -66,6 +67,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   double _penWidth = 2.0;
   Offset? _eraserPreviewPoint;
 
+  // Inline text editing
+  String? _inlineTextBlockId;
+
   // Transform state
   Offset? _dragStart;
   Offset? _originalPosition;
@@ -74,6 +78,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       TransformationController();
   int _activePointerCount = 0;
   Size? _canvasSize;
+  Timer? _payloadSyncDebounce;
 
   _ScaleTarget _activeScaleTarget = _ScaleTarget.none;
   String? _activeScaleBlockId;
@@ -134,6 +139,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
   @override
   void dispose() {
+    _payloadSyncDebounce?.cancel();
     _pageTransformController.value = Matrix4.identity();
     _pageTransformController.dispose();
     super.dispose();
@@ -199,6 +205,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   }
 
   Future<void> _save() async {
+    if (!_isDirty) return; // Nothing to save.
     final l10n = AppLocalizations.of(context)!;
     final stopwatch = Stopwatch()..start();
     // Save ink strokes to page
@@ -332,18 +339,26 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       return;
     }
 
-    try {
-      await ref
-          .read(firestoreServiceProvider)
-          .updateBlock(updatedBlock, journalId: widget.page.journalId);
-    } catch (e, st) {
-      _reportSyncIssue(
-        operation: 'update_payload',
-        error: e,
-        stackTrace: st,
-        extra: {'block_id': blockId},
-      );
-    }
+    // Capture non-null for Timer closure.
+    final blockToSync = updatedBlock;
+
+    // Debounce Firestore sync so rapid payload changes don't each trigger a
+    // separate write (e.g. sliding a font-size control).
+    _payloadSyncDebounce?.cancel();
+    _payloadSyncDebounce = Timer(const Duration(milliseconds: 500), () async {
+      try {
+        await ref
+            .read(firestoreServiceProvider)
+            .updateBlock(blockToSync, journalId: widget.page.journalId);
+      } catch (e, st) {
+        _reportSyncIssue(
+          operation: 'update_payload',
+          error: e,
+          stackTrace: st,
+          extra: {'block_id': blockId},
+        );
+      }
+    });
   }
 
   double get _currentPageScale =>
@@ -454,6 +469,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       _activeScaleTarget = _ScaleTarget.block;
       _activeScaleBlockId = selectedBlock.id;
       _scaleStartBlockSnapshot = _BlockScaleSnapshot.fromBlock(selectedBlock);
+      _bringBlockToFront(selectedBlock.id);
     } else {
       _activeScaleTarget = _ScaleTarget.page;
       _activeScaleBlockId = null;
@@ -563,6 +579,19 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final x = (normalizedCenterX - (width / 2)).clamp(0.0, 1.0 - width);
     final y = (normalizedCenterY - (height / 2)).clamp(0.0, 1.0 - height);
     return _InsertPlacement(x: x, y: y, width: width, height: height);
+  }
+
+  /// Opens the inline text editing panel for the given block ID.
+  void _openInlineTextPanel(String blockId) {
+    _applyState(() {
+      _inlineTextBlockId = blockId;
+      _selectedBlockId = blockId;
+    });
+  }
+
+  /// Closes the inline text editing panel.
+  void _closeInlineTextPanel() {
+    _applyState(() => _inlineTextBlockId = null);
   }
 
   @override
@@ -714,9 +743,51 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                     bottom: 0,
                     child: _buildToolbar(topBarSolid),
                   ),
+                  // Inline text editing panel overlay
+                  if (_inlineTextBlockId != null)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: _buildInlineTextPanelOverlay(),
+                    ),
                 ],
               ),
       ),
+    );
+  }
+
+  Widget _buildInlineTextPanelOverlay() {
+    final blockIndex =
+        _blocks.indexWhere((b) => b.id == _inlineTextBlockId);
+    if (blockIndex == -1) {
+      // Block was deleted while panel was open.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _closeInlineTextPanel();
+      });
+      return const SizedBox.shrink();
+    }
+    final block = _blocks[blockIndex];
+    final payload = TextBlockPayload.fromJson(block.payload);
+
+    return InlineTextPanel(
+      key: ValueKey('inline_text_${block.id}'),
+      initialPayload: payload,
+      onChanged: (newPayload) {
+        final idx = _blocks.indexWhere((b) => b.id == _inlineTextBlockId);
+        if (idx == -1) return;
+        _applyState(() {
+          _blocks[idx] = _blocks[idx]
+              .copyWith(payloadJson: newPayload.toJsonString());
+          _isDirty = true;
+        });
+        // Debounce sync to Firestore.
+        _updatePayloadWithSync(
+          _inlineTextBlockId!,
+          newPayload.toJsonString(),
+        );
+      },
+      onClose: _closeInlineTextPanel,
     );
   }
 }

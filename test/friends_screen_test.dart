@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -40,14 +41,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Ekle'), findsOneWidget);
-    expect(find.text('İstekler'), findsOneWidget);
-    expect(find.text('Arkadaşlar'), findsOneWidget);
+    expect(find.text('İstekler 0'), findsOneWidget);
+    expect(find.text('Arkadaşlar 0'), findsOneWidget);
 
-    await tester.tap(find.text('İstekler'));
+    await tester.tap(find.text('İstekler 0'));
     await tester.pumpAndSettle();
     expect(find.text('Bekleyen istek yok.'), findsOneWidget);
 
-    await tester.tap(find.text('Arkadaşlar'));
+    await tester.tap(find.text('Arkadaşlar 0'));
     await tester.pumpAndSettle();
     expect(
       find.text(
@@ -55,6 +56,36 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('FriendsView caps tab counts as 9+ and 99+', (tester) async {
+    final profile = UserProfile(
+      uid: 'u1',
+      displayName: 'Test User',
+      firstName: 'Test',
+      lastName: 'User',
+      username: 'test_user',
+      friends: List<String>.generate(120, (index) => 'f$index'),
+      receivedFriendRequests: List<String>.generate(7, (index) => 'r$index'),
+      sentFriendRequests: List<String>.generate(5, (index) => 's$index'),
+      isProfileComplete: true,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          firebaseAvailableProvider.overrideWith((ref) => true),
+          authStateProvider.overrideWith((ref) => Stream<User?>.value(null)),
+          myProfileProvider.overrideWith((ref) => Stream.value(profile)),
+        ],
+        child: const MaterialApp(home: Scaffold(body: FriendsView())),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('İstekler 7'), findsOneWidget);
+    expect(find.text('Arkadaşlar 99+'), findsOneWidget);
   });
 
   testWidgets('edge swipe on last friends tab requests root profile tab', (
@@ -94,7 +125,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Arkadaşlar'));
+    await tester.tap(find.text('Arkadaşlar 0'));
     await tester.pumpAndSettle();
 
     await tester.drag(find.byType(TabBarView), const Offset(-700, 0));
@@ -191,4 +222,61 @@ void main() {
     expect(find.text('İptal Et'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('search shows friendly message for firestore unavailable', (
+    tester,
+  ) async {
+    final profile = UserProfile(
+      uid: 'u1',
+      displayName: 'Test User',
+      username: 'test_user',
+      friends: const [],
+      receivedFriendRequests: const [],
+      sentFriendRequests: const [],
+      isProfileComplete: true,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          firebaseAvailableProvider.overrideWith((ref) => true),
+          authStateProvider.overrideWith((ref) => Stream<User?>.value(null)),
+          userServiceProvider.overrideWithValue(_ThrowingSearchUserService()),
+          myProfileProvider.overrideWith((ref) => Stream.value(profile)),
+        ],
+        child: const MaterialApp(home: Scaffold(body: FriendsView())),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'someone');
+    await tester.tap(find.byIcon(Icons.arrow_forward));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Arama servisi geçici olarak kullanılamıyor. Lütfen biraz sonra tekrar deneyin.',
+      ),
+      findsOneWidget,
+    );
+  });
+}
+
+class _ThrowingSearchUserService extends UserService {
+  _ThrowingSearchUserService()
+    : super(
+        AuthService(isFirebaseAvailable: false),
+        isAvailable: true,
+        firestore: FakeFirebaseFirestore(),
+        currentUidProvider: () => 'u1',
+      );
+
+  @override
+  Future<UserProfile?> searchByUsername(String username) async {
+    throw FirebaseException(
+      plugin: 'cloud_firestore',
+      code: 'unavailable',
+      message: 'The service is currently unavailable.',
+    );
+  }
 }

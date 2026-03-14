@@ -40,7 +40,12 @@ extension _EditorGesturesExtension on _EditorScreenState {
           break;
         }
       }
-      _applyState(() => _selectedBlockId = hitBlockId);
+      _applyState(() {
+        _selectedBlockId = hitBlockId;
+        if (hitBlockId != null) {
+          _bringBlockToFront(hitBlockId!);
+        }
+      });
       return;
     }
 
@@ -277,15 +282,23 @@ extension _EditorGesturesExtension on _EditorScreenState {
   }
 
   void _onRotate(Block block, DragUpdateDetails details, Size pageSize) {
+    // Block center in scene (page) coordinates.
     final center = Offset(
       block.x * pageSize.width + block.width * pageSize.width / 2,
       block.y * pageSize.height + block.height * pageSize.height / 2,
     );
 
+    // Convert global pointer position → local viewport → scene coordinates
+    // so that the angle is computed in the same coordinate space as `center`.
+    final renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final localPointer = renderBox.globalToLocal(details.globalPosition);
+    final scenePointer = _toScene(localPointer);
+
     final angle =
         atan2(
-              details.localPosition.dy - center.dy,
-              details.localPosition.dx - center.dx,
+              scenePointer.dy - center.dy,
+              scenePointer.dx - center.dx,
             ) *
             180 /
             pi +
@@ -298,5 +311,16 @@ extension _EditorGesturesExtension on _EditorScreenState {
         _isDirty = true;
       }
     });
+  }
+
+  /// Promotes the block with [blockId] to the highest zIndex so it renders
+  /// on top of every other block on the canvas.
+  void _bringBlockToFront(String blockId) {
+    final maxZ = _blocks.fold<int>(0, (m, b) => b.zIndex > m ? b.zIndex : m);
+    final idx = _blocks.indexWhere((b) => b.id == blockId);
+    if (idx != -1 && _blocks[idx].zIndex < maxZ + 1) {
+      _blocks[idx] = _blocks[idx].copyWith(zIndex: maxZ + 1);
+      _isDirty = true;
+    }
   }
 }

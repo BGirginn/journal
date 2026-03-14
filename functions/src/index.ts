@@ -2,7 +2,7 @@ import { initializeApp } from 'firebase-admin/app';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { getMessaging, type BatchResponse, type SendResponse } from 'firebase-admin/messaging';
 import { logger } from 'firebase-functions/v2';
-import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
+import { onDocumentCreated, onDocumentUpdated, onDocumentWritten } from 'firebase-functions/v2/firestore';
 
 initializeApp();
 
@@ -13,8 +13,135 @@ const USERS_COLLECTION = 'users';
 const INVITES_COLLECTION = 'invites';
 const NOTIFICATIONS_COLLECTION = 'notifications';
 const PUSH_TOKENS_COLLECTION = 'push_tokens';
+const JOURNALS_COLLECTION = 'journals';
+const JOURNAL_MEMBERS_COLLECTION = 'journal_members';
+const TEAM_MEMBERS_COLLECTION = 'team_members';
 const NOTIFICATION_ROUTE = '/notifications';
 const NOTIFICATION_SCHEMA_VERSION = 1;
+
+// --- Team ↔ Journal membership propagation ---
+
+/**
+ * When a team member document is created or updated (un-deleted),
+ * propagate their membership to all journals linked to that team.
+ */
+export const onTeamMemberWritten = onDocumentWritten(
+  `${TEAM_MEMBERS_COLLECTION}/{memberId}`,
+  async (event) => {
+    const after = event.data?.after?.data();
+    const before = event.data?.before?.data();
+    if (!after) return; // deleted — handled via soft-delete
+
+    const teamId = after.teamId as string | undefined;
+    const userId = after.userId as string | undefined;
+    const role = (after.role as string) ?? 'viewer';
+    const deletedAt = after.deletedAt;
+    if (!teamId || !userId) return;
+
+    // If the member was soft-deleted, remove them from team journals.
+    if (deletedAt) {
+      const wasActive = before && !before.deletedAt;
+      if (!wasActive) return; // already deleted before, no-op
+      await removeUserFromTeamJournals(teamId, userId);
+      return;
+    }
+
+    // Member is active — propagate to team journals.
+    await addUserToTeamJournals(teamId, userId, role);
+  },
+);
+
+async function addUserToTeamJournals(teamId: string, userId: string, role: string): Promise<void> {
+  // Find all journals with this teamId.
+  // We look across all users' journal subcollections that have teamId == teamId.
+  // Alternative: Use a top-level journals index. For now, query journal_members
+  // for existing entries to discover journal IDs.
+  const existingMemberships = await firestore
+    .collection(JOURNAL_MEMBERS_COLLECTION)
+    .where('journalId', isNotEqualTo, null)
+    .get();
+
+  // Collect unique journal IDs linked to this team.
+  const journalIds = new Set<string>();
+  for (const doc of existingMemberships.docs) {
+    const data = doc.data();
+    // We need to check if the journal is linked to this team.
+    // Since journal_members don't store teamId, we rely on the ownerId pattern.
+    // A better approach: query the owner's journals subcollection for teamId.
+    // For now, we use a team-specific owner lookup.
+  }
+
+  // Better approach: find team owner's journals with matching teamId.
+  const teamDoc = await firestore.collection('teams').doc(teamId).get();
+  if (!teamDoc.exists) return;
+  const ownerId = teamDoc.data()?.ownerId as string | undefined;
+  if (!ownerId) return;
+
+  const journalSnapshot = await firestore
+    .collection(USERS_COLLECTION)
+    .doc(ownerId)
+    .collection(JOURNALS_COLLECTION)
+    .where('teamId', '==', teamId)
+    .get();
+
+  const batch = firestore.batch();
+  const now = new Date().toISOString();
+
+  for (const journalDoc of journalSnapshot.docs) {
+    const journalId = journalDoc.id;
+    const memberId = `${journalId}_${userId}`;
+    const ref = firestore.collection(JOURNAL_MEMBERS_COLLECTION).doc(memberId);
+
+    batch.set(ref, {
+      id: memberId,
+      journalId,
+      userId,
+      ownerId,
+      role,
+      joinedAt: now,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+    }, { merge: true });
+  }
+
+  if (journalSnapshot.size > 0) {
+    await batch.commit();
+    logger.info(`Propagated team member ${userId} to ${journalSnapshot.size} journals for team ${teamId}`);
+  }
+}
+
+async function removeUserFromTeamJournals(teamId: string, userId: string): Promise<void> {
+  // Find team owner to discover journals.
+  const teamDoc = await firestore.collection('teams').doc(teamId).get();
+  if (!teamDoc.exists) return;
+  const ownerId = teamDoc.data()?.ownerId as string | undefined;
+  if (!ownerId) return;
+
+  const journalSnapshot = await firestore
+    .collection(USERS_COLLECTION)
+    .doc(ownerId)
+    .collection(JOURNALS_COLLECTION)
+    .where('teamId', '==', teamId)
+    .get();
+
+  const batch = firestore.batch();
+  const now = new Date().toISOString();
+
+  for (const journalDoc of journalSnapshot.docs) {
+    const memberId = `${journalDoc.id}_${userId}`;
+    const ref = firestore.collection(JOURNAL_MEMBERS_COLLECTION).doc(memberId);
+    batch.set(ref, {
+      deletedAt: now,
+      updatedAt: now,
+    }, { merge: true });
+  }
+
+  if (journalSnapshot.size > 0) {
+    await batch.commit();
+    logger.info(`Removed team member ${userId} from ${journalSnapshot.size} journals for team ${teamId}`);
+  }
+}
 
 type InviteType = 'team' | 'journal';
 type InviteStatus = 'pending' | 'accepted' | 'rejected' | 'expired';
@@ -22,6 +149,9 @@ export type InviteNotificationType =
   | 'invite_received'
   | 'invite_accepted'
   | 'invite_rejected';
+export type FriendNotificationType =
+  | 'friend_request_received'
+  | 'friend_request_accepted';
 
 export interface InviteDoc {
   id?: string;
@@ -30,6 +160,12 @@ export interface InviteDoc {
   inviterId?: string;
   inviteeId?: string | null;
   status?: InviteStatus;
+}
+
+export interface UserDoc {
+  friends?: unknown;
+  receivedFriendRequests?: unknown;
+  sentFriendRequests?: unknown;
 }
 
 export interface PushToken {
@@ -203,6 +339,25 @@ export const onInviteUpdated = onDocumentUpdated(
   },
 );
 
+export const onUserUpdated = onDocumentUpdated(
+  `${USERS_COLLECTION}/{userId}`,
+  async (event) => {
+    const userId = event.params.userId;
+    const before = event.data?.before.data() as UserDoc | undefined;
+    const after = event.data?.after.data() as UserDoc | undefined;
+    if (!before || !after) {
+      return;
+    }
+
+    try {
+      await processUserUpdated(userId, before, after, event.id, runtimeContext);
+    } catch (error) {
+      logger.error('onUserUpdated failed', { userId, eventId: event.id, error });
+      throw error;
+    }
+  },
+);
+
 export async function processInviteCreated(
   inviteId: string,
   invite: InviteDoc,
@@ -258,6 +413,59 @@ export async function processInviteUpdated(
     notificationType,
     notificationId: buildNotificationId(inviteId, notificationType),
   });
+}
+
+export async function processUserUpdated(
+  userId: string,
+  before: UserDoc,
+  after: UserDoc,
+  eventId: string,
+  context: NotificationContext,
+): Promise<void> {
+  const beforeReceived = normalizeUidList(before.receivedFriendRequests);
+  const afterReceived = normalizeUidList(after.receivedFriendRequests);
+  const newlyReceivedRequesters = getAddedUids(beforeReceived, afterReceived).filter(
+    (actorUid) => actorUid !== userId,
+  );
+
+  for (const actorUid of newlyReceivedRequesters) {
+    await dispatchFriendNotification({
+      context,
+      recipientUid: userId,
+      actorUid,
+      notificationType: 'friend_request_received',
+      notificationId: buildFriendNotificationId(
+        eventId,
+        'friend_request_received',
+        actorUid,
+      ),
+    });
+  }
+
+  const beforeFriends = normalizeUidList(before.friends);
+  const afterFriends = normalizeUidList(after.friends);
+  const beforeSentSet = new Set(normalizeUidList(before.sentFriendRequests));
+  const afterSentSet = new Set(normalizeUidList(after.sentFriendRequests));
+  const acceptedBy = getAddedUids(beforeFriends, afterFriends).filter(
+    (actorUid) =>
+      actorUid !== userId &&
+      beforeSentSet.has(actorUid) &&
+      !afterSentSet.has(actorUid),
+  );
+
+  for (const actorUid of acceptedBy) {
+    await dispatchFriendNotification({
+      context,
+      recipientUid: userId,
+      actorUid,
+      notificationType: 'friend_request_accepted',
+      notificationId: buildFriendNotificationId(
+        eventId,
+        'friend_request_accepted',
+        actorUid,
+      ),
+    });
+  }
 }
 
 interface DispatchInviteNotificationParams {
@@ -345,11 +553,94 @@ async function dispatchInviteNotification(
   }
 }
 
+interface DispatchFriendNotificationParams {
+  context: NotificationContext;
+  recipientUid: string;
+  actorUid: string;
+  notificationType: FriendNotificationType;
+  notificationId: string;
+}
+
+async function dispatchFriendNotification(
+  params: DispatchFriendNotificationParams,
+): Promise<void> {
+  const { context, recipientUid, actorUid, notificationType, notificationId } =
+    params;
+
+  const preferredLanguage = normalizeLanguage(
+    await context.getUserPreferredLanguage(recipientUid),
+  );
+  const actorName =
+    (await context.getUserDisplayName(actorUid)) ??
+    fallbackActorName(preferredLanguage);
+  const text = buildFriendNotificationText({
+    type: notificationType,
+    language: preferredLanguage,
+    actorName,
+  });
+
+  const notificationPayload: Record<string, unknown> = {
+    id: notificationId,
+    type: notificationType,
+    title: text.title,
+    body: text.body,
+    actorId: actorUid,
+    isRead: false,
+    readAt: null,
+    route: NOTIFICATION_ROUTE,
+    schemaVersion: NOTIFICATION_SCHEMA_VERSION,
+  };
+
+  const created = await context.createNotification(
+    recipientUid,
+    notificationId,
+    notificationPayload,
+  );
+  if (!created) {
+    return;
+  }
+
+  const pushTokens = await context.listPushTokens(recipientUid);
+  if (pushTokens.length === 0) {
+    return;
+  }
+
+  const dataPayload: Record<string, string> = {
+    notificationId,
+    type: notificationType,
+    route: NOTIFICATION_ROUTE,
+    actorId: actorUid,
+  };
+
+  const invalidDeviceIds = await context.sendPush(pushTokens, {
+    title: text.title,
+    body: text.body,
+    data: dataPayload,
+  });
+
+  if (invalidDeviceIds.length > 0) {
+    await context.removePushTokens(recipientUid, invalidDeviceIds);
+  }
+}
+
 export function buildNotificationId(
   inviteId: string,
   notificationType: InviteNotificationType,
 ): string {
   return `invite_${inviteId}_${notificationType.replace('invite_', '')}`;
+}
+
+export function buildFriendNotificationId(
+  eventId: string,
+  notificationType: FriendNotificationType,
+  actorUid: string,
+): string {
+  const safeEventId = sanitizeIdPart(eventId);
+  const safeActorUid = sanitizeIdPart(actorUid);
+  return `friend_${safeEventId}_${notificationType.replace(
+    'friend_request_',
+    '',
+  )}_${safeActorUid}`;
 }
 
 export function normalizeLanguage(raw: string | null | undefined): 'tr' | 'en' {
@@ -422,8 +713,63 @@ export function buildNotificationText(params: {
   }
 }
 
+export function buildFriendNotificationText(params: {
+  type: FriendNotificationType;
+  language: 'tr' | 'en';
+  actorName: string;
+}): NotificationText {
+  const { type, language, actorName } = params;
+
+  if (language === 'en') {
+    switch (type) {
+      case 'friend_request_received':
+        return {
+          title: 'New friend request',
+          body: `${actorName} sent you a friend request.`,
+        };
+      case 'friend_request_accepted':
+        return {
+          title: 'Friend request accepted',
+          body: `${actorName} accepted your friend request.`,
+        };
+    }
+  }
+
+  switch (type) {
+    case 'friend_request_received':
+      return {
+        title: 'Yeni arkadaşlık isteği',
+        body: `${actorName} size arkadaşlık isteği gönderdi.`,
+      };
+    case 'friend_request_accepted':
+      return {
+        title: 'Arkadaşlık isteği kabul edildi',
+        body: `${actorName} arkadaşlık isteğinizi kabul etti.`,
+      };
+  }
+}
+
 function fallbackActorName(language: 'tr' | 'en'): string {
   return language === 'en' ? 'Someone' : 'Bir kullanıcı';
+}
+
+function normalizeUidList(raw: unknown): string[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  const values = raw.filter(
+    (entry): entry is string => typeof entry === 'string' && entry.length > 0,
+  );
+  return [...new Set(values)];
+}
+
+function getAddedUids(before: string[], after: string[]): string[] {
+  const beforeSet = new Set(before);
+  return after.filter((uid) => !beforeSet.has(uid));
+}
+
+function sanitizeIdPart(raw: string): string {
+  return raw.replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
 function extractInvalidDeviceIds(tokens: PushToken[], response: BatchResponse): string[] {

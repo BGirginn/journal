@@ -50,6 +50,7 @@ class StickerManagerView extends ConsumerWidget {
     final radius =
         Theme.of(context).extension<JournalRadiusScale>() ??
         JournalRadiusScale.standard;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return StreamBuilder<List<UserSticker>>(
       stream: stickerService.watchMyStickers(),
@@ -82,6 +83,20 @@ class StickerManagerView extends ConsumerWidget {
         final categories = categoryCounts.entries.toList()
           ..sort((a, b) => b.value.compareTo(a.value));
         final showStandaloneHeader = !isEmbeddedInLibrary;
+        final baseBottomPadding = showStandaloneHeader
+            ? CustomBottomNavigation.kBarHeight +
+                  CustomBottomNavigation.kBarBottomInset +
+                  32
+            : 24.0;
+        final fabExtraPadding = showStandaloneHeader ? 72.0 : 0.0;
+        final contentBottomPadding = bottomInset + baseBottomPadding;
+        final contentBottomPaddingWhenEmpty =
+            bottomInset +
+            baseBottomPadding +
+            (showStandaloneHeader ? 16.0 : 8.0);
+        final effectiveBottomPadding = stickers.isEmpty
+            ? contentBottomPaddingWhenEmpty
+            : contentBottomPadding + fabExtraPadding;
         final content = stickers.isEmpty
             ? _StickersEmptyState(
                 onCreate: () => context.push('/stickers/create'),
@@ -168,7 +183,7 @@ class StickerManagerView extends ConsumerWidget {
                 20,
                 showStandaloneHeader ? 0 : 16,
                 20,
-                140,
+                effectiveBottomPadding,
               ),
               child: (showStandaloneHeader
                   ? Transform.translate(
@@ -413,37 +428,61 @@ class _StickersEmptyState extends StatelessWidget {
         JournalRadiusScale.standard;
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: semantic.card,
-        borderRadius: BorderRadius.circular(radius.large),
-        border: Border.all(color: semantic.divider.withValues(alpha: 0.85)),
-      ),
-      child: Column(
-        children: [
-          Icon(LucideIcons.sticker, size: 54, color: colorScheme.primary),
-          const SizedBox(height: 14),
-          Text(
-            'Henüz çıkartma yok',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final screenHeight = MediaQuery.sizeOf(context).height;
+        final cardPadding = (width * 0.065).clamp(16.0, 28.0);
+        final iconSize = (width * 0.145).clamp(44.0, 62.0);
+        final minHeight = (screenHeight * 0.30).clamp(190.0, 300.0);
+        final maxHeight = (screenHeight * 0.42).clamp(minHeight, 360.0);
+
+        return ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: minHeight,
+            maxHeight: maxHeight,
           ),
-          const SizedBox(height: 6),
-          Text(
-            'İlk çıkartmanı oluşturup günlüklerinde kullan.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall,
+          child: Container(
+            padding: EdgeInsets.all(cardPadding),
+            decoration: BoxDecoration(
+              color: semantic.card,
+              borderRadius: BorderRadius.circular(radius.large),
+              border: Border.all(
+                color: semantic.divider.withValues(alpha: 0.85),
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  LucideIcons.sticker,
+                  size: iconSize,
+                  color: colorScheme.primary,
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Henüz çıkartma yok',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'İlk çıkartmanı oluşturup günlüklerinde kullan.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 14),
+                FilledButton.icon(
+                  onPressed: onCreate,
+                  icon: const Icon(LucideIcons.plus),
+                  label: const Text('Çıkartma Oluştur'),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 14),
-          FilledButton.icon(
-            onPressed: onCreate,
-            icon: const Icon(LucideIcons.plus),
-            label: const Text('Çıkartma Oluştur'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

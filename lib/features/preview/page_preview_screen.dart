@@ -99,12 +99,26 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
           ? const Center(child: CircularProgressIndicator())
           : LayoutBuilder(
               builder: (context, constraints) {
-                final pageWidth = constraints.maxWidth > 24
+                // Use a fixed 3:4 aspect ratio for the page so it always
+                // starts fully-visible (contain behaviour) with no cropping.
+                final availableW = constraints.maxWidth > 24
                     ? constraints.maxWidth - 24
                     : constraints.maxWidth;
-                final pageHeight = constraints.maxHeight > 24
+                final availableH = constraints.maxHeight > 24
                     ? constraints.maxHeight - 24
                     : constraints.maxHeight;
+                const pageAspect = 3.0 / 4.0; // portrait page ratio
+                double pageWidth;
+                double pageHeight;
+                if (availableW / availableH > pageAspect) {
+                  // height-limited
+                  pageHeight = availableH;
+                  pageWidth = pageHeight * pageAspect;
+                } else {
+                  // width-limited
+                  pageWidth = availableW;
+                  pageHeight = pageWidth / pageAspect;
+                }
                 final pageSize = Size(pageWidth, pageHeight);
                 final sortedBlocks = List<Block>.from(_blocks)
                   ..sort((a, b) => a.zIndex.compareTo(b.zIndex));
@@ -121,59 +135,63 @@ class _PagePreviewScreenState extends ConsumerState<PagePreviewScreen> {
                     scaleEnabled: true,
                     boundaryMargin: const EdgeInsets.all(120),
                     clipBehavior: Clip.none,
-                    child: Container(
-                      margin: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: _theme.visuals.pageColor,
-                        borderRadius: _theme.visuals.cornerRadius,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withAlpha(30),
-                            blurRadius: 15,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: _theme.visuals.cornerRadius,
-                        child: Stack(
-                          children: [
-                            // Page background
-                            if (_theme.visuals.assetPath != null)
-                              Positioned.fill(
-                                child: Image.asset(
-                                  _theme.visuals.assetPath!,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => CustomPaint(
-                                    painter: NostalgicPagePainter(
-                                      theme: _theme,
-                                    ),
-                                    size: Size.infinite,
-                                  ),
-                                ),
-                              )
-                            else
-                              CustomPaint(
-                                painter: NostalgicPagePainter(theme: _theme),
-                                size: Size.infinite,
-                              ),
-
-                            // Blocks
-                            ...sortedBlocks.map(
-                              (block) => _buildBlock(block, pageSize),
-                            ),
-
-                            // Ink on top so drawings are visible above image/background blocks
-                            IgnorePointer(
-                              child: CustomPaint(
-                                painter: OptimizedInkPainter(
-                                  strokes: _strokes,
-                                  currentStroke: null,
-                                ),
-                                size: Size.infinite,
-                              ),
+                    child: Center(
+                      child: Container(
+                        width: pageWidth,
+                        height: pageHeight,
+                        margin: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: _theme.visuals.pageColor,
+                          borderRadius: _theme.visuals.cornerRadius,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withAlpha(30),
+                              blurRadius: 15,
+                              offset: const Offset(0, 5),
                             ),
                           ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: _theme.visuals.cornerRadius,
+                          child: Stack(
+                            children: [
+                              // Page background
+                              if (_theme.visuals.assetPath != null)
+                                Positioned.fill(
+                                  child: Image.asset(
+                                    _theme.visuals.assetPath!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) => CustomPaint(
+                                      painter: NostalgicPagePainter(
+                                        theme: _theme,
+                                      ),
+                                      size: Size.infinite,
+                                    ),
+                                  ),
+                                )
+                              else
+                                CustomPaint(
+                                  painter: NostalgicPagePainter(theme: _theme),
+                                  size: Size.infinite,
+                                ),
+
+                              // Blocks
+                              ...sortedBlocks.map(
+                                (block) => _buildBlock(block, pageSize),
+                              ),
+
+                              // Ink on top so drawings are visible above image/background blocks
+                              IgnorePointer(
+                                child: CustomPaint(
+                                  painter: OptimizedInkPainter(
+                                    strokes: _strokes,
+                                    currentStroke: null,
+                                  ),
+                                  size: Size.infinite,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),

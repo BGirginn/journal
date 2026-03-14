@@ -41,10 +41,12 @@ class NotificationsView extends ConsumerStatefulWidget {
 }
 
 class _NotificationsViewState extends ConsumerState<NotificationsView> {
+  static const String _pendingInviteNotificationIdPrefix = 'pending_invite_';
   final Set<String> _loadingActionIds = <String>{};
 
   Future<void> _markRead(AppNotification notification) async {
-    if (notification.isRead) {
+    if (notification.isRead ||
+        notification.id.startsWith(_pendingInviteNotificationIdPrefix)) {
       return;
     }
 
@@ -143,34 +145,52 @@ class _NotificationsViewState extends ConsumerState<NotificationsView> {
   Widget build(BuildContext context) {
     ref.watch(authStateProvider);
     final notificationsAsync = ref.watch(myNotificationsProvider);
+    final pendingInvitesAsync = ref.watch(myPendingInvitesProvider);
 
     return notificationsAsync.when(
-      data: (notifications) {
-        if (notifications.isEmpty) {
-          return const _EmptyNotifications();
-        }
+      data: (notifications) => pendingInvitesAsync.when(
+        data: (pendingInvites) {
+          final allNotifications = _buildNotificationsForView(
+            notifications: notifications,
+            pendingInvites: pendingInvites,
+          );
+          if (allNotifications.isEmpty) {
+            return const _EmptyNotifications();
+          }
 
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: notifications.length,
-          separatorBuilder: (context, _) => const SizedBox(height: 10),
-          itemBuilder: (context, index) {
-            final notification = notifications[index];
-            final isActionLoading = _loadingActionIds.contains(notification.id);
-            return _NotificationTile(
-              notification: notification,
-              isActionLoading: isActionLoading,
-              onTap: () => _onNotificationTap(notification),
-              onAccept: notification.type == AppNotificationType.inviteReceived
-                  ? () => _respondToInvite(notification, true)
-                  : null,
-              onReject: notification.type == AppNotificationType.inviteReceived
-                  ? () => _respondToInvite(notification, false)
-                  : null,
-            );
-          },
-        );
-      },
+          return ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: allNotifications.length,
+            separatorBuilder: (context, _) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final notification = allNotifications[index];
+              final isActionLoading = _loadingActionIds.contains(
+                notification.id,
+              );
+              return _NotificationTile(
+                notification: notification,
+                isActionLoading: isActionLoading,
+                onTap: () => _onNotificationTap(notification),
+                onAccept:
+                    notification.type == AppNotificationType.inviteReceived
+                    ? () => _respondToInvite(notification, true)
+                    : null,
+                onReject:
+                    notification.type == AppNotificationType.inviteReceived
+                    ? () => _respondToInvite(notification, false)
+                    : null,
+              );
+            },
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stackTrace) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text('Davetler yüklenemedi: $error'),
+          ),
+        ),
+      ),
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stackTrace) => Center(
         child: Padding(
@@ -178,6 +198,50 @@ class _NotificationsViewState extends ConsumerState<NotificationsView> {
           child: Text('Bildirimler yüklenemedi: $error'),
         ),
       ),
+    );
+  }
+
+  List<AppNotification> _buildNotificationsForView({
+    required List<AppNotification> notifications,
+    required List<Invite> pendingInvites,
+  }) {
+    final existingInviteIds = notifications
+        .where((item) => item.type == AppNotificationType.inviteReceived)
+        .map((item) => item.inviteId)
+        .whereType<String>()
+        .toSet();
+
+    final pendingInviteNotifications = pendingInvites
+        .where((invite) => !existingInviteIds.contains(invite.id))
+        .map(_toPendingInviteNotification)
+        .toList(growable: false);
+
+    final combined = <AppNotification>[
+      ...notifications,
+      ...pendingInviteNotifications,
+    ];
+    combined.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return combined;
+  }
+
+  AppNotification _toPendingInviteNotification(Invite invite) {
+    final isJournalInvite = invite.type == InviteType.journal;
+    return AppNotification(
+      id: '$_pendingInviteNotificationIdPrefix${invite.id}',
+      type: AppNotificationType.inviteReceived,
+      title: isJournalInvite ? 'Yeni günlük daveti' : 'Yeni ekip daveti',
+      body: isJournalInvite
+          ? 'Bir kullanıcı sizi bir günlüğe davet etti.'
+          : 'Bir kullanıcı sizi bir ekibe davet etti.',
+      inviteId: invite.id,
+      inviteType: invite.type.name,
+      targetId: invite.targetId,
+      actorId: invite.inviterId,
+      isRead: false,
+      createdAt: invite.createdAt,
+      readAt: null,
+      route: '/notifications',
+      schemaVersion: 0,
     );
   }
 }
@@ -229,6 +293,9 @@ class _NotificationTile extends StatelessWidget {
       AppNotificationType.inviteReceived => Icons.mail_outline,
       AppNotificationType.inviteAccepted => Icons.check_circle_outline,
       AppNotificationType.inviteRejected => Icons.cancel_outlined,
+      AppNotificationType.friendRequestReceived =>
+        Icons.person_add_alt_1_outlined,
+      AppNotificationType.friendRequestAccepted => Icons.handshake_outlined,
       AppNotificationType.unknown => Icons.notifications_outlined,
     };
 
@@ -236,6 +303,8 @@ class _NotificationTile extends StatelessWidget {
       AppNotificationType.inviteReceived => colorScheme.primary,
       AppNotificationType.inviteAccepted => Colors.green,
       AppNotificationType.inviteRejected => colorScheme.error,
+      AppNotificationType.friendRequestReceived => colorScheme.primary,
+      AppNotificationType.friendRequestAccepted => Colors.green,
       AppNotificationType.unknown => colorScheme.onSurfaceVariant,
     };
 

@@ -137,47 +137,6 @@ class _TeamListScreenState extends ConsumerState<TeamListScreen> {
                                 ),
                               ),
                             if (teams.isNotEmpty) const SizedBox(height: 6),
-                            GestureDetector(
-                              onTap: () => _showCreateTeamDialog(context, ref),
-                              child: Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      colorScheme.primary,
-                                      colorScheme.secondary,
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(
-                                    radius.large,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      LucideIcons.plus,
-                                      size: 20,
-                                      color: colorScheme.onPrimary,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Text(
-                                      'Yeni Takım Oluştur',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium
-                                          ?.copyWith(
-                                            color: colorScheme.onPrimary,
-                                            fontWeight: FontWeight.w900,
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
                           ],
                         ),
                       ),
@@ -188,6 +147,11 @@ class _TeamListScreenState extends ConsumerState<TeamListScreen> {
             },
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showCreateTeamDialog(context, ref),
+        icon: const Icon(LucideIcons.plus),
+        label: const Text('Yeni Takım'),
       ),
       bottomNavigationBar: CustomBottomNavigation(
         selectedIndex: 3,
@@ -401,15 +365,9 @@ class _TeamsEmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Anılarını paylaşmak için yeni bir takım oluştur.',
+            'Anılarını paylaşmak için sağ alttaki butona basarak yeni bir takım oluştur.',
             style: Theme.of(context).textTheme.bodySmall,
             textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: onCreatePressed,
-            icon: const Icon(LucideIcons.plus, size: 16),
-            label: const Text('Takım Oluştur'),
           ),
         ],
       ),

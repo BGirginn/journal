@@ -67,6 +67,13 @@ class TeamDao extends DatabaseAccessor<AppDatabase> with _$TeamDaoMixin {
         .map((rows) => rows.map(_rowToMemberModel).toList());
   }
 
+  Future<List<member_model.TeamMember>> getTeamMembers(String teamId) async {
+    final query = select(teamMembers)
+      ..where((t) => t.teamId.equals(teamId) & t.deletedAt.isNull());
+    final rows = await query.get();
+    return rows.map(_rowToMemberModel).toList();
+  }
+
   Future<void> insertMember(member_model.TeamMember member) async {
     await into(
       teamMembers,
@@ -83,6 +90,17 @@ class TeamDao extends DatabaseAccessor<AppDatabase> with _$TeamDaoMixin {
     await (update(
       teamMembers,
     )..where((t) => t.teamId.equals(teamId) & t.userId.equals(userId))).write(
+      TeamMembersCompanion(
+        deletedAt: Value(DateTime.now()),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<void> softDeleteMembersByTeam(String teamId) async {
+    await (update(
+      teamMembers,
+    )..where((t) => t.teamId.equals(teamId) & t.deletedAt.isNull())).write(
       TeamMembersCompanion(
         deletedAt: Value(DateTime.now()),
         updatedAt: Value(DateTime.now()),

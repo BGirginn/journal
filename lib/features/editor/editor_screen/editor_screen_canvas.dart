@@ -128,16 +128,7 @@ extension _EditorCanvasExtension on _EditorScreenState {
 
   Future<void> _editBlock(Block block) async {
     if (block.type == BlockType.text) {
-      final payload = TextBlockPayload.fromJson(block.payload);
-      final newPayload = await showDialog<TextBlockPayload>(
-        context: context,
-        builder: (context) => TextEditDialog(initialPayload: payload),
-      );
-
-      if (newPayload != null) {
-        final newBlock = block.copyWith(payloadJson: newPayload.toJsonString());
-        _updateBlockWithSync(newBlock);
-      }
+      _openInlineTextPanel(block.id);
     }
   }
 
